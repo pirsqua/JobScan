@@ -6,8 +6,7 @@ from dataclasses import dataclass
 
 from jobscan.config import Settings
 from jobscan.db import Database
-from jobscan.evaluate import EvaluateStats
-from jobscan.models import Company, CrawlRunStats, Evaluation, JobPosting, Verdict
+from jobscan.models import Company, CrawlRunStats, EvaluateStats, Evaluation, JobPosting, Verdict
 
 
 @dataclass

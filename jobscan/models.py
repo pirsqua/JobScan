@@ -6,8 +6,12 @@ explicit mapping instead of hiding schema decisions behind a framework.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from jobscan.config import Settings
 
 
 class AtsType(str, Enum):
@@ -194,3 +198,33 @@ class CrawlRunStats:
     closed_postings: int = 0
     finished_at: datetime | None = None
     id: int | None = None
+
+
+@dataclass
+class EvaluateStats:
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    jobs_considered: int = 0
+    factual_rejected: int = 0
+    companies_classified: int = 0
+    sent_to_llm: int = 0
+    cache_hits: int = 0
+    manual_overrides_applied: int = 0
+    verdict_counts: dict[str, int] = field(default_factory=dict)
+    unverified: int = 0
+    llm_errors: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    finished_at: datetime | None = None
+    id: int | None = None
+
+    def estimated_cost_usd(self, settings: "Settings") -> float | None:
+        pricing = settings.pricing_for(settings.anthropic_model)
+        if pricing is None:
+            return None
+        return (
+            self.input_tokens / 1_000_000 * pricing.input_per_million
+            + self.output_tokens / 1_000_000 * pricing.output_per_million
+        )
+
+    def _bump_verdict(self, verdict: str) -> None:
+        self.verdict_counts[verdict] = self.verdict_counts.get(verdict, 0) + 1

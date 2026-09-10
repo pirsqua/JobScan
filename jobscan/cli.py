@@ -43,7 +43,7 @@ def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
 
 def cmd_evaluate(args: argparse.Namespace, settings: Settings) -> int:
     with _open_db(settings) as db:
-        stats = evaluate_all(db, settings)
+        stats = evaluate_all(db, settings, limit=args.limit)
     print(f"Jobs considered: {stats.jobs_considered}")
     print(f"Rejected by factual filters: {stats.factual_rejected}")
     print(f"Companies newly classified: {stats.companies_classified}")
@@ -59,7 +59,9 @@ def cmd_evaluate(args: argparse.Namespace, settings: Settings) -> int:
 def cmd_report(args: argparse.Namespace, settings: Settings) -> int:
     out_dir = Path(args.out) if args.out else settings.output_dir
     with _open_db(settings) as db:
-        data = assemble_report_data(db, settings)
+        crawl_stats = db.latest_crawl_run()
+        eval_stats = db.latest_evaluation_run()
+        data = assemble_report_data(db, settings, crawl_stats=crawl_stats, evaluate_stats=eval_stats)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     md_path = out_dir / f"report_{stamp}.md"
     csv_path = out_dir / f"report_{stamp}.csv"
@@ -77,7 +79,7 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
     with _open_db(settings) as db:
         companies = db.list_companies(active_only=True)
         crawl_stats = crawl_all(db, settings, companies=companies)
-        eval_stats = evaluate_all(db, settings)
+        eval_stats = evaluate_all(db, settings, limit=args.limit)
         data = assemble_report_data(db, settings, crawl_stats=crawl_stats, evaluate_stats=eval_stats)
 
     out_dir = Path(args.out) if args.out else settings.output_dir
@@ -166,6 +168,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_crawl.set_defaults(func=cmd_crawl)
 
     p_eval = sub.add_parser("evaluate", help="Apply factual filters and run LLM screening on new/changed postings.")
+    p_eval.add_argument(
+        "--limit", type=int, default=None,
+        help="Cap the number of real LLM calls (job + company) made this run; unlimited if omitted.",
+    )
     p_eval.set_defaults(func=cmd_evaluate)
 
     p_report = sub.add_parser("report", help="Generate Markdown/CSV/JSON reports from current database state.")
@@ -174,6 +180,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_run = sub.add_parser("run", help="Run crawl, evaluate and report in sequence.")
     p_run.add_argument("--out", default=None, help="Output directory (default: ./out)")
+    p_run.add_argument(
+        "--limit", type=int, default=None,
+        help="Cap the number of real LLM calls (job + company) made this run; unlimited if omitted.",
+    )
     p_run.set_defaults(func=cmd_run)
 
     p_audit = sub.add_parser("audit", help="Report every filtered posting and its reason.")

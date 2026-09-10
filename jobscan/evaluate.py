@@ -6,7 +6,7 @@ override short-circuits the automated pipeline for that entity.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import httpx
@@ -24,6 +24,7 @@ from jobscan.models import (
     Company,
     CompanyClassification,
     Evaluation,
+    EvaluateStats,
     FilterLogEntry,
     ManualOverride,
     Verdict,
@@ -32,42 +33,23 @@ from jobscan.models import (
 logger = get_logger("evaluate")
 
 
-@dataclass
-class EvaluateStats:
-    jobs_considered: int = 0
-    factual_rejected: int = 0
-    companies_classified: int = 0
-    sent_to_llm: int = 0
-    cache_hits: int = 0
-    manual_overrides_applied: int = 0
-    verdict_counts: dict[str, int] = field(default_factory=dict)
-    unverified: int = 0
-    llm_errors: int = 0
-    input_tokens: int = 0
-    output_tokens: int = 0
-
-    def estimated_cost_usd(self, settings: Settings) -> float | None:
-        pricing = settings.pricing_for(settings.anthropic_model)
-        if pricing is None:
-            return None
-        return (
-            self.input_tokens / 1_000_000 * pricing.input_per_million
-            + self.output_tokens / 1_000_000 * pricing.output_per_million
-        )
-
-    def _bump_verdict(self, verdict: str) -> None:
-        self.verdict_counts[verdict] = self.verdict_counts.get(verdict, 0) + 1
-
-
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def evaluate_all(db: Database, settings: Settings, client: AnthropicClient | None = None) -> EvaluateStats:
+def evaluate_all(
+    db: Database,
+    settings: Settings,
+    client: AnthropicClient | None = None,
+    limit: int | None = None,
+) -> EvaluateStats:
+    """``limit``, if set, caps the number of real LLM calls (job evaluations + company
+    classifications) made in this run — factual filtering and cache hits are free and unaffected.
+    Useful for bounding spend on a single invocation."""
     stats = EvaluateStats()
+    run_id = db.start_evaluation_run(stats)
     profile = load_profile(settings.profile_path)
 
-    owns_client = False
     if client is None and settings.anthropic_api_key:
         client = AnthropicClient(
             api_key=settings.anthropic_api_key,
@@ -75,7 +57,6 @@ def evaluate_all(db: Database, settings: Settings, client: AnthropicClient | Non
             max_retries=settings.anthropic_max_retries,
             timeout_seconds=settings.anthropic_timeout_seconds,
         )
-        owns_client = True
     if client is None:
         logger.warning("no ANTHROPIC_API_KEY configured — postings will be filtered but not LLM-evaluated")
 
@@ -83,6 +64,9 @@ def evaluate_all(db: Database, settings: Settings, client: AnthropicClient | Non
     with httpx.Client(timeout=settings.http_timeout_seconds, headers=headers) as http_client:
         jobs = db.get_active_jobs()
         for job in jobs:
+            if limit is not None and (stats.sent_to_llm + stats.companies_classified) >= limit:
+                break
+
             stats.jobs_considered += 1
             company = db.get_company(job.company_id)
             if company is None:
@@ -189,4 +173,6 @@ def evaluate_all(db: Database, settings: Settings, client: AnthropicClient | Non
             stats.output_tokens += evaluation.output_tokens or 0
             stats._bump_verdict(evaluation.verdict.value)
 
+    stats.finished_at = _now()
+    db.finish_evaluation_run(run_id, stats)
     return stats

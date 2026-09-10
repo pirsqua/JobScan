@@ -126,3 +126,10 @@ class TestCrawlOrchestration:
         assert stats.new_postings == 1
         assert db.count_jobs() == 1
         assert db.get_active_jobs()[0].title == "Senior Backend Engineer"
+
+        # A standalone `report` invocation recovers this run's stats from the database.
+        recovered = db.latest_crawl_run()
+        assert recovered is not None
+        assert recovered.postings_fetched == stats.postings_fetched
+        assert recovered.postings_out_of_family == stats.postings_out_of_family
+        assert recovered.companies_succeeded == stats.companies_succeeded
