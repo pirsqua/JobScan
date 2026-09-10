@@ -1,0 +1,36 @@
+# Non-secret application settings. Secrets (API keys) go in .env / environment variables.
+
+db_path: data/jobscan.db
+output_dir: out
+
+# Anthropic model used for both job evaluation and company classification.
+# Keep this here (not hard-coded) so it can be swapped without touching code.
+anthropic_model: claude-sonnet-5
+anthropic_max_retries: 3
+anthropic_timeout_seconds: 60
+
+# Approximate USD price per 1M tokens, used only to estimate run cost in reports.
+# Update if pricing changes; unrecognized models report cost as "n/a".
+anthropic_pricing:
+  claude-sonnet-5:
+    input_per_million: 3.00
+    output_per_million: 15.00
+  claude-opus-5:
+    input_per_million: 15.00
+    output_per_million: 75.00
+  claude-haiku-4-5-20251001:
+    input_per_million: 0.80
+    output_per_million: 4.00
+
+# Compensation rule.
+min_base_salary: 170000
+
+# Candidate's employment-eligible state, used for remote-location screening.
+candidate_state: WA
+candidate_state_name: Washington
+
+log_level: INFO
+
+# HTTP behavior for source adapters.
+http_timeout_seconds: 30
+http_user_agent: "JobScan/0.1 (+personal job search tool)"

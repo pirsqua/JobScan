@@ -1,0 +1,101 @@
+# Candidate profile fed to the LLM for job screening. Edit freely; no code changes needed.
+
+headline: >
+  Seattle-based backend-focused software engineer with approximately 15 years of experience.
+
+location: Seattle, WA (remote)
+
+strongest_skills:
+  - C#, .NET 8, ASP.NET Core, ASP.NET MVC/Web API and Razor
+  - Python, Django, Django REST Framework and Python Azure Functions
+  - REST API design, third-party integrations and OpenAPI/Swagger
+  - Azure Functions, Durable Functions, App Service, API Management and Service Bus
+  - Entra ID, Key Vault, Storage, virtual networks and Application Insights
+  - SQL Server/T-SQL, SQL, MySQL, Cosmos DB and SAP HANA
+  - Database schemas, indexing, migrations and query optimization
+  - PySpark, Azure Databricks and data pipelines
+  - Azure DevOps YAML pipelines, ARM templates and Bicep
+  - Unit, integration, load and performance testing
+  - Docker and Kubernetes as supporting deployment skills
+  - Architecture, technical leadership, code review, mentoring and production support
+
+accomplishments:
+  - Led development of a Python and Azure Databricks pipeline processing thousands of wells,
+    producing geospatial analytics and map-ready data stored in SQL Server.
+  - Re-architected a Python Azure Functions application and reduced average response time from
+    30 seconds to 3 seconds.
+  - Led a SAP HANA-to-SQL Server migration involving nearly 5000 lines of SQL, data migration
+    and index design.
+  - Raised automated-test coverage above 90% and built Azure DevOps pipelines for builds, tests,
+    coverage and deployments.
+  - Built C# and ASP.NET MVC features, REST integrations and an Azure Durable Functions/Service
+    Bus migration workflow.
+  - Established C# Selenium WebDriver automation infrastructure, built internal
+    migration/performance tools, supported production releases and mentored junior engineers.
+
+limitations:
+  - No production LLM, AI-agent, retrieval-augmented generation or vector-database work
+  - No AWS or Google Cloud specialization
+  - No deep professional React, Angular or TypeScript background
+  - No long-term formal people-management experience
+  - No security clearance
+  - Azure Functions, Service Bus, APIs and Databricks experience should not be inflated into deep
+    expertise architecting extremely large distributed systems
+
+target_roles_prioritized:
+  - Senior Software Engineer
+  - Senior Backend Engineer
+  - Lead Software Engineer
+  - Staff Software Engineer
+  - Senior .NET Engineer
+  - Senior API or Integration Engineer
+  - Senior Data Engineer or Data Platform Engineer using Python, Azure, Databricks, PySpark and SQL
+  - Backend-heavy full-stack roles where frontend development is genuinely secondary
+
+favored_work:
+  - C# and modern .NET
+  - Python
+  - ASP.NET Core and REST APIs
+  - API integrations
+  - SQL Server or relational databases
+  - Microsoft Azure
+  - Azure Functions, App Service, Service Bus and Azure SQL
+  - Databricks, PySpark and data pipelines
+  - CI/CD, observability, performance and production troubleshooting
+  - Technical leadership without mandatory people management
+  - "Docker and Kubernetes are useful supporting matches, but roles centered on container platforms, cluster administration or cloud infrastructure should not be prioritized."
+
+do_not_target:
+  - Principal Engineer roles
+  - Engineering-management roles requiring substantial direct-report experience
+  - Pure DevOps, platform-infrastructure or site-reliability roles
+  - Kubernetes-heavy or container-platform roles
+  - Frontend-heavy roles
+  - Pure QA or test-automation roles
+
+qualification_interpretation_rules:
+  - '"Azure or AWS" is compatible.'
+  - '"Deep AWS expertise required" is a material gap.'
+  - "React familiarity is acceptable."
+  - "Strong React/TypeScript ownership is a material gap."
+  - "AI coding-tool usage is compatible."
+  - "Required production LLM or AI-agent integration is a material gap."
+  - "Technical leadership is a match."
+  - "Several years of formal people management is not."
+  - "General distributed-systems experience may be compatible; deep high-scale platform architecture may not be."
+
+min_base_salary: 170000
+compensation_rule: >
+  The published range does not need to start at $170,000. Reject when the published maximum is
+  below $170,000. Pass when the midpoint is at least $170,000. A lower midpoint may still pass
+  when the candidate's experience makes a $170,000+ offer reasonably attainable. Reject or
+  heavily deprioritize ranges where $170,000 is only the extreme ceiling. Use the
+  Washington/Seattle range when geographic pay bands differ.
+
+hard_filters:
+  - U.S. remote, available to an employee living in Washington State
+  - Full-time employee position
+  - Employer principally builds and operates its own product or platform (not a consulting,
+    staffing or outsourcing firm; not client-delivery/billable work)
+  - Current official posting that still accepts applications
+  - Published base-salary range with a credible path to at least $170,000
