@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Verdict = Literal["strong_match", "plausible_match", "borderline", "reject"]
 CompanyClass = Literal["product", "consulting", "unknown"]
+
+_LIST_FIELDS = ("required_matches", "required_gaps", "preferred_gaps", "minor_caveats", "evidence")
 
 
 class JobEvaluationResult(BaseModel):
@@ -44,6 +46,16 @@ class JobEvaluationResult(BaseModel):
     )
 
     model_config = {"extra": "forbid"}
+
+    @field_validator(*_LIST_FIELDS, mode="before")
+    @classmethod
+    def _coerce_str_to_list(cls, value: object) -> object:
+        """The model occasionally returns one string (e.g. a single paragraph) for these fields
+        instead of a list of short points, despite the enforced tool schema. Split it into lines
+        rather than failing validation and discarding an otherwise-good evaluation."""
+        if isinstance(value, str):
+            return [line.strip("-•* \t") for line in value.strip().splitlines() if line.strip()]
+        return value
 
 
 JOB_EVALUATION_TOOL_NAME = "submit_job_evaluation"

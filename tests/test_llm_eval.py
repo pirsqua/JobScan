@@ -111,6 +111,26 @@ class TestJobEvaluation:
         assert evaluation.input_tokens == 120
         assert evaluation.output_tokens == 80
 
+    def test_evidence_as_bare_string_is_coerced_to_list(self, profile):
+        # Observed live: the model sometimes returns one paragraph instead of a list of points
+        # for list-typed fields despite the enforced tool schema.
+        loose_input = dict(VALID_EVAL_INPUT, evidence="\"We build our own SaaS platform using C# and Azure.\"")
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.evidence == ['"We build our own SaaS platform using C# and Azure."']
+
+    def test_multiline_string_field_splits_into_multiple_points(self, profile):
+        loose_input = dict(VALID_EVAL_INPUT, required_gaps="- No AWS experience\n- No Kotlin experience\n")
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.required_gaps == ["No AWS experience", "No Kotlin experience"]
+
     def test_missing_required_field_raises(self, profile):
         bad_input = dict(VALID_EVAL_INPUT)
         del bad_input["verdict"]

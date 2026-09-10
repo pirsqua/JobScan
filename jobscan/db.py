@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import contextmanager
-from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,6 +20,7 @@ from jobscan.models import (
     CompanyClassification,
     CrawlRunStats,
     EmploymentType,
+    EvaluateStats,
     Evaluation,
     FilterLogEntry,
     JobPosting,
@@ -146,6 +146,23 @@ CREATE TABLE IF NOT EXISTS crawl_runs (
     new_postings INTEGER,
     changed_postings INTEGER,
     closed_postings INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS evaluation_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    jobs_considered INTEGER,
+    factual_rejected INTEGER,
+    companies_classified INTEGER,
+    sent_to_llm INTEGER,
+    cache_hits INTEGER,
+    manual_overrides_applied INTEGER,
+    verdict_counts TEXT,
+    unverified INTEGER,
+    llm_errors INTEGER,
+    input_tokens INTEGER,
+    output_tokens INTEGER
 );
 """
 
@@ -586,5 +603,70 @@ class Database:
             ),
         )
 
-    def latest_crawl_run(self) -> sqlite3.Row | None:
-        return self.conn.execute("SELECT * FROM crawl_runs ORDER BY id DESC LIMIT 1").fetchone()
+    def latest_crawl_run(self) -> CrawlRunStats | None:
+        row = self.conn.execute("SELECT * FROM crawl_runs ORDER BY id DESC LIMIT 1").fetchone()
+        if row is None:
+            return None
+        return CrawlRunStats(
+            id=row["id"],
+            started_at=_parse_dt(row["started_at"]),
+            finished_at=_parse_dt(row["finished_at"]),
+            companies_attempted=row["companies_attempted"],
+            companies_succeeded=row["companies_succeeded"],
+            boards_failed=json.loads(row["boards_failed"] or "[]"),
+            postings_fetched=row["postings_fetched"],
+            postings_out_of_family=row["postings_out_of_family"] or 0,
+            new_postings=row["new_postings"],
+            changed_postings=row["changed_postings"],
+            closed_postings=row["closed_postings"],
+        )
+
+    # ------------------------------------------------------------------
+    # Evaluation runs
+    # ------------------------------------------------------------------
+
+    def start_evaluation_run(self, stats: EvaluateStats) -> int:
+        cur = self.conn.execute(
+            "INSERT INTO evaluation_runs (started_at, jobs_considered, factual_rejected, "
+            "companies_classified, sent_to_llm, cache_hits, manual_overrides_applied, "
+            "verdict_counts, unverified, llm_errors, input_tokens, output_tokens) "
+            "VALUES (?,0,0,0,0,0,0,'{}',0,0,0,0)",
+            (_dt(stats.started_at),),
+        )
+        return cur.lastrowid
+
+    def finish_evaluation_run(self, run_id: int, stats: EvaluateStats) -> None:
+        self.conn.execute(
+            """UPDATE evaluation_runs SET finished_at=?, jobs_considered=?, factual_rejected=?,
+               companies_classified=?, sent_to_llm=?, cache_hits=?, manual_overrides_applied=?,
+               verdict_counts=?, unverified=?, llm_errors=?, input_tokens=?, output_tokens=?
+               WHERE id=?""",
+            (
+                _dt(stats.finished_at or _now()), stats.jobs_considered, stats.factual_rejected,
+                stats.companies_classified, stats.sent_to_llm, stats.cache_hits,
+                stats.manual_overrides_applied, json.dumps(stats.verdict_counts),
+                stats.unverified, stats.llm_errors, stats.input_tokens, stats.output_tokens,
+                run_id,
+            ),
+        )
+
+    def latest_evaluation_run(self) -> EvaluateStats | None:
+        row = self.conn.execute("SELECT * FROM evaluation_runs ORDER BY id DESC LIMIT 1").fetchone()
+        if row is None:
+            return None
+        return EvaluateStats(
+            id=row["id"],
+            started_at=_parse_dt(row["started_at"]),
+            finished_at=_parse_dt(row["finished_at"]),
+            jobs_considered=row["jobs_considered"],
+            factual_rejected=row["factual_rejected"],
+            companies_classified=row["companies_classified"],
+            sent_to_llm=row["sent_to_llm"],
+            cache_hits=row["cache_hits"],
+            manual_overrides_applied=row["manual_overrides_applied"],
+            verdict_counts=json.loads(row["verdict_counts"] or "{}"),
+            unverified=row["unverified"],
+            llm_errors=row["llm_errors"],
+            input_tokens=row["input_tokens"],
+            output_tokens=row["output_tokens"],
+        )

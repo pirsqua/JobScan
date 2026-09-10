@@ -173,3 +173,35 @@ class TestEvaluateAll:
 
         assert stats.factual_rejected == 1
         assert stats.companies_classified == 0
+
+    def test_run_stats_are_persisted_and_recoverable(self, db: Database, settings):
+        # A standalone `report` invocation (run separately from `evaluate`) needs to recover the
+        # most recent run's stats from the database rather than showing nothing.
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([tool_response(VALID_EVAL_INPUT)]))
+
+        stats = evaluate_all(db, settings, client=client)
+
+        recovered = db.latest_evaluation_run()
+        assert recovered is not None
+        assert recovered.sent_to_llm == stats.sent_to_llm == 1
+        assert recovered.jobs_considered == stats.jobs_considered
+        assert recovered.verdict_counts == stats.verdict_counts
+        assert recovered.input_tokens == stats.input_tokens
+        assert recovered.finished_at is not None
+
+    def test_limit_caps_real_llm_calls_not_free_work(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        for i in range(3):
+            seed_job(
+                db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}",
+                description=f"We build our own SaaS product, role variant {i}. $180,000 - $220,000 per year.",
+            )
+        sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT), tool_response(VALID_EVAL_INPUT)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        stats = evaluate_all(db, settings, client=client, limit=2)
+
+        assert stats.sent_to_llm == 2
+        assert sdk.messages.call_count == 2
