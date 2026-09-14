@@ -121,6 +121,12 @@ class TestFactualFilters:
         assert not result.passed
         assert result.reason == FilterReason.NOT_FULL_TIME
 
+    def test_intern_rejects(self):
+        job = make_job(employment_type=EmploymentType.INTERN, employment_type_raw="Internship")
+        result = apply_factual_filters(job, make_company(), min_base_salary=170000)
+        assert not result.passed
+        assert result.reason == FilterReason.NOT_FULL_TIME
+
     def test_confirmed_consulting_employer_rejects(self):
         company = make_company(
             classification=CompanyClassification.CONSULTING,
