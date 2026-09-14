@@ -68,10 +68,31 @@ def parse_registry_file(path: Path) -> list[Company]:
     return [_row_to_company(row) for row in rows]
 
 
-def import_registry(db: Database, path: Path) -> tuple[int, int]:
-    """Returns (rows_processed, companies_now_in_db)."""
+def import_registry(
+    db: Database, path: Path, replace: bool = False, delete: bool = False
+) -> tuple[int, int, int]:
+    """Returns (rows_processed, companies_now_in_db, companies_removed).
+
+    ``replace=True`` deactivates every company NOT present in this file (matched by
+    ats_type+board_id) — use it when a registry file is meant to be the complete target list
+    going forward, not an addition to whatever was already loaded. Deactivated companies keep
+    their history; they're just skipped by future crawls until reactivated.
+
+    ``delete=True`` instead permanently deletes those companies along with every job, evaluation,
+    snapshot and filter-log entry tied to them. Irreversible — prefer ``replace`` unless the data
+    is genuinely meant to be discarded.
+    """
     companies = parse_registry_file(path)
     for company in companies:
         db.upsert_company(company)
+
+    removed = 0
+    if delete:
+        keys = {(c.ats_type, c.board_id) for c in companies}
+        removed = db.delete_companies_except(keys)
+    elif replace:
+        keys = {(c.ats_type, c.board_id) for c in companies}
+        removed = db.deactivate_companies_except(keys)
+
     total = len(db.list_companies(active_only=False))
-    return len(companies), total
+    return len(companies), total, removed

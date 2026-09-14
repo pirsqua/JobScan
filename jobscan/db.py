@@ -216,26 +216,52 @@ class Database:
 
     def upsert_company(self, company: Company) -> int:
         cur = self.conn.execute(
-            "SELECT id FROM companies WHERE ats_type = ? AND board_id = ?",
+            "SELECT id, classification_source FROM companies WHERE ats_type = ? AND board_id = ?",
             (company.ats_type.value, company.board_id),
         )
         row = cur.fetchone()
         if row:
             company_id = row["id"]
-            self.conn.execute(
-                """UPDATE companies SET name=?, domain=?, careers_url=?, active=?,
-                   discovery_source=COALESCE(?, discovery_source), notes=COALESCE(?, notes)
-                   WHERE id=?""",
-                (
-                    company.name,
-                    company.domain,
-                    company.careers_url,
-                    int(company.active),
-                    company.discovery_source,
-                    company.notes,
-                    company_id,
-                ),
+            existing_source = row["classification_source"]
+            # A registry re-import can carry a real (non-"unknown") classification for a company
+            # that already exists — apply it, so re-curating a registry actually takes effect,
+            # unless a manual override already asserted one (that always wins).
+            should_update_classification = (
+                company.classification != CompanyClassification.UNKNOWN
+                and existing_source != ClassificationSource.MANUAL.value
             )
+            if should_update_classification:
+                self.conn.execute(
+                    """UPDATE companies SET name=?, domain=?, careers_url=?, active=?,
+                       discovery_source=COALESCE(?, discovery_source), notes=COALESCE(?, notes),
+                       classification=?, classification_source=?,
+                       classification_confidence=COALESCE(?, classification_confidence),
+                       classification_evidence=COALESCE(?, classification_evidence)
+                       WHERE id=?""",
+                    (
+                        company.name, company.domain, company.careers_url, int(company.active),
+                        company.discovery_source, company.notes,
+                        company.classification.value,
+                        (company.classification_source or ClassificationSource.SEED).value,
+                        company.classification_confidence, company.classification_evidence,
+                        company_id,
+                    ),
+                )
+            else:
+                self.conn.execute(
+                    """UPDATE companies SET name=?, domain=?, careers_url=?, active=?,
+                       discovery_source=COALESCE(?, discovery_source), notes=COALESCE(?, notes)
+                       WHERE id=?""",
+                    (
+                        company.name,
+                        company.domain,
+                        company.careers_url,
+                        int(company.active),
+                        company.discovery_source,
+                        company.notes,
+                        company_id,
+                    ),
+                )
             return company_id
 
         cur = self.conn.execute(
@@ -292,6 +318,37 @@ class Database:
             sql += " WHERE active=1"
         sql += " ORDER BY name"
         return [self._row_to_company(r) for r in self.conn.execute(sql)]
+
+    def deactivate_companies_except(self, keys: set[tuple[AtsType, str]]) -> int:
+        """Sets active=0 for every currently-active company whose (ats_type, board_id) is not in
+        ``keys``. Returns the number deactivated. History (jobs, evaluations) is untouched."""
+        deactivated = 0
+        for company in self.list_companies(active_only=True):
+            if (company.ats_type, company.board_id) not in keys:
+                self.conn.execute("UPDATE companies SET active=0 WHERE id=?", (company.id,))
+                deactivated += 1
+        return deactivated
+
+    def delete_companies_except(self, keys: set[tuple[AtsType, str]]) -> int:
+        """Permanently deletes every company whose (ats_type, board_id) is not in ``keys``,
+        along with every job, evaluation, snapshot and filter-log entry tied to it. Irreversible
+        — prefer deactivate_companies_except unless the data is genuinely meant to be discarded.
+        """
+        removed = 0
+        for company in self.list_companies(active_only=False):
+            if (company.ats_type, company.board_id) in keys:
+                continue
+            job_ids = [
+                r["id"] for r in self.conn.execute("SELECT id FROM jobs WHERE company_id=?", (company.id,))
+            ]
+            for job_id in job_ids:
+                self.conn.execute("DELETE FROM filter_log WHERE job_id=?", (job_id,))
+                self.conn.execute("DELETE FROM evaluations WHERE job_id=?", (job_id,))
+                self.conn.execute("DELETE FROM job_snapshots WHERE job_id=?", (job_id,))
+            self.conn.execute("DELETE FROM jobs WHERE company_id=?", (company.id,))
+            self.conn.execute("DELETE FROM companies WHERE id=?", (company.id,))
+            removed += 1
+        return removed
 
     def set_company_classification(
         self,

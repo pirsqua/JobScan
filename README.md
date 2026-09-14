@@ -8,9 +8,9 @@ claims "comprehensive" coverage beyond what the employer registry actually conta
 
 ## What this is (and isn't)
 
-- It searches the **employer registry you give it** (`data/companies.sample.csv` is a 15-company
-  demo seed spanning all three adapters — not a claim of market coverage). Add more companies with
-  `python -m jobscan companies import`; nothing in Python needs to change.
+- It searches the **employer registry you give it** (`data/jobscan_remote_wlb_company_seeds_2026-09-14.yaml`
+  is the current active registry — a curated list, not a claim of market coverage). Add or swap
+  companies with `python -m jobscan companies import`; nothing in Python needs to change.
 - It only searches for **software/backend/data engineering roles**. A crawl-time filter
   (`jobscan/job_family.py`) keeps a company's Sales, Support, Legal, People, and Product postings
   out of the database entirely — this is a job-search tool, not a generic careers-page mirror.
@@ -51,8 +51,8 @@ If PowerShell blocks the activation script, run once (as your normal user, not a
 ## Quick start (PowerShell)
 
 ```powershell
-# 1. Load the sample employer registry (15 real companies, verified live)
-python -m jobscan companies import data/companies.sample.csv
+# 1. Load the curated employer registry
+python -m jobscan companies import data/jobscan_remote_wlb_company_seeds_2026-09-14.yaml --replace
 
 # 2. Crawl every active company's board
 python -m jobscan crawl
@@ -106,9 +106,19 @@ Run any command with no arguments to see this same list: `python -m jobscan --he
 python -m jobscan companies import my_companies.csv
 ```
 
-YAML works too — either a bare list or `{companies: [...]}`. `classification` and
-`discovery_source` are optional; leave `classification` blank/`unknown` to let the LLM classify
-the company itself (cached indefinitely, or override any time with `overrides set company ...`).
+YAML works too — either a bare list or `{companies: [...]}`. `board_id`/`board_identifier` and
+`classification`/`company_classification` are interchangeable aliases in either file format, so a
+registry curated with either naming imports as-is. `classification` and `discovery_source` are
+optional; leave `classification` blank/`unknown` to let the LLM classify the company itself
+(cached indefinitely, or override any time with `overrides set company ...`).
+
+Import is additive by default (existing companies not in the file are left alone). Pass
+`--replace` to make the file the complete active registry instead — every company not present in
+it is deactivated (not deleted; its history and postings stay in the database):
+
+```powershell
+python -m jobscan companies import my_companies.yaml --replace
+```
 
 ## Manual overrides
 
@@ -160,9 +170,9 @@ never makes a real network or API call.
 
 ## Known limitations (first release)
 
-- The employer registry ships with 15 companies as a working demo. Real coverage depends entirely
-  on how many employers you add — the tool will always report the exact number it actually
-  crawled, not an implied "comprehensive" number.
+- The employer registry is a curated list (13 companies as of 2026-09-14), not a claim of market
+  coverage. The tool will always report the exact number it actually crawled, not an implied
+  "comprehensive" number.
 - Greenhouse/Ashby/Lever only. SmartRecruiters, Workday, and custom career sites can be added by
   implementing `jobscan.adapters.base.SourceAdapter` — the interface is designed for it, but no
   adapter exists yet.

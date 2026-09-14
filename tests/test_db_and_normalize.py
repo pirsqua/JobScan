@@ -49,6 +49,57 @@ class TestUpsertCompany:
         assert first_id == second_id
         assert db.get_company(first_id).name == "Acme Corporation"
 
+    def test_reimport_applies_a_real_classification_to_an_existing_unknown_company(
+        self, db: Database, sample_company: Company
+    ):
+        # A registry re-curated with a known classification should actually take effect for a
+        # company that already exists in the database as "unknown" — not be silently dropped.
+        company_id = db.upsert_company(sample_company)
+        assert db.get_company(company_id).classification == CompanyClassification.UNKNOWN
+
+        curated = Company(
+            **{
+                **sample_company.__dict__,
+                "classification": CompanyClassification.PRODUCT,
+                "classification_source": ClassificationSource.SEED,
+            }
+        )
+        db.upsert_company(curated)
+
+        updated = db.get_company(company_id)
+        assert updated.classification == CompanyClassification.PRODUCT
+        assert updated.classification_source == ClassificationSource.SEED
+
+    def test_reimport_does_not_overwrite_a_manual_classification(self, db: Database, sample_company: Company):
+        company_id = db.upsert_company(sample_company)
+        db.set_company_classification(company_id, CompanyClassification.CONSULTING, ClassificationSource.MANUAL, None, "confirmed manually")
+
+        reimported = Company(
+            **{
+                **sample_company.__dict__,
+                "classification": CompanyClassification.PRODUCT,
+                "classification_source": ClassificationSource.SEED,
+            }
+        )
+        db.upsert_company(reimported)
+
+        updated = db.get_company(company_id)
+        assert updated.classification == CompanyClassification.CONSULTING
+        assert updated.classification_source == ClassificationSource.MANUAL
+
+    def test_reimport_with_unknown_classification_does_not_clear_existing_one(
+        self, db: Database, sample_company: Company
+    ):
+        company_id = db.upsert_company(sample_company)
+        db.set_company_classification(company_id, CompanyClassification.PRODUCT, ClassificationSource.LLM, 0.9, "evidence")
+
+        reimported = Company(**{**sample_company.__dict__, "classification": CompanyClassification.UNKNOWN})
+        db.upsert_company(reimported)
+
+        updated = db.get_company(company_id)
+        assert updated.classification == CompanyClassification.PRODUCT
+        assert updated.classification_source == ClassificationSource.LLM
+
 
 class TestUpsertJob:
     def test_new_job_is_new(self, db: Database, settings: Settings, sample_company: Company):
