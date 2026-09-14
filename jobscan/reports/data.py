@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from jobscan.config import Settings
 from jobscan.db import Database
 from jobscan.models import Company, CrawlRunStats, EvaluateStats, Evaluation, JobPosting, Verdict
+from jobscan.timeutil import now_seattle
 
 
 @dataclass
@@ -34,8 +35,6 @@ def assemble_report_data(
     crawl_stats: CrawlRunStats | None = None,
     evaluate_stats: EvaluateStats | None = None,
 ) -> ReportData:
-    from datetime import datetime, timezone
-
     rows: list[JobReportRow] = []
     for job in db.get_active_jobs():
         company = db.get_company(job.company_id)
@@ -68,7 +67,7 @@ def assemble_report_data(
     estimated_cost = evaluate_stats.estimated_cost_usd(settings) if evaluate_stats else None
 
     return ReportData(
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=now_seattle().isoformat(),
         crawl_stats=crawl_stats,
         evaluate_stats=evaluate_stats,
         estimated_cost_usd=estimated_cost,
