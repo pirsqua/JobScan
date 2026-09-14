@@ -66,6 +66,59 @@ class TestGreenhouseAdapter:
         with pytest.raises(AdapterError):
             list(adapter.fetch_postings("gone"))
 
+    @respx.mock
+    def test_null_metadata_and_departments_do_not_fail_validation(self, http_client):
+        # Observed live: some real Greenhouse boards send an explicit JSON null (not an omitted
+        # key) for these fields when there's nothing to report, rather than an empty list.
+        respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobs": [
+                        {
+                            "id": 42,
+                            "title": "Senior Backend Engineer",
+                            "location": {"name": "Remote - US"},
+                            "absolute_url": "https://acme.example.com/jobs/42",
+                            "content": "<p>Join us.</p>",
+                            "metadata": None,
+                            "departments": None,
+                        }
+                    ]
+                },
+            )
+        )
+        adapter = GreenhouseAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert len(postings) == 1
+        assert postings[0].source_job_id == "42"
+
+    @respx.mock
+    def test_list_valued_metadata_value_does_not_fail_validation(self, http_client):
+        # Observed live: Greenhouse custom fields (e.g. a multi-select "Office Locations" field)
+        # can have a list value, not just a scalar string/number.
+        respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobs": [
+                        {
+                            "id": 43,
+                            "title": "Senior Backend Engineer",
+                            "location": {"name": "Remote - US"},
+                            "absolute_url": "https://acme.example.com/jobs/43",
+                            "content": "<p>Join us.</p>",
+                            "metadata": [{"name": "Office Locations", "value": ["Seattle", "Remote"]}],
+                            "departments": [],
+                        }
+                    ]
+                },
+            )
+        )
+        adapter = GreenhouseAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert len(postings) == 1
+
 
 class TestAshbyAdapter:
     @respx.mock
@@ -182,3 +235,28 @@ class TestLeverAdapter:
         adapter = LeverAdapter(http_client)
         with pytest.raises(AdapterError):
             list(adapter.fetch_postings("timeout"))
+
+    @respx.mock
+    def test_null_categories_and_lists_do_not_fail_validation(self, http_client):
+        # categories/lists are typed Optional defensively, matching the same "APIs send explicit
+        # null instead of omitting the key" pattern found live on Greenhouse boards.
+        respx.get("https://api.lever.co/v0/postings/acme").mock(
+            return_value=httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": "lev-2",
+                        "text": "Backend Engineer",
+                        "categories": None,
+                        "lists": None,
+                        "hostedUrl": "https://jobs.lever.co/acme/lev-2",
+                    }
+                ],
+            )
+        )
+        adapter = LeverAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert len(postings) == 1
+        assert postings[0].source_job_id == "lev-2"
+        assert postings[0].location_raw is None
+        assert postings[0].employment_type_raw is None
