@@ -32,14 +32,34 @@ def _job_dict(row) -> dict:
         d["evaluation"] = {
             "verdict": ev.verdict.value,
             "confidence": ev.confidence,
+            "scope_fit": ev.scope_fit.value,
+            "evidence_coverage_percent": ev.evidence_coverage_percent,
+            "specialist_tenure_assessment": {
+                "classification": ev.specialist_tenure_assessment.classification.value,
+                "specialty": ev.specialist_tenure_assessment.specialty,
+                "explanation": ev.specialist_tenure_assessment.explanation,
+            },
+            "requirement_evidence": [
+                {
+                    "requirement": item.requirement,
+                    "importance": item.importance.value,
+                    "evidence_classification": item.evidence_classification.value,
+                    "candidate_evidence": item.candidate_evidence,
+                    "posting_evidence": item.posting_evidence,
+                }
+                for item in ev.requirement_evidence
+            ],
+            "growth_dimensions": ev.growth_dimensions,
+            "hidden_staff_signals": ev.hidden_staff_signals,
             "compensation_assessment": ev.compensation_assessment,
-            "remote_verification": ev.remote_verification,
+            "remote_employment_verification": ev.remote_employment_verification,
             "required_matches": ev.required_matches,
             "required_gaps": ev.required_gaps,
-            "preferred_gaps": ev.preferred_gaps,
+            "preferred_only_gaps": ev.preferred_only_gaps,
             "minor_caveats": ev.minor_caveats,
             "evidence": ev.evidence,
             "credibility_assessment": ev.credibility_assessment,
+            "why_this_is_or_is_not_gettable": ev.why_this_is_or_is_not_gettable,
             "is_product_company": ev.is_product_company,
             "primary_rejection_reason": ev.primary_rejection_reason,
             "model_name": ev.model_name,
@@ -68,8 +88,9 @@ def build_json_report(data: ReportData) -> dict:
         if data.evaluate_stats
         else None,
         "estimated_cost_usd": data.estimated_cost_usd,
-        "recommended": [_job_dict(r) for r in data.recommended],
-        "attractive_rejections": [_job_dict(r) for r in data.attractive_rejections],
+        "best_bets": [_job_dict(r) for r in data.best_bets],
+        "growth_bets": [_job_dict(r) for r in data.growth_bets],
+        "attractive_stretches": [_job_dict(r) for r in data.attractive_stretches],
         "all_evaluated": [_job_dict(r) for r in data.all_evaluated],
     }
 

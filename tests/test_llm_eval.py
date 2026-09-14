@@ -10,7 +10,19 @@ from jobscan.llm.company_eval import classify_company
 from jobscan.llm.job_eval import evaluate_job
 from jobscan.llm.prompts import load_profile
 from jobscan.llm.schemas import COMPANY_CLASSIFICATION_TOOL_NAME, JOB_EVALUATION_TOOL_NAME
-from jobscan.models import AtsType, Company, EmploymentType, JobPosting, RemoteScope, SalarySource, Verdict
+from jobscan.models import (
+    AtsType,
+    Company,
+    EmploymentType,
+    EvidenceClassification,
+    JobPosting,
+    RemoteScope,
+    RequirementImportance,
+    SalarySource,
+    ScopeFit,
+    SpecialistTenureClassification,
+    Verdict,
+)
 
 NOW = datetime.now(timezone.utc)
 
@@ -79,15 +91,34 @@ def make_company() -> Company:
 VALID_EVAL_INPUT = {
     "verdict": "strong_match",
     "confidence": 0.85,
+    "scope_fit": "at_level",
+    "evidence_coverage_percent": 85,
+    "specialist_tenure_assessment": {
+        "classification": "not_applicable",
+        "specialty": "",
+        "explanation": "No specialized tenure requirement beyond general backend experience.",
+    },
+    "requirement_evidence": [
+        {
+            "requirement": "5+ years backend engineering",
+            "importance": "central",
+            "evidence_classification": "directly_demonstrated",
+            "candidate_evidence": "~15 years of backend engineering experience.",
+            "posting_evidence": "5+ years of backend engineering experience required.",
+        }
+    ],
+    "growth_dimensions": [],
+    "hidden_staff_signals": [],
     "is_product_company": True,
     "compensation_assessment": "Range comfortably clears $170,000.",
-    "remote_verification": "Explicitly US remote, no state restrictions mentioned.",
+    "remote_employment_verification": "Explicitly US remote, no state restrictions mentioned.",
     "required_matches": ["C#", "Azure"],
     "required_gaps": [],
-    "preferred_gaps": ["Kubernetes"],
+    "preferred_only_gaps": ["Kubernetes"],
     "minor_caveats": [],
     "evidence": ["\"We build our own SaaS platform using C# and Azure.\""],
     "credibility_assessment": "Strong fit, worth applying.",
+    "why_this_is_or_is_not_gettable": "At-level scope with strong direct evidence makes this a credible near-term interview.",
     "primary_rejection_reason": None,
 }
 
@@ -106,7 +137,16 @@ class TestJobEvaluation:
 
         assert evaluation.verdict == Verdict.STRONG_MATCH
         assert evaluation.confidence == pytest.approx(0.85)
+        assert evaluation.scope_fit == ScopeFit.AT_LEVEL
+        assert evaluation.evidence_coverage_percent == 85
+        assert evaluation.specialist_tenure_assessment.classification == SpecialistTenureClassification.NOT_APPLICABLE
+        assert len(evaluation.requirement_evidence) == 1
+        assert evaluation.requirement_evidence[0].importance == RequirementImportance.CENTRAL
+        assert evaluation.requirement_evidence[0].evidence_classification == EvidenceClassification.DIRECTLY_DEMONSTRATED
         assert evaluation.required_matches == ["C#", "Azure"]
+        assert evaluation.preferred_only_gaps == ["Kubernetes"]
+        assert evaluation.remote_employment_verification == "Explicitly US remote, no state restrictions mentioned."
+        assert evaluation.why_this_is_or_is_not_gettable
         assert evaluation.model_name == "test-model"
         assert evaluation.input_tokens == 120
         assert evaluation.output_tokens == 80
@@ -130,6 +170,80 @@ class TestJobEvaluation:
         evaluation = evaluate_job(client, profile, make_company(), make_job())
 
         assert evaluation.required_gaps == ["No AWS experience", "No Kotlin experience"]
+
+    def test_reject_missing_rejection_reason_is_synthesized_from_required_gaps(self, profile):
+        # Observed live: 37 of 53 real reject verdicts in one run had no primary_rejection_reason
+        # at all, despite the prompt requiring it, even though required_gaps was populated.
+        loose_input = dict(
+            VALID_EVAL_INPUT, verdict="reject", primary_rejection_reason=None,
+            required_gaps=["5+ years Ruby on Rails", "Deep AWS expertise"],
+        )
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.primary_rejection_reason == "5+ years Ruby on Rails; Deep AWS expertise"
+
+    def test_reject_missing_rejection_reason_falls_back_to_credibility_assessment(self, profile):
+        loose_input = dict(
+            VALID_EVAL_INPUT, verdict="reject", primary_rejection_reason=None,
+            required_gaps=[], growth_dimensions=[],
+            credibility_assessment="Not a fit given the domain mismatch.",
+        )
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.primary_rejection_reason == "Not a fit given the domain mismatch."
+
+    def test_strong_match_missing_rejection_reason_stays_none(self, profile):
+        # No synthesis for a positive verdict — a missing reason there is correctly meaningless.
+        loose_input = dict(VALID_EVAL_INPUT, verdict="strong_match", primary_rejection_reason=None)
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.primary_rejection_reason is None
+
+    def test_reject_missing_gettability_field_is_backfilled_from_rejection_reason(self, profile):
+        # Observed live: on a clear-cut reject the model sometimes omits
+        # why_this_is_or_is_not_gettable, treating primary_rejection_reason as sufficient on its
+        # own — 9 of 56 real evaluations failed this way before the backfill was added.
+        loose_input = dict(VALID_EVAL_INPUT, verdict="reject", primary_rejection_reason="Requires 5+ years Ruby on Rails.")
+        del loose_input["why_this_is_or_is_not_gettable"]
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.verdict == Verdict.REJECT
+        assert "Requires 5+ years Ruby on Rails." in evaluation.why_this_is_or_is_not_gettable
+
+    def test_reject_missing_credibility_assessment_is_also_backfilled(self, profile):
+        loose_input = dict(VALID_EVAL_INPUT, verdict="reject", primary_rejection_reason="Requires 5+ years Ruby on Rails.")
+        del loose_input["why_this_is_or_is_not_gettable"]
+        del loose_input["credibility_assessment"]
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert "Requires 5+ years Ruby on Rails." in evaluation.credibility_assessment
+
+    def test_missing_gettability_field_without_rejection_reason_still_raises(self, profile):
+        # No primary_rejection_reason to backfill from — this should still be a genuine failure,
+        # not silently papered over.
+        bad_input = dict(VALID_EVAL_INPUT)
+        del bad_input["why_this_is_or_is_not_gettable"]
+        bad_input["primary_rejection_reason"] = None
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, bad_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            evaluate_job(client, profile, make_company(), make_job())
 
     def test_missing_required_field_raises(self, profile):
         bad_input = dict(VALID_EVAL_INPUT)
@@ -155,6 +269,58 @@ class TestJobEvaluation:
 
         with pytest.raises(LlmCallError):
             evaluate_job(client, profile, make_company(), make_job())
+
+    def test_invalid_scope_fit_enum_raises(self, profile):
+        bad_input = dict(VALID_EVAL_INPUT, scope_fit="basically_the_same")
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, bad_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            evaluate_job(client, profile, make_company(), make_job())
+
+    def test_evidence_coverage_percent_out_of_range_raises(self, profile):
+        bad_input = dict(VALID_EVAL_INPUT, evidence_coverage_percent=150)
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, bad_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            evaluate_job(client, profile, make_company(), make_job())
+
+    def test_invalid_specialist_tenure_classification_raises(self, profile):
+        bad_input = dict(VALID_EVAL_INPUT)
+        bad_input["specialist_tenure_assessment"] = dict(bad_input["specialist_tenure_assessment"], classification="mostly")
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, bad_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            evaluate_job(client, profile, make_company(), make_job())
+
+    def test_invalid_requirement_evidence_importance_raises(self, profile):
+        bad_input = dict(VALID_EVAL_INPUT)
+        bad_input["requirement_evidence"] = [dict(bad_input["requirement_evidence"][0], importance="mostly_central")]
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, bad_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            evaluate_job(client, profile, make_company(), make_job())
+
+    def test_missing_specialist_tenure_assessment_raises(self, profile):
+        bad_input = dict(VALID_EVAL_INPUT)
+        del bad_input["specialist_tenure_assessment"]
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, bad_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            evaluate_job(client, profile, make_company(), make_job())
+
+    def test_growth_dimensions_as_bare_string_is_coerced_to_list(self, profile):
+        loose_input = dict(VALID_EVAL_INPUT, growth_dimensions="Deep AWS distributed-systems ownership")
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.growth_dimensions == ["Deep AWS distributed-systems ownership"]
 
     def test_missing_tool_use_block_raises(self, profile):
         text_only_response = SimpleNamespace(

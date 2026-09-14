@@ -5,7 +5,17 @@ from pathlib import Path
 
 from jobscan.audit import AuditRow, build_audit_rows, write_audit_csv, write_audit_markdown
 from jobscan.db import Database
-from jobscan.models import AtsType, Company, Evaluation, FilterLogEntry, RawPosting, Verdict
+from jobscan.models import (
+    AtsType,
+    Company,
+    Evaluation,
+    FilterLogEntry,
+    RawPosting,
+    ScopeFit,
+    SpecialistTenureAssessment,
+    SpecialistTenureClassification,
+    Verdict,
+)
 from jobscan.normalize import normalize_posting
 
 
@@ -32,12 +42,19 @@ def seed_job(db: Database, settings, company: Company, source_job_id: str = "1",
 def make_evaluation(
     job_id: int, verdict: Verdict, primary_rejection_reason: str | None = None,
     required_gaps: list[str] | None = None, evidence: list[str] | None = None,
+    scope_fit: ScopeFit = ScopeFit.AT_LEVEL, growth_dimensions: list[str] | None = None,
 ) -> Evaluation:
     return Evaluation(
         job_id=job_id, description_hash="hash", verdict=verdict, confidence=0.5,
-        compensation_assessment="ok", remote_verification="ok",
-        required_matches=[], required_gaps=required_gaps or [], preferred_gaps=[],
+        scope_fit=scope_fit, evidence_coverage_percent=50,
+        specialist_tenure_assessment=SpecialistTenureAssessment(
+            classification=SpecialistTenureClassification.NOT_APPLICABLE, specialty="", explanation="",
+        ),
+        requirement_evidence=[], growth_dimensions=growth_dimensions or [], hidden_staff_signals=[],
+        compensation_assessment="ok", remote_employment_verification="ok",
+        required_matches=[], required_gaps=required_gaps or [], preferred_only_gaps=[],
         minor_caveats=[], evidence=evidence or [], credibility_assessment="ok",
+        why_this_is_or_is_not_gettable="ok",
         is_product_company=True, primary_rejection_reason=primary_rejection_reason,
         model_name="test-model", created_at=datetime.now(timezone.utc),
     )

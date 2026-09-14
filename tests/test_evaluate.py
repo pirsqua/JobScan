@@ -23,15 +23,26 @@ from jobscan.normalize import normalize_posting
 VALID_EVAL_INPUT = {
     "verdict": "strong_match",
     "confidence": 0.8,
+    "scope_fit": "at_level",
+    "evidence_coverage_percent": 85,
+    "specialist_tenure_assessment": {
+        "classification": "not_applicable",
+        "specialty": "",
+        "explanation": "No specialized tenure requirement beyond general backend experience.",
+    },
+    "requirement_evidence": [],
+    "growth_dimensions": [],
+    "hidden_staff_signals": [],
     "is_product_company": True,
     "compensation_assessment": "Comfortably above $170,000.",
-    "remote_verification": "US remote, no restrictions noted.",
+    "remote_employment_verification": "US remote, no restrictions noted.",
     "required_matches": ["C#", "Azure"],
     "required_gaps": [],
-    "preferred_gaps": [],
+    "preferred_only_gaps": [],
     "minor_caveats": [],
     "evidence": ["quoted text"],
     "credibility_assessment": "Strong fit.",
+    "why_this_is_or_is_not_gettable": "At-level scope, strong direct evidence, credible near-term interview.",
     "primary_rejection_reason": None,
 }
 

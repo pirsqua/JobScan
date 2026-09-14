@@ -38,7 +38,7 @@ class TestReports:
         data = assemble_report_data(db, settings)
         markdown = render_markdown(data)
         assert "Run statistics" in markdown
-        assert "Recommended roles" in markdown
+        assert "Best Bets" in markdown
 
     def test_markdown_report_lists_recommendation_after_evaluation(self, db: Database, settings):
         from types import SimpleNamespace
@@ -53,15 +53,22 @@ class TestReports:
             input={
                 "verdict": "strong_match",
                 "confidence": 0.9,
+                "scope_fit": "at_level",
+                "evidence_coverage_percent": 90,
+                "specialist_tenure_assessment": {"classification": "not_applicable", "specialty": "", "explanation": ""},
+                "requirement_evidence": [],
+                "growth_dimensions": [],
+                "hidden_staff_signals": [],
                 "is_product_company": True,
                 "compensation_assessment": "Well above $170,000.",
-                "remote_verification": "US remote.",
+                "remote_employment_verification": "US remote.",
                 "required_matches": ["C#", "Azure"],
                 "required_gaps": [],
-                "preferred_gaps": [],
+                "preferred_only_gaps": [],
                 "minor_caveats": [],
                 "evidence": ["quote"],
                 "credibility_assessment": "Great fit.",
+                "why_this_is_or_is_not_gettable": "At-level with strong direct evidence.",
                 "primary_rejection_reason": None,
             },
         )
@@ -84,7 +91,7 @@ class TestReports:
         assert "strong_match" in markdown
 
         json_report = build_json_report(data)
-        assert json_report["recommended"][0]["company"] == "Acme Corp"
+        assert json_report["best_bets"][0]["company"] == "Acme Corp"
 
         csv_path = settings.output_dir / "report.csv"
         write_csv_report(data, csv_path)

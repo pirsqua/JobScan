@@ -22,12 +22,18 @@ from jobscan.models import (
     EmploymentType,
     EvaluateStats,
     Evaluation,
+    EvidenceClassification,
     FilterLogEntry,
     JobPosting,
     JobStatus,
     ManualOverride,
     RemoteScope,
+    RequirementEvidence,
+    RequirementImportance,
     SalarySource,
+    ScopeFit,
+    SpecialistTenureAssessment,
+    SpecialistTenureClassification,
     Verdict,
 )
 
@@ -97,14 +103,21 @@ CREATE TABLE IF NOT EXISTS evaluations (
     description_hash TEXT NOT NULL,
     verdict TEXT NOT NULL,
     confidence REAL,
+    scope_fit TEXT NOT NULL,
+    evidence_coverage_percent INTEGER,
+    specialist_tenure_json TEXT,
+    requirement_evidence_json TEXT,
+    growth_dimensions TEXT,
+    hidden_staff_signals TEXT,
     compensation_assessment TEXT,
-    remote_verification TEXT,
+    remote_employment_verification TEXT,
     required_matches TEXT,
     required_gaps TEXT,
-    preferred_gaps TEXT,
+    preferred_only_gaps TEXT,
     minor_caveats TEXT,
     evidence TEXT,
     credibility_assessment TEXT,
+    why_this_is_or_is_not_gettable TEXT,
     is_product_company INTEGER,
     primary_rejection_reason TEXT,
     model_name TEXT,
@@ -555,20 +568,42 @@ class Database:
         return self._row_to_evaluation(row) if row else None
 
     def _row_to_evaluation(self, row: sqlite3.Row) -> Evaluation:
+        specialist_tenure_raw = json.loads(row["specialist_tenure_json"] or "{}")
+        requirement_evidence_raw = json.loads(row["requirement_evidence_json"] or "[]")
         return Evaluation(
             id=row["id"],
             job_id=row["job_id"],
             description_hash=row["description_hash"],
             verdict=Verdict(row["verdict"]),
             confidence=row["confidence"],
+            scope_fit=ScopeFit(row["scope_fit"]),
+            evidence_coverage_percent=row["evidence_coverage_percent"],
+            specialist_tenure_assessment=SpecialistTenureAssessment(
+                classification=SpecialistTenureClassification(specialist_tenure_raw.get("classification", "not_applicable")),
+                specialty=specialist_tenure_raw.get("specialty", ""),
+                explanation=specialist_tenure_raw.get("explanation", ""),
+            ),
+            requirement_evidence=[
+                RequirementEvidence(
+                    requirement=item["requirement"],
+                    importance=RequirementImportance(item["importance"]),
+                    evidence_classification=EvidenceClassification(item["evidence_classification"]),
+                    candidate_evidence=item["candidate_evidence"],
+                    posting_evidence=item["posting_evidence"],
+                )
+                for item in requirement_evidence_raw
+            ],
+            growth_dimensions=json.loads(row["growth_dimensions"] or "[]"),
+            hidden_staff_signals=json.loads(row["hidden_staff_signals"] or "[]"),
             compensation_assessment=row["compensation_assessment"],
-            remote_verification=row["remote_verification"],
+            remote_employment_verification=row["remote_employment_verification"],
             required_matches=json.loads(row["required_matches"] or "[]"),
             required_gaps=json.loads(row["required_gaps"] or "[]"),
-            preferred_gaps=json.loads(row["preferred_gaps"] or "[]"),
+            preferred_only_gaps=json.loads(row["preferred_only_gaps"] or "[]"),
             minor_caveats=json.loads(row["minor_caveats"] or "[]"),
             evidence=json.loads(row["evidence"] or "[]"),
             credibility_assessment=row["credibility_assessment"],
+            why_this_is_or_is_not_gettable=row["why_this_is_or_is_not_gettable"],
             is_product_company=bool(row["is_product_company"]),
             primary_rejection_reason=row["primary_rejection_reason"],
             model_name=row["model_name"],
@@ -578,20 +613,49 @@ class Database:
         )
 
     def save_evaluation(self, evaluation: Evaluation) -> int:
+        specialist_tenure_json = json.dumps(
+            {
+                "classification": evaluation.specialist_tenure_assessment.classification.value,
+                "specialty": evaluation.specialist_tenure_assessment.specialty,
+                "explanation": evaluation.specialist_tenure_assessment.explanation,
+            }
+        )
+        requirement_evidence_json = json.dumps(
+            [
+                {
+                    "requirement": item.requirement,
+                    "importance": item.importance.value,
+                    "evidence_classification": item.evidence_classification.value,
+                    "candidate_evidence": item.candidate_evidence,
+                    "posting_evidence": item.posting_evidence,
+                }
+                for item in evaluation.requirement_evidence
+            ]
+        )
         cur = self.conn.execute(
             """INSERT INTO evaluations
-               (job_id, description_hash, verdict, confidence, compensation_assessment,
-                remote_verification, required_matches, required_gaps, preferred_gaps,
-                minor_caveats, evidence, credibility_assessment, is_product_company,
+               (job_id, description_hash, verdict, confidence, scope_fit, evidence_coverage_percent,
+                specialist_tenure_json, requirement_evidence_json, growth_dimensions,
+                hidden_staff_signals, compensation_assessment, remote_employment_verification,
+                required_matches, required_gaps, preferred_only_gaps, minor_caveats, evidence,
+                credibility_assessment, why_this_is_or_is_not_gettable, is_product_company,
                 primary_rejection_reason, model_name, input_tokens, output_tokens, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(job_id, description_hash) DO UPDATE SET
                  verdict=excluded.verdict, confidence=excluded.confidence,
+                 scope_fit=excluded.scope_fit,
+                 evidence_coverage_percent=excluded.evidence_coverage_percent,
+                 specialist_tenure_json=excluded.specialist_tenure_json,
+                 requirement_evidence_json=excluded.requirement_evidence_json,
+                 growth_dimensions=excluded.growth_dimensions,
+                 hidden_staff_signals=excluded.hidden_staff_signals,
                  compensation_assessment=excluded.compensation_assessment,
-                 remote_verification=excluded.remote_verification,
+                 remote_employment_verification=excluded.remote_employment_verification,
                  required_matches=excluded.required_matches, required_gaps=excluded.required_gaps,
-                 preferred_gaps=excluded.preferred_gaps, minor_caveats=excluded.minor_caveats,
+                 preferred_only_gaps=excluded.preferred_only_gaps,
+                 minor_caveats=excluded.minor_caveats,
                  evidence=excluded.evidence, credibility_assessment=excluded.credibility_assessment,
+                 why_this_is_or_is_not_gettable=excluded.why_this_is_or_is_not_gettable,
                  is_product_company=excluded.is_product_company,
                  primary_rejection_reason=excluded.primary_rejection_reason,
                  model_name=excluded.model_name, input_tokens=excluded.input_tokens,
@@ -599,11 +663,14 @@ class Database:
                """,
             (
                 evaluation.job_id, evaluation.description_hash, evaluation.verdict.value,
-                evaluation.confidence, evaluation.compensation_assessment,
-                evaluation.remote_verification, json.dumps(evaluation.required_matches),
-                json.dumps(evaluation.required_gaps), json.dumps(evaluation.preferred_gaps),
-                json.dumps(evaluation.minor_caveats), json.dumps(evaluation.evidence),
-                evaluation.credibility_assessment, int(evaluation.is_product_company),
+                evaluation.confidence, evaluation.scope_fit.value, evaluation.evidence_coverage_percent,
+                specialist_tenure_json, requirement_evidence_json,
+                json.dumps(evaluation.growth_dimensions), json.dumps(evaluation.hidden_staff_signals),
+                evaluation.compensation_assessment, evaluation.remote_employment_verification,
+                json.dumps(evaluation.required_matches), json.dumps(evaluation.required_gaps),
+                json.dumps(evaluation.preferred_only_gaps), json.dumps(evaluation.minor_caveats),
+                json.dumps(evaluation.evidence), evaluation.credibility_assessment,
+                evaluation.why_this_is_or_is_not_gettable, int(evaluation.is_product_company),
                 evaluation.primary_rejection_reason, evaluation.model_name,
                 evaluation.input_tokens, evaluation.output_tokens, _dt(evaluation.created_at),
             ),
