@@ -8,17 +8,64 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 Verdict = Literal["strong_match", "plausible_match", "borderline", "reject"]
 CompanyClass = Literal["product", "consulting", "unknown"]
+ScopeFit = Literal["at_level", "one_step_up", "two_plus_steps_up", "below_level"]
+RequirementImportance = Literal["central", "secondary"]
+EvidenceClassification = Literal["directly_demonstrated", "credibly_transferable", "weakly_inferred", "not_demonstrated"]
+SpecialistTenureClassification = Literal["meets", "adjacent", "insufficient", "not_applicable"]
 
-_LIST_FIELDS = ("required_matches", "required_gaps", "preferred_gaps", "minor_caveats", "evidence")
+_LIST_FIELDS = (
+    "required_matches", "required_gaps", "preferred_only_gaps", "minor_caveats", "evidence",
+    "growth_dimensions", "hidden_staff_signals",
+)
+
+
+class RequirementEvidenceItem(BaseModel):
+    requirement: str
+    importance: RequirementImportance
+    evidence_classification: EvidenceClassification
+    candidate_evidence: str = Field(description="What in the candidate's background supports this classification, if anything.")
+    posting_evidence: str = Field(description="The posting language this requirement is drawn from.")
+
+    model_config = {"extra": "forbid"}
+
+
+class SpecialistTenureAssessment(BaseModel):
+    classification: SpecialistTenureClassification
+    specialty: str = Field(description="The specialty in question, e.g. 'data engineering'. Empty string if not_applicable.")
+    explanation: str
+
+    model_config = {"extra": "forbid"}
 
 
 class JobEvaluationResult(BaseModel):
     verdict: Verdict
     confidence: float = Field(ge=0.0, le=1.0)
+    scope_fit: ScopeFit = Field(
+        description="Whether the role's actual scope is at, one step above, two-plus steps "
+        "above, or below demonstrated experience — independent of title or keyword overlap."
+    )
+    evidence_coverage_percent: int = Field(
+        ge=0, le=100,
+        description="Weighted coverage of important required qualifications by demonstrated or "
+        "transferable evidence — not a mechanical keyword-overlap count.",
+    )
+    specialist_tenure_assessment: SpecialistTenureAssessment
+    requirement_evidence: list[RequirementEvidenceItem] = Field(default_factory=list)
+    growth_dimensions: list[str] = Field(
+        default_factory=list,
+        description="Material central parts of the role not already demonstrated at roughly the "
+        "required level. Omit minor tool differences.",
+    )
+    hidden_staff_signals: list[str] = Field(
+        default_factory=list,
+        description="Signals that this 'Senior' posting actually carries staff-level or "
+        "elite-startup scope (organization-wide influence, repeated zero-to-one ownership, "
+        "extreme scale/reliability, sole technical authority, ...).",
+    )
     is_product_company: bool = Field(
         description="True if this specific posting is for building/operating the company's own "
         "product or platform, false if it is client-delivery/billable consulting work."
@@ -26,13 +73,13 @@ class JobEvaluationResult(BaseModel):
     compensation_assessment: str = Field(
         description="Assessment of whether the published range makes a $170,000+ offer credible."
     )
-    remote_verification: str = Field(
+    remote_employment_verification: str = Field(
         description="Assessment of whether the role is genuinely U.S. remote and open to a "
         "Washington State resident."
     )
     required_matches: list[str] = Field(default_factory=list)
     required_gaps: list[str] = Field(default_factory=list)
-    preferred_gaps: list[str] = Field(default_factory=list)
+    preferred_only_gaps: list[str] = Field(default_factory=list)
     minor_caveats: list[str] = Field(default_factory=list)
     evidence: list[str] = Field(
         default_factory=list,
@@ -41,8 +88,15 @@ class JobEvaluationResult(BaseModel):
     credibility_assessment: str = Field(
         description="One or two sentences on whether applying is professionally credible given fit."
     )
+    why_this_is_or_is_not_gettable: str = Field(
+        description="Concise, specific explanation of interview/offer plausibility given scope_fit "
+        "and evidence_coverage_percent — not a restatement of the verdict."
+    )
     primary_rejection_reason: str | None = Field(
-        default=None, description="Set only when verdict is 'reject' or 'borderline'."
+        default=None,
+        description="REQUIRED (non-null) whenever verdict is 'reject' or 'borderline' — always "
+        "set it, even when the reason is already implied by required_gaps or growth_dimensions. "
+        "Leave null only for strong_match/plausible_match.",
     )
 
     model_config = {"extra": "forbid"}
@@ -56,6 +110,24 @@ class JobEvaluationResult(BaseModel):
         if isinstance(value, str):
             return [line.strip("-•* \t") for line in value.strip().splitlines() if line.strip()]
         return value
+
+    @model_validator(mode="before")
+    @classmethod
+    def _backfill_gettability_fields_for_clear_rejects(cls, data: object) -> object:
+        """Observed live: on a clear-cut reject the model sometimes omits
+        why_this_is_or_is_not_gettable (occasionally credibility_assessment too), treating
+        primary_rejection_reason as sufficient on its own. Backfill from that reason instead of
+        discarding an otherwise-valid evaluation — only when a reason is actually present, so a
+        genuinely malformed response still fails validation as before."""
+        if not isinstance(data, dict):
+            return data
+        reason = data.get("primary_rejection_reason")
+        if reason:
+            if not data.get("why_this_is_or_is_not_gettable"):
+                data["why_this_is_or_is_not_gettable"] = f"Not gettable as described: {reason}"
+            if not data.get("credibility_assessment"):
+                data["credibility_assessment"] = f"Not a credible application given: {reason}"
+        return data
 
 
 JOB_EVALUATION_TOOL_NAME = "submit_job_evaluation"

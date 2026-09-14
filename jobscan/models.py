@@ -66,6 +66,51 @@ class Verdict(str, Enum):
     REJECT = "reject"
 
 
+class ScopeFit(str, Enum):
+    """How this posting's scope compares to demonstrated experience — separate from verdict,
+    which is about qualification match. A title saying "Senior" doesn't make a role at_level."""
+
+    AT_LEVEL = "at_level"
+    ONE_STEP_UP = "one_step_up"
+    TWO_PLUS_STEPS_UP = "two_plus_steps_up"
+    BELOW_LEVEL = "below_level"
+
+
+class RequirementImportance(str, Enum):
+    CENTRAL = "central"
+    SECONDARY = "secondary"
+
+
+class EvidenceClassification(str, Enum):
+    DIRECTLY_DEMONSTRATED = "directly_demonstrated"
+    CREDIBLY_TRANSFERABLE = "credibly_transferable"
+    WEAKLY_INFERRED = "weakly_inferred"
+    NOT_DEMONSTRATED = "not_demonstrated"
+
+
+class SpecialistTenureClassification(str, Enum):
+    MEETS = "meets"
+    ADJACENT = "adjacent"
+    INSUFFICIENT = "insufficient"
+    NOT_APPLICABLE = "not_applicable"
+
+
+@dataclass
+class RequirementEvidence:
+    requirement: str
+    importance: RequirementImportance
+    evidence_classification: EvidenceClassification
+    candidate_evidence: str
+    posting_evidence: str
+
+
+@dataclass
+class SpecialistTenureAssessment:
+    classification: SpecialistTenureClassification
+    specialty: str
+    explanation: str
+
+
 @dataclass
 class Company:
     """A row in the employer registry."""
@@ -141,20 +186,32 @@ class JobPosting:
 
 @dataclass
 class Evaluation:
-    """The LLM's structured verdict on a single job description snapshot."""
+    """The LLM's structured verdict on a single job description snapshot.
+
+    ``verdict`` is qualification match; ``scope_fit`` is separately whether the role's actual
+    scope (not its title) is at, above, or below demonstrated experience — a "Senior" title with
+    matching keywords does not by itself make a role ``at_level``.
+    """
 
     job_id: int
     description_hash: str
     verdict: Verdict
     confidence: float
+    scope_fit: ScopeFit
+    evidence_coverage_percent: int
+    specialist_tenure_assessment: SpecialistTenureAssessment
+    requirement_evidence: list[RequirementEvidence]
+    growth_dimensions: list[str]
+    hidden_staff_signals: list[str]
     compensation_assessment: str
-    remote_verification: str
+    remote_employment_verification: str
     required_matches: list[str]
     required_gaps: list[str]
-    preferred_gaps: list[str]
+    preferred_only_gaps: list[str]
     minor_caveats: list[str]
     evidence: list[str]
     credibility_assessment: str
+    why_this_is_or_is_not_gettable: str
     is_product_company: bool
     primary_rejection_reason: str | None
     model_name: str

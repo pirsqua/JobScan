@@ -53,7 +53,12 @@ def build_audit_rows(db: Database) -> list[AuditRow]:
                 stage="llm_reject" if evaluation.verdict == Verdict.REJECT else "llm_borderline",
                 reason=evaluation.primary_rejection_reason or "(no primary rejection reason given)",
                 detail=json.dumps(
-                    {"required_gaps": evaluation.required_gaps, "evidence": evaluation.evidence}
+                    {
+                        "scope_fit": evaluation.scope_fit.value,
+                        "growth_dimensions": evaluation.growth_dimensions,
+                        "required_gaps": evaluation.required_gaps,
+                        "evidence": evaluation.evidence,
+                    }
                 ),
             )
         )

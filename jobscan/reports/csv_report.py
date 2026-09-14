@@ -7,11 +7,12 @@ from pathlib import Path
 from jobscan.reports.data import ReportData
 
 FIELDS = [
-    "company", "title", "verdict", "confidence", "salary_min", "salary_max", "salary_period",
-    "salary_source", "location_raw", "remote_scope", "employment_type", "posting_url",
-    "apply_url", "published_at", "first_seen_at", "required_matches", "required_gaps",
-    "preferred_gaps", "minor_caveats", "primary_rejection_reason", "is_product_company",
-    "model_name",
+    "company", "title", "verdict", "scope_fit", "evidence_coverage_percent", "confidence",
+    "salary_min", "salary_max", "salary_period", "salary_source", "location_raw", "remote_scope",
+    "employment_type", "posting_url", "apply_url", "published_at", "first_seen_at",
+    "required_matches", "required_gaps", "preferred_only_gaps", "minor_caveats",
+    "growth_dimensions", "hidden_staff_signals", "specialist_tenure_classification",
+    "primary_rejection_reason", "is_product_company", "model_name",
 ]
 
 
@@ -27,6 +28,8 @@ def write_csv_report(data: ReportData, path: Path) -> None:
                     "company": company.name,
                     "title": job.title,
                     "verdict": ev.verdict.value,
+                    "scope_fit": ev.scope_fit.value,
+                    "evidence_coverage_percent": ev.evidence_coverage_percent,
                     "confidence": ev.confidence,
                     "salary_min": job.salary_min,
                     "salary_max": job.salary_max,
@@ -41,8 +44,11 @@ def write_csv_report(data: ReportData, path: Path) -> None:
                     "first_seen_at": job.first_seen_at.isoformat() if job.first_seen_at else "",
                     "required_matches": "; ".join(ev.required_matches),
                     "required_gaps": "; ".join(ev.required_gaps),
-                    "preferred_gaps": "; ".join(ev.preferred_gaps),
+                    "preferred_only_gaps": "; ".join(ev.preferred_only_gaps),
                     "minor_caveats": "; ".join(ev.minor_caveats),
+                    "growth_dimensions": "; ".join(ev.growth_dimensions),
+                    "hidden_staff_signals": "; ".join(ev.hidden_staff_signals),
+                    "specialist_tenure_classification": ev.specialist_tenure_assessment.classification.value,
                     "primary_rejection_reason": ev.primary_rejection_reason or "",
                     "is_product_company": ev.is_product_company,
                     "model_name": ev.model_name,

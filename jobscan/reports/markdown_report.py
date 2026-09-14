@@ -1,9 +1,10 @@
-"""Markdown report: run statistics, recommended roles, and the attractive-rejection log."""
+"""Markdown report: run statistics, Best Bets, Growth Bets, Attractive Stretches, and a summary
+of what was rejected or left unverified."""
 from __future__ import annotations
 
 from pathlib import Path
 
-from jobscan.models import JobPosting
+from jobscan.models import Evaluation, JobPosting
 from jobscan.reports.data import JobReportRow, ReportData
 
 
@@ -40,16 +41,15 @@ def _render_stats(data: ReportData) -> list[str]:
         lines.append("- No crawl was run in this invocation (reporting on existing database state).")
 
     if es:
-        recommended_n = es.verdict_counts.get("strong_match", 0) + es.verdict_counts.get("plausible_match", 0)
         rejected_n = es.verdict_counts.get("reject", 0)
-        borderline_n = es.verdict_counts.get("borderline", 0)
         lines += [
             f"- Postings sent to the LLM this run: **{es.sent_to_llm}** (cache hits reused: {es.cache_hits})",
             f"- Rejected by safe factual filters: **{es.factual_rejected}**",
             f"- Companies newly classified: **{es.companies_classified}**",
             f"- Manual overrides applied: **{es.manual_overrides_applied}**",
-            f"- Recommended (strong/plausible match): **{recommended_n}**",
-            f"- Borderline: **{borderline_n}**",
+            f"- Best Bets: **{len(data.best_bets)}**",
+            f"- Growth Bets: **{len(data.growth_bets)}**",
+            f"- Attractive Stretches: **{len(data.attractive_stretches)}**",
             f"- Rejected by LLM: **{rejected_n}**",
             f"- Unverified (no evaluation obtained, e.g. missing API key or LLM error): **{es.unverified}**",
         ]
@@ -64,22 +64,28 @@ def _render_stats(data: ReportData) -> list[str]:
                 "(cost n/a — model not in pricing table)"
             )
     else:
-        lines.append("- No evaluation was run in this invocation (reporting on existing database state).")
-        lines.append(f"- Postings with no evaluation on record: **{data.unverified_count}**")
+        lines += [
+            "- No evaluation was run in this invocation (reporting on existing database state).",
+            f"- Best Bets: **{len(data.best_bets)}**  Growth Bets: **{len(data.growth_bets)}**  "
+            f"Attractive Stretches: **{len(data.attractive_stretches)}**",
+            f"- Postings with no evaluation on record: **{data.unverified_count}**",
+        ]
 
     return lines
 
 
-def _render_recommended(rows: list[JobReportRow]) -> list[str]:
-    lines = ["", "## Recommended roles", ""]
+def _render_best_or_growth(title: str, rows: list[JobReportRow], empty_note: str) -> list[str]:
+    lines = ["", f"## {title}", ""]
     if not rows:
-        lines.append("_None yet._")
+        lines.append(f"_{empty_note}_")
         return lines
 
     for row in rows:
         job, company, ev = row.job, row.company, row.evaluation
+        assert ev is not None
         lines += [
-            f"### {company.name} — {job.title} ({ev.verdict.value}, confidence {ev.confidence:.2f})",
+            f"### {company.name} — {job.title} ({ev.verdict.value}, {ev.scope_fit.value}, "
+            f"{ev.evidence_coverage_percent}% coverage, confidence {ev.confidence:.2f})",
             "",
             f"- Salary: {_salary_line(job)}",
             f"- Apply: {job.apply_url or job.posting_url or 'n/a'}",
@@ -87,39 +93,87 @@ def _render_recommended(rows: list[JobReportRow]) -> list[str]:
         ]
         if ev.required_matches:
             lines.append(f"- Exact matches: {'; '.join(ev.required_matches)}")
+        if ev.growth_dimensions:
+            lines.append(f"- Growth dimension to note: {'; '.join(ev.growth_dimensions)}")
         if ev.minor_caveats:
             lines.append(f"- Minor caveats: {'; '.join(ev.minor_caveats)}")
         lines.append(f"- Compensation assessment: {ev.compensation_assessment}")
+        lines.append(f"- Why this is gettable: {ev.why_this_is_or_is_not_gettable}")
         lines.append(f"- Credibility: {ev.credibility_assessment}")
         lines.append("")
 
     return lines
 
 
-def _render_rejections(rows: list[JobReportRow]) -> list[str]:
-    lines = ["", "## Attractive rejection log", "", "_Close calls worth a second look._", ""]
+def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
+    lines = [
+        "", "## Attractive Stretches", "",
+        "_Strong technical overlap, but two or more unproven scope dimensions — or a hidden "
+        "staff-level/elite-startup expectation behind an ordinary-looking Senior title. Aspirational, "
+        "not a Best Bet._", "",
+    ]
     if not rows:
         lines.append("_None._")
         return lines
 
     for row in rows:
         job, company, ev = row.job, row.company, row.evaluation
+        assert ev is not None
         lines += [
-            f"### {company.name} — {job.title} ({ev.verdict.value})",
+            f"### {company.name} — {job.title} ({ev.verdict.value}, {ev.scope_fit.value})",
             "",
             f"- Strong matching areas: {'; '.join(ev.required_matches) if ev.required_matches else '(none noted)'}",
-            f"- Material requirement causing rejection: {ev.primary_rejection_reason or '(not specified)'}",
-            f"- Evidence: {'; '.join(ev.evidence) if ev.evidence else '(none captured)'}",
-            "",
+            f"- What makes this a stretch: {'; '.join(ev.growth_dimensions) if ev.growth_dimensions else (ev.primary_rejection_reason or '(not specified)')}",
         ]
+        if ev.hidden_staff_signals:
+            lines.append(f"- Hidden staff-level signals: {'; '.join(ev.hidden_staff_signals)}")
+        lines.append(f"- What would make this credible: {ev.why_this_is_or_is_not_gettable}")
+        lines.append(f"- Evidence: {'; '.join(ev.evidence) if ev.evidence else '(none captured)'}")
+        lines.append("")
+    return lines
+
+
+def _render_rejected_or_unverified(data: ReportData) -> list[str]:
+    lines = ["", "## Rejected or Unverified", ""]
+    llm_rejected = [r for r in data.all_evaluated if r.evaluation and r.evaluation.verdict.value == "reject"]
+
+    es = data.evaluate_stats
+    summary = [f"- Unverified (no evaluation on record): **{data.unverified_count}**"]
+    if es:
+        summary.insert(0, f"- Rejected by safe factual filters this run: **{es.factual_rejected}**")
+    lines += summary
+    lines.append(
+        f"- Rejected by the LLM: **{len(llm_rejected)}** (listed below; run `python -m jobscan audit` "
+        "for the complete factual-filter and unverified listing with reasons)"
+    )
+    lines.append("")
+
+    if not llm_rejected:
+        lines.append("_No LLM rejections to list._")
+        return lines
+
+    lines.append("| Company | Title | Primary rejection reason |")
+    lines.append("|---|---|---|")
+    for row in llm_rejected:
+        ev: Evaluation = row.evaluation  # type: ignore[assignment]
+        reason = (ev.primary_rejection_reason or "(not specified)").replace("|", "\\|")
+        lines.append(f"| {row.company.name} | {row.job.title} | {reason} |")
     return lines
 
 
 def render_markdown(data: ReportData) -> str:
     lines = [f"# JobScan report — {data.generated_at}", ""]
     lines += _render_stats(data)
-    lines += _render_recommended(data.recommended)
-    lines += _render_rejections(data.attractive_rejections)
+    lines += _render_best_or_growth(
+        "Best Bets", data.best_bets,
+        "None yet — at-level strong/plausible matches will show up here.",
+    )
+    lines += _render_best_or_growth(
+        "Growth Bets", data.growth_bets,
+        "None yet — genuine one-step-up roles with no more than one material growth dimension will show up here.",
+    )
+    lines += _render_attractive_stretches(data.attractive_stretches)
+    lines += _render_rejected_or_unverified(data)
     return "\n".join(lines) + "\n"
 
 
