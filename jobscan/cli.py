@@ -18,6 +18,7 @@ from jobscan.reports.csv_report import write_csv_report
 from jobscan.reports.data import assemble_report_data
 from jobscan.reports.json_report import write_json_report
 from jobscan.reports.markdown_report import write_markdown_report
+from jobscan.timeutil import filename_timestamp
 
 logger = get_logger("cli")
 
@@ -62,7 +63,7 @@ def cmd_report(args: argparse.Namespace, settings: Settings) -> int:
         crawl_stats = db.latest_crawl_run()
         eval_stats = db.latest_evaluation_run()
         data = assemble_report_data(db, settings, crawl_stats=crawl_stats, evaluate_stats=eval_stats)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = filename_timestamp()
     md_path = out_dir / f"report_{stamp}.md"
     csv_path = out_dir / f"report_{stamp}.csv"
     json_path = out_dir / f"report_{stamp}.json"
@@ -83,7 +84,7 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
         data = assemble_report_data(db, settings, crawl_stats=crawl_stats, evaluate_stats=eval_stats)
 
     out_dir = Path(args.out) if args.out else settings.output_dir
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = filename_timestamp()
     md_path = out_dir / f"report_{stamp}.md"
     csv_path = out_dir / f"report_{stamp}.csv"
     json_path = out_dir / f"report_{stamp}.json"
@@ -136,7 +137,7 @@ def cmd_audit(args: argparse.Namespace, settings: Settings) -> int:
     out_dir = Path(args.out) if args.out else settings.output_dir
     with _open_db(settings) as db:
         rows = build_audit_rows(db)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = filename_timestamp()
     md_path = out_dir / f"audit_{stamp}.md"
     csv_path = out_dir / f"audit_{stamp}.csv"
     write_audit_markdown(rows, md_path)

@@ -67,8 +67,10 @@ python -m jobscan report
 python -m jobscan run
 ```
 
-Reports land in `out\report_<timestamp>.{md,csv,json}`. Open the `.md` file first — it has the
-run statistics, the recommended roles, and the "attractive rejection log" (close calls worth a
+Reports land in `out\report_<timestamp>.{md,csv,json}`, timestamped in Seattle local time (e.g.
+`report_20260913T223640PT.md` — the `PT` suffix covers both PST and PDT, whichever is in effect).
+Open the `.md` file first — it has the run statistics, the recommended roles, and the "attractive
+rejection log" (close calls worth a
 second look).
 
 ## Commands
