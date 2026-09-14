@@ -1,0 +1,139 @@
+# Curated on 2026-09-14 for a Seattle-based senior backend/data engineer.
+# Goals: U.S. remote, strong work-life-balance/employee sentiment, and roles with
+# a credible path to at least $170K base. Company signals are only a prefilter;
+# the crawler/evaluator must still verify every posting's location, WA eligibility,
+# employment type, published BASE salary, role fit, and current application status.
+#
+# active=true: supported ATS board and worth crawling now.
+# active=false: promising company, but the current ATS is unsupported/unverified,
+# current engineering openings are sparse, or recent culture evidence is mixed.
+
+- name: LaunchDarkly
+  domain: launchdarkly.com
+  careers_url: https://job-boards.greenhouse.io/launchdarkly
+  ats_type: greenhouse
+  board_id: launchdarkly
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Glassdoor 3.9 overall / 4.3 WLB. Many current Remote-US backend roles. Seattle L4 base ranges reach $257K. Excellent Python, SQL, Spark/Databricks, data-platform and production-ownership fit; inspect on-call expectations."
+
+- name: Zapier
+  domain: zapier.com
+  careers_url: https://jobs.ashbyhq.com/zapier
+  ats_type: ashby
+  board_id: zapier
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Remote-first since 2011; Glassdoor 4.0 overall / 4.3 WLB. Remote senior ranges have reached about $174K-$261K and staff backend about $211K-$316K. Strong Python, APIs, integrations and backend fit."
+
+- name: Grafana Labs
+  domain: grafana.com
+  careers_url: https://job-boards.greenhouse.io/grafanalabs
+  ats_type: greenhouse
+  board_id: grafanalabs
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Vast majority of roles remote; Glassdoor 4.2 overall / 4.4 WLB. Senior/staff engineering bands can clear $170K. Excellent observability/backend company, but many roles prefer Go and deep infrastructure experience."
+
+- name: Cribl
+  domain: cribl.io
+  careers_url: https://job-boards.greenhouse.io/cribl
+  ats_type: greenhouse
+  board_id: cribl
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Remote-first; Glassdoor 4.2 overall / 4.0 WLB. Senior software roles have published roughly $185K-$215K and staff roles $205K+. Strong data/telemetry/backend fit; screen out AI-heavy and deep platform roles."
+
+- name: Customer.io
+  domain: customer.io
+  careers_url: https://job-boards.greenhouse.io/customerio
+  ats_type: greenhouse
+  board_id: customerio
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A-. Fully remote with a 97 REMOTE Score. Current Americas-remote Senior Backend role lists $150K-$200K starting salary. Strong API/database/production fit, but current backend roles emphasize Go, AWS/GCP and distributed systems."
+
+- name: Doximity
+  domain: doximity.com
+  careers_url: https://job-boards.greenhouse.io/doximity
+  ats_type: greenhouse
+  board_id: doximity
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A for fit. Current Remote-US Senior Software Engineer, Data role asks for expert Python, SQL and end-to-end data pipelines. It publishes $165K-$221K TOTAL compensation, not a base range, so preserve as compensation-unverified under the strict rule."
+
+- name: Aledade
+  domain: aledade.com
+  careers_url: https://jobs.lever.co/aledade
+  ats_type: lever
+  board_id: aledade
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A for gettability and fit. Current Remote-US senior/staff roles cover web apps, APIs, SQL and data ingestion and accept Python, C# or equivalent cloud experience. Glassdoor WLB about 3.9. Reject or hold postings without a published base range."
+
+- name: Huntress
+  domain: huntress.com
+  careers_url: https://job-boards.greenhouse.io/huntress
+  ats_type: greenhouse
+  board_id: huntress
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A-. Fully remote; Glassdoor 4.1 overall / 4.3 WLB. Staff software ranges have reached roughly $162K-$257K. Good backend/product target; weigh recent engineering reviews and security-domain requirements."
+
+- name: SmithRx
+  domain: smithrx.com
+  careers_url: https://job-boards.greenhouse.io/smithrx
+  ats_type: greenhouse
+  board_id: smithrx
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A-. Ranked #46 on Comparably's 2025 large-company WLB list and appears on FlexJobs' happy remote-employer list. Health-tech software and data roles can clear $170K; verify team and posting-specific remote policy."
+
+- name: RevenueCat
+  domain: revenuecat.com
+  careers_url: https://jobs.ashbyhq.com/revenuecat
+  ats_type: ashby
+  board_id: revenuecat
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A-. Fully remote, async-first, REMOTE Score 96, and high engineering pay. Employee-review sample is small. Many roles involve mobile subscriptions or frontend work, so let job-level fit filtering be strict."
+
+- name: Tremendous
+  domain: tremendous.com
+  careers_url: https://jobs.ashbyhq.com/tremendous
+  ats_type: ashby
+  board_id: tremendous
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A-. Fully remote in the Americas with REMOTE Score 96. Current senior software ranges have reached $200K+ (some substantially higher). Strong product/backend possibility; verify base geography and stack."
+
+- name: Pulumi
+  domain: pulumi.com
+  careers_url: https://job-boards.greenhouse.io/pulumicorporation
+  ats_type: greenhouse
+  board_id: pulumicorporation
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority B+. Seattle-founded and fully remote; Seattle senior range recently about $181K-$228K. Strong Python/Azure/IaC adjacency. Current engineering opening is agentic-AI centered, so wait for a conventional backend/platform role."
+
+- name: Tailscale
+  domain: tailscale.com
+  careers_url: https://job-boards.greenhouse.io/tailscale
+  ats_type: greenhouse
+  board_id: tailscale
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority B+. Remote company explicitly promotes flexible hours and WLB; Glassdoor WLB about 4.4 but from a small sample. High compensation, but engineering roles often require Go, networking or security depth."

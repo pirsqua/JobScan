@@ -110,11 +110,15 @@ def cmd_companies_import(args: argparse.Namespace, settings: Settings) -> int:
         return 1
     with _open_db(settings) as db:
         try:
-            processed, total = import_registry(db, path)
+            processed, total, removed = import_registry(db, path, replace=args.replace, delete=args.delete)
         except RegistryImportError as exc:
             print(f"Import failed: {exc}", file=sys.stderr)
             return 1
     print(f"Processed {processed} row(s) from {path}. Registry now has {total} companies.")
+    if args.delete:
+        print(f"Permanently deleted {removed} compan{'y' if removed == 1 else 'ies'} (and their job history) not present in this file.")
+    elif args.replace:
+        print(f"Deactivated {removed} compan{'y' if removed == 1 else 'ies'} not present in this file.")
     return 0
 
 
@@ -195,6 +199,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_companies_import = companies_sub.add_parser("import", help="Import companies from a CSV or YAML file.")
     p_companies_import.add_argument("path", help="Path to a .csv or .yaml employer registry file.")
+    p_companies_import_scope = p_companies_import.add_mutually_exclusive_group()
+    p_companies_import_scope.add_argument(
+        "--replace", action="store_true",
+        help="Deactivate any registered company NOT present in this file, so it becomes the complete active registry. History is kept.",
+    )
+    p_companies_import_scope.add_argument(
+        "--delete", action="store_true",
+        help="Like --replace, but PERMANENTLY DELETES those companies and all their job/evaluation history instead of deactivating them. Irreversible.",
+    )
     p_companies_import.set_defaults(func=cmd_companies_import)
 
     p_companies_list = companies_sub.add_parser("list", help="List registered companies.")
