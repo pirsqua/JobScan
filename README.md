@@ -70,14 +70,13 @@ python -m jobscan run
 Reports land in `out\report_<timestamp>.{md,csv,json}`, timestamped in Seattle local time (e.g.
 `report_20260913T223640PT.md` — the `PT` suffix covers both PST and PDT, whichever is in effect).
 Open the `.md` file first — it has the run statistics, the recommended roles, and the "attractive
-rejection log" (close calls worth a
-second look).
+rejection log" (close calls worth a second look).
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `python -m jobscan companies import <file.csv\|.yaml>` | Add/update employers in the registry |
+| `python -m jobscan companies import <file.csv\|.yaml> [--replace\|--delete]` | Add/update employers in the registry; optionally make the file the complete active set |
 | `python -m jobscan companies list [--all]` | List registered companies (active only by default) |
 | `python -m jobscan crawl` | Fetch current postings for every active company |
 | `python -m jobscan evaluate [--limit N]` | Apply factual filters, then LLM-screen new/changed postings. `--limit` caps the number of *real LLM calls* made this run (factual filtering and cache hits are free and unaffected) — useful for bounding spend, e.g. `--limit 15` |
@@ -108,18 +107,23 @@ Run any command with no arguments to see this same list: `python -m jobscan --he
 python -m jobscan companies import my_companies.csv
 ```
 
-YAML works too — either a bare list or `{companies: [...]}`. `board_id`/`board_identifier` and
-`classification`/`company_classification` are interchangeable aliases in either file format, so a
-registry curated with either naming imports as-is. `classification` and `discovery_source` are
-optional; leave `classification` blank/`unknown` to let the LLM classify the company itself
-(cached indefinitely, or override any time with `overrides set company ...`).
+YAML works too — either a bare list or `{companies: [...]}`. Field names are `board_id` and
+`classification` in both CSV and YAML (no alternate spellings are accepted — keep registry files
+conformed to this schema). `classification` and `discovery_source` are optional; leave
+`classification` blank/`unknown` to let the LLM classify the company itself (cached indefinitely,
+or override any time with `overrides set company ...`).
 
-Import is additive by default (existing companies not in the file are left alone). Pass
-`--replace` to make the file the complete active registry instead — every company not present in
-it is deactivated (not deleted; its history and postings stay in the database):
+Import is additive by default (existing companies not in the file are left alone). Two flags
+change that scope, mutually exclusive with each other:
 
 ```powershell
+# The file becomes the complete active registry; anything absent is deactivated (reversible —
+# history and postings are kept, and re-importing a company reactivates it).
 python -m jobscan companies import my_companies.yaml --replace
+
+# Same, but PERMANENTLY DELETES absent companies and all their job/evaluation history instead
+# of deactivating them. Irreversible — only use this when you actually want that data gone.
+python -m jobscan companies import my_companies.yaml --delete
 ```
 
 ## Manual overrides
@@ -164,11 +168,13 @@ their prior version archived, and postings that disappeared from a board are clo
 python -m pytest -q
 ```
 
-The suite (100+ tests) covers salary parsing and the $170,000 attainability rule, remote vs.
-hybrid vs. explicit state exclusions, full-time vs. contract, new/changed/closed/duplicate
-postings, adapter pagination and partial board failures, manual overrides, and LLM response
-validation/caching — all against mocked HTTP responses and a stub Anthropic client, so the suite
-never makes a real network or API call.
+The suite (178 tests) covers salary parsing and the $170,000 attainability rule, remote vs.
+hybrid vs. explicit state exclusions, full-time vs. contract/part-time/intern,
+new/changed/closed/duplicate postings, adapter pagination and partial board failures (including
+real API quirks like Greenhouse sending explicit `null` for metadata/departments), manual
+overrides, LLM response validation/caching, `load_settings()`'s YAML/env-var precedence, the
+audit-report builder, and CLI argument parsing/dispatch — all against mocked HTTP responses and a
+stub Anthropic client, so the suite never makes a real network or API call.
 
 ## Known limitations (first release)
 
