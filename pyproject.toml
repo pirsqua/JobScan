@@ -10,6 +10,7 @@ dependencies = [
     "anthropic>=0.34",
     "PyYAML>=6.0",
     "python-dotenv>=1.0",
+    "tzdata>=2024.1; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
