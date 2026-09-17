@@ -22,6 +22,12 @@ _LIST_FIELDS = (
     "growth_dimensions", "hidden_staff_signals",
 )
 
+# extra="ignore" on every model below: observed live, the model occasionally adds one stray
+# duplicate-ish field (e.g. "preferred_only_gaps_2", "specialist_tenure_assessment_dummy")
+# alongside the correctly-named ones. Drop unrecognized keys rather than rejecting an otherwise-
+# valid response over a single hallucinated extra — every field we actually read is still
+# strictly type/enum/range-checked regardless.
+
 
 class RequirementEvidenceItem(BaseModel):
     requirement: str
@@ -30,7 +36,7 @@ class RequirementEvidenceItem(BaseModel):
     candidate_evidence: str = Field(description="What in the candidate's background supports this classification, if anything.")
     posting_evidence: str = Field(description="The posting language this requirement is drawn from.")
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
 
 
 class SpecialistTenureAssessment(BaseModel):
@@ -38,7 +44,7 @@ class SpecialistTenureAssessment(BaseModel):
     specialty: str = Field(description="The specialty in question, e.g. 'data engineering'. Empty string if not_applicable.")
     explanation: str
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
 
 
 class JobEvaluationResult(BaseModel):
@@ -99,7 +105,7 @@ class JobEvaluationResult(BaseModel):
         "Leave null only for strong_match/plausible_match.",
     )
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
 
     @field_validator(*_LIST_FIELDS, mode="before")
     @classmethod
@@ -144,7 +150,7 @@ class CompanyClassificationResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: str = Field(description="One or two sentences citing what indicates product vs. consulting.")
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
 
 
 COMPANY_CLASSIFICATION_TOOL_NAME = "submit_company_classification"
