@@ -208,6 +208,18 @@ class TestJobEvaluation:
 
         assert evaluation.primary_rejection_reason is None
 
+    def test_stray_extra_field_is_ignored_not_rejected(self, profile):
+        # Observed live: 10 of 11 failures in a 436-call run were the model adding one stray
+        # duplicate-ish field (e.g. "preferred_only_gaps_2") alongside the correctly-named ones.
+        loose_input = dict(VALID_EVAL_INPUT, preferred_only_gaps_2=[], specialist_tenure_assessment_dummy="x")
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.verdict == Verdict.STRONG_MATCH
+        assert evaluation.preferred_only_gaps == ["Kubernetes"]
+
     def test_reject_missing_gettability_field_is_backfilled_from_rejection_reason(self, profile):
         # Observed live: on a clear-cut reject the model sometimes omits
         # why_this_is_or_is_not_gettable, treating primary_rejection_reason as sufficient on its
