@@ -102,7 +102,10 @@ Run any command with no arguments to see this same list: `python -m jobscan --he
 
 ```powershell
 # CSV columns: name, domain, careers_url, ats_type, board_id, classification, discovery_source, notes
-# ats_type is one of: greenhouse, ashby, lever
+# ats_type: greenhouse, ashby and lever are actually crawled. workday, smartrecruiters, jobvite
+# and custom are also accepted (so a registry can record "this company uses X" for later), but
+# have no adapter yet — keep those rows active=false, or they'll just show up as a failed board
+# with "no adapter registered" on every crawl.
 # board_id is the token in that ATS's public API URL, e.g. boards-api.greenhouse.io/v1/boards/<board_id>
 python -m jobscan companies import my_companies.csv
 ```
