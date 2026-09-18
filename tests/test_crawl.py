@@ -133,3 +133,34 @@ class TestCrawlOrchestration:
         assert recovered.postings_fetched == stats.postings_fetched
         assert recovered.postings_out_of_family == stats.postings_out_of_family
         assert recovered.companies_succeeded == stats.companies_succeeded
+
+    @respx.mock
+    def test_company_with_unsupported_ats_is_reported_not_crashed(self, db: Database, settings):
+        # A registry can record a company on an ATS with no adapter yet (Workday, SmartRecruiters,
+        # a custom site) — the run should report it as a failed board and continue, not raise.
+        good = make_company("Good Co", "goodco")
+        unsupported = make_company("Workday Co", "workdayco", ats_type=AtsType.WORKDAY)
+        db.upsert_company(good)
+        db.upsert_company(unsupported)
+
+        respx.get("https://boards-api.greenhouse.io/v1/boards/goodco/jobs").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobs": [
+                        {"id": 1, "title": "Senior Backend Engineer", "location": {"name": "Remote - US"},
+                         "absolute_url": "https://goodco.example.com/jobs/1", "content": "<p>$180,000 - $220,000</p>",
+                         "metadata": [], "departments": []}
+                    ]
+                },
+            )
+        )
+
+        companies = db.list_companies(active_only=True)
+        stats = crawl_all(db, settings, companies=companies)
+
+        assert stats.companies_attempted == 2
+        assert stats.companies_succeeded == 1
+        assert len(stats.boards_failed) == 1
+        assert "Workday Co" in stats.boards_failed[0]
+        assert "no adapter registered" in stats.boards_failed[0]

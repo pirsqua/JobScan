@@ -15,9 +15,19 @@ if TYPE_CHECKING:
 
 
 class AtsType(str, Enum):
+    """Greenhouse/Ashby/Lever have real adapters (see jobscan.adapters.ADAPTERS). The rest are
+    recorded-but-not-yet-crawlable — a registry curator can note that a company uses e.g. Workday
+    without the import failing, and jobscan.crawl already skips any company whose ats_type has no
+    entry in ADAPTERS (reported as "no adapter registered" rather than attempted). Keep such
+    companies active=false until a real adapter exists."""
+
     GREENHOUSE = "greenhouse"
     ASHBY = "ashby"
     LEVER = "lever"
+    WORKDAY = "workday"
+    SMARTRECRUITERS = "smartrecruiters"
+    JOBVITE = "jobvite"
+    CUSTOM = "custom"
 
 
 class CompanyClassification(str, Enum):
