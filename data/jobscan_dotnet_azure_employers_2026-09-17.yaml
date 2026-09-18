@@ -1,0 +1,847 @@
+# Curated on 2026-09-17 for a Seattle-based senior backend/data engineer.
+#
+# Purpose: replace a prestige-heavy registry with employers whose products or
+# engineering organizations repeatedly create demand for C#/.NET, Azure,
+# APIs/integrations, SQL, or Python/data-platform experience.
+#
+# This is an employer prefilter, not a claim that every current opening fits.
+# Every posting must still pass U.S.-remote, Washington eligibility, full-time,
+# published base compensation, current application status, and exact required-
+# qualification checks. Healthcare companies and OneStream are intentionally
+# omitted.
+#
+# active means the board is currently crawlable by the existing Greenhouse,
+# Ashby, or Lever adapters. It does NOT mean the employer is better or is hiring
+# a matching role today. Unsupported and custom boards are retained as
+# active=false so future adapters or browser discovery can cover them honestly.
+#
+# Evidence levels:
+#   current_role_verified  = a current role/board recently demonstrated the fit
+#   current_board_verified = live board verified; matching role may not be open
+#   recurring_stack        = strong repeated historical/organizational fit
+#   monitor_only           = plausible, but remote/pay/opening frequency is weak
+
+- name: 1Password
+  domain: 1password.com
+  careers_url: https://jobs.ashbyhq.com/1password
+  ats_type: ashby
+  board_id: 1password
+  classification: product
+  active: true
+  priority: A
+  fit_lanes: [dotnet, csharp, saas_backend, apis]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_role_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Current remote Senior .NET Developer role lists $153K-$214K and directly matches C#/.NET, delivery, testing, reviews, and mentoring. Culture reviews are mixed, so inspect the team and recent engineering sentiment."
+
+- name: Delinea
+  domain: delinea.com
+  careers_url: https://jobs.ashbyhq.com/delinea
+  ats_type: ashby
+  board_id: delinea
+  classification: product
+  active: true
+  priority: A
+  fit_lanes: [dotnet, csharp, sql_server, rest_apis, azure]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_role_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Live U.S.-remote board includes .NET engineering and published ranges reaching $185K-$200K. Excellent API/SQL Server fit; reject AI-heavy or security-specialist roles whose domain requirements are mandatory."
+
+- name: Relativity
+  domain: relativity.com
+  careers_url: https://www.relativity.com/company/careers/
+  ats_type: workday
+  board_id: kcura
+  classification: product
+  active: false
+  priority: A
+  fit_lanes: [dotnet, csharp, azure, sql, saas_backend]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: current_role_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "RelativityOne engineering repeatedly uses C#/.NET and Azure. Strong natural fit, but Workday is unsupported and legal/e-discovery or AI requirements must be evaluated posting by posting."
+
+- name: ServiceTitan
+  domain: servicetitan.com
+  careers_url: https://servicetitan.wd1.myworkdayjobs.com/ServiceTitan
+  ats_type: workday
+  board_id: ServiceTitan
+  classification: product
+  active: false
+  priority: A
+  fit_lanes: [dotnet, csharp, sql, apis, distributed_systems]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_role_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large C#/.NET product organization; a recent remote Senior Software Engineer band was $152.6K-$204.2K. Verify team-specific frontend, AWS, and scale expectations."
+
+- name: Bitwarden
+  domain: bitwarden.com
+  careers_url: https://bitwarden.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A
+  fit_lanes: [dotnet, csharp, apis, security_product]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_role_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Remote-first product with a substantial C#/.NET codebase; senior U.S. bands can straddle $170K. Reject roles centered on Rust, cryptography research, or deep security specialization."
+
+- name: Sitecore
+  domain: sitecore.com
+  careers_url: https://jobs.ashbyhq.com/sitecore
+  ats_type: ashby
+  board_id: sitecore
+  classification: product
+  active: true
+  priority: A
+  fit_lanes: [dotnet, csharp, azure, apis, content_platform]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Direct overlap with prior Sitecore/C# experience and a live engineering board. U.S.-remote availability and $170K base must be confirmed; many openings are outside the U.S."
+
+- name: Thomson Reuters
+  domain: thomsonreuters.com
+  careers_url: https://careers.thomsonreuters.com/us/en
+  ats_type: workday
+  board_id: ThomsonReuters
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, python, data_platform, apis]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Broad recurring demand across C#/.NET, Azure, APIs, Python, and data platforms. Filter aggressively because cloud, AI, location, and business-domain requirements vary by team."
+
+- name: DocuSign
+  domain: docusign.com
+  careers_url: https://careers.docusign.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [csharp, apis, integrations, azure, sql]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "High-paying product engineering with strong API/integration relevance and some C#/.NET teams. Remote status has tightened, so only accept postings explicitly available to Washington residents."
+
+- name: Avalara
+  domain: avalara.com
+  careers_url: https://careers.avalara.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, apis, integrations, sql]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "API-heavy tax SaaS with recurring .NET/Azure work and a Seattle connection. Tax-domain familiarity is usually learnable, but role-specific compensation and remote eligibility need verification."
+
+- name: Precisely
+  domain: precisely.com
+  careers_url: https://www.precisely.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, python, data_platform, sql, integrations]
+  remote_signal: remote_history
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Data-integrity and integration products create relevant C#/.NET, Python, SQL, and pipeline work. Keep only roles with a published U.S. base band that makes $170K credible."
+
+- name: Esri
+  domain: esri.com
+  careers_url: https://www.esri.com/en-us/about/careers/overview
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [csharp, dotnet, python, gis, data_platform, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Rare exact overlap with C#/.NET, Python, GIS, geospatial processing, APIs, and data pipelines. Many roles are location-bound and compensation may miss the threshold, so verify both early."
+
+- name: Motorola Solutions
+  domain: motorolasolutions.com
+  careers_url: https://motorolasolutions.wd5.myworkdayjobs.com/Careers
+  ats_type: workday
+  board_id: Careers
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Own-product engineering includes substantial C#/.NET and Azure work. Exclude public-safety roles requiring clearance, on-site presence, or specialized radio/embedded experience."
+
+- name: iManage
+  domain: imanage.com
+  careers_url: https://imanage.com/about-us/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Document-management SaaS has recurring C#/.NET/Azure backend demand. Legal-domain exposure is helpful but often not mandatory; verify remote geography and frontend ownership."
+
+- name: DISCO
+  domain: csdisco.com
+  careers_url: https://csdisco.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, data_platform, apis]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Legal-tech product with strong Microsoft-stack history and high-scale data work. Recent organizational changes and AI emphasis make current team/culture diligence important."
+
+- name: SmartBear
+  domain: smartbear.com
+  careers_url: https://job-boards.greenhouse.io/smartbear
+  ats_type: greenhouse
+  board_id: smartbear
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [apis, integrations, testing, dotnet, backend]
+  remote_signal: sparse_us_remote
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Excellent Swagger/API/testing adjacency and supported board. The current board has few U.S. engineering roles, so treat it as a low-cost monitor rather than a near-term source."
+
+- name: Progress Software
+  domain: progress.com
+  careers_url: https://www.progress.com/company/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, apis, developer_tools, sql]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Owns Telerik and other .NET/developer products, creating unusually relevant platform and API work. U.S.-remote openings and $170K base bands are not consistently available."
+
+- name: GoTo
+  domain: goto.com
+  careers_url: https://www.goto.com/company/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, apis, integrations, saas_backend]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Remote-work products and integrations align well with API/backend experience; multiple stacks coexist. Confirm that a role is backend-heavy and not Java/Go- or frontend-centered."
+
+- name: Genesys
+  domain: genesys.com
+  careers_url: https://genesys.wd1.myworkdayjobs.com/Genesys
+  ats_type: workday
+  board_id: Genesys
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [apis, integrations, csharp, azure, sql, event_driven]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Contact-center platform creates strong API, integration, event-driven, and Microsoft-stack opportunities. Reject AWS-specialist, Kubernetes-platform, or mandatory AI-product roles."
+
+- name: Xero
+  domain: xero.com
+  careers_url: https://careers.xero.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, apis, sql, saas_backend]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large .NET accounting platform with senior U.S. compensation capable of clearing $170K. U.S. openings are intermittent, and some teams require different cloud/platform depth."
+
+- name: Dayforce
+  domain: dayforce.com
+  careers_url: https://jobs.dayforcehcm.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, sql_server, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Microsoft-stack HCM product with recurring C#/.NET, Azure, and SQL Server demand. Compensation and U.S.-remote status vary widely by team."
+
+- name: UKG
+  domain: ukg.com
+  careers_url: https://careers.ukg.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, python, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large product engineering organization with relevant Microsoft and Python/data teams. Match at job level because Java, GCP, AI, and platform-heavy roles are also common."
+
+- name: Microsoft
+  domain: microsoft.com
+  careers_url: https://jobs.careers.microsoft.com/global/en/search
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, sql, apis, data_platform]
+  remote_signal: sparse_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Maximum skill overlap and local relevance, but current attendance policy makes genuinely remote roles scarce. Include only jobs explicitly labeled 100% remote and available in Washington."
+
+- name: GitHub
+  domain: github.com
+  careers_url: https://www.github.careers/careers-home
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [apis, integrations, azure, ci_cd, developer_tools]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Excellent API, integration, Azure DevOps, CI/CD, and developer-tool adjacency with strong remote compensation. Core product teams often prefer Ruby, Go, or deep distributed-systems experience."
+
+- name: Stack Overflow
+  domain: stackoverflow.com
+  careers_url: https://stackoverflow.co/company/work-here/
+  ats_type: greenhouse
+  board_id: stackoverflow
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, sql_server, web_backend]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Historically one of the cleanest C#/.NET/SQL Server remote fits, but the current Greenhouse board is empty or unavailable. Preserve as a monitor, not an active source."
+
+- name: Dropbox
+  domain: dropbox.com
+  careers_url: https://jobs.dropbox.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [python, apis, data_platform, sql, production_systems]
+  remote_signal: virtual_first
+  compensation_signal: verified_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "High-paying virtual-first Python/backend/data target. Apply only where required scale and distributed-systems depth are compatible with the demonstrated track record."
+
+- name: Sentry
+  domain: sentry.io
+  careers_url: https://jobs.ashbyhq.com/sentry
+  ats_type: ashby
+  board_id: sentry
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, django, apis, observability, production_systems]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Python/Django roots plus observability and production troubleshooting make this a strong adjacent target. Many current teams use Rust or TypeScript and some roles are hybrid."
+
+- name: Zapier
+  domain: zapier.com
+  careers_url: https://jobs.ashbyhq.com/zapier
+  ats_type: ashby
+  board_id: zapier
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, integrations, sql, saas_backend]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "One of the best Python/API/integration matches with remote-first compensation. Senior roles can set a high distributed-systems bar, so distinguish attainable product-backend work from elite platform roles."
+
+- name: LaunchDarkly
+  domain: launchdarkly.com
+  careers_url: https://job-boards.greenhouse.io/launchdarkly
+  ats_type: greenhouse
+  board_id: launchdarkly
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, sql, data_platform, production_systems]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Strong API, Python, data, experimentation, and production-ownership overlap with Seattle-calibrated pay. Some roles require Go or deeper high-scale platform experience."
+
+- name: Octopus Deploy
+  domain: octopus.com
+  careers_url: https://octopus.com/company/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, ci_cd, developer_tools, azure]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Superb .NET/deployment-product and culture fit, but current U.S. engineering openings are sparse and the $170K base path is not yet established."
+
+- name: Procore
+  domain: procore.com
+  careers_url: https://procore.wd12.myworkdayjobs.com/Procore_External
+  ats_type: workday
+  board_id: Procore_External
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, apis, saas_backend, sql]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large product engineering organization with Microsoft-stack pockets and qualifying senior pay. Remote availability and stack differ sharply by team."
+
+- name: Optimizely
+  domain: optimizely.com
+  careers_url: https://jobs.jobvite.com/optimizely
+  ats_type: jobvite
+  board_id: optimizely
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, apis, content_platform]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: current_role_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Current .NET role confirms C#, ASP.NET, Azure, Docker, and testing demand. U.S.-remote availability and compensation are the main uncertainties."
+
+- name: Experian
+  domain: experian.com
+  careers_url: https://jobs.experian.com/jobs
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, python, data_platform, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "High volume of product/data engineering and occasional remote .NET roles. AWS is frequently mandatory, so transferable Azure knowledge must not be counted as an exact match."
+
+- name: Qlik
+  domain: qlik.com
+  careers_url: https://www.qlik.com/us/company/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [data_platform, sql, python, apis, integrations]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Data integration and analytics products align with SQL, pipelines, APIs, and Python. Many engineering roles use Java/Go or require deeper distributed-data experience."
+
+- name: SolarWinds
+  domain: solarwinds.com
+  careers_url: https://www.solarwinds.com/company/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, observability, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Longstanding C#/.NET/SQL Server and observability relevance. Compensation, remote policy, and current engineering culture need careful verification."
+
+- name: Quest Software
+  domain: quest.com
+  careers_url: https://careers.quest.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, azure, developer_tools]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Database and Microsoft-platform products generate relevant work. Only retain senior U.S.-remote roles with a clearly qualifying base band and current product investment."
+
+- name: Veeam
+  domain: veeam.com
+  careers_url: https://careers.veeam.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, data_platform, apis]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Backup/data-protection products use substantial C#/.NET and cloud integrations. Screen out deep systems/C++ roles and verify U.S.-remote status."
+
+- name: Commvault
+  domain: commvault.com
+  careers_url: https://careers.commvault.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, data_platform, apis]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Cloud data-protection work can match .NET, Azure, APIs, and production troubleshooting. Some roles are systems-heavy, multi-cloud, or location-bound."
+
+- name: BeyondTrust
+  domain: beyondtrust.com
+  careers_url: https://www.beyondtrust.com/company/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, security_product, apis, azure]
+  remote_signal: remote_history
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Relevant C#/.NET identity-security product work exists, but current openings increasingly emphasize Go, UI, or AI. Require a clean job-level match."
+
+- name: Semperis
+  domain: semperis.com
+  careers_url: https://www.semperis.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, entra_id, security_product, azure]
+  remote_signal: sparse_us_remote
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Technically strong fit through C#/.NET and identity/Entra, but current U.S.-remote engineering volume is low and security specialization may be required."
+
+- name: Netwrix
+  domain: netwrix.com
+  careers_url: https://careers.netwrix.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, security_product, azure]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Microsoft ecosystem and security products create relevant engineering, though pay transparency and U.S.-remote openings are inconsistent."
+
+- name: N-able
+  domain: n-able.com
+  careers_url: https://careers.n-able.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, apis, observability]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Remote-management products offer .NET/Azure/API overlap. Verify compensation and avoid roles centered on endpoint internals, C++, or infrastructure administration."
+
+- name: Allstate
+  domain: allstate.com
+  careers_url: https://www.allstate.jobs/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, sql, apis, data_platform]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large internal product/platform organization with recurring Microsoft, API, and data demand. Reject insurer roles that are actually vendor management, low-code, or domain-specialist positions."
+
+- name: Liberty Mutual
+  domain: libertymutualgroup.com
+  careers_url: https://searchjobs.libertymutualgroup.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, apis, data_platform]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Substantial software organization and senior pay can qualify. AWS is common, so only accept Azure-compatible or cloud-neutral requirements."
+
+- name: Travelers
+  domain: travelers.com
+  careers_url: https://careers.travelers.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, sql_server, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Strong enterprise Microsoft-stack demand, but remote availability and base compensation frequently fall short of the target."
+
+- name: Nationwide
+  domain: nationwide.com
+  careers_url: https://www.nationwide.com/personal/about-us/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Relevant enterprise software demand and remote history, but many bands likely miss $170K. Retain only transparent senior/lead postings."
+
+- name: Anywhere Real Estate
+  domain: anywhere.re
+  careers_url: https://careers.anywhere.re/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: remote_history
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Digital real-estate products can align with .NET/Azure and remote work. Compensation and organizational stability require verification."
+
+- name: Bentley Systems
+  domain: bentley.com
+  careers_url: https://jobs.bentley.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, data_platform, gis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Infrastructure software offers C#/.NET, Azure, data, and geospatial adjacency. Many roles are desktop/C++ or location-specific, and pay may miss the threshold."
+
+- name: Trimble
+  domain: trimble.com
+  careers_url: https://careers.trimble.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, python, gis, data_platform]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Excellent GIS/data/product adjacency with Microsoft and Python teams. Remote policy, hardware/industry specialization, and compensation vary by business unit."
+
+- name: Rockwell Automation
+  domain: rockwellautomation.com
+  careers_url: https://rockwellautomation.wd1.myworkdayjobs.com/External_Rockwell_Automation
+  ats_type: workday
+  board_id: External_Rockwell_Automation
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, sql, industrial_software]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Own-product industrial software includes .NET/Azure work. Exclude controls/embedded roles, mandatory industrial-domain roles, and hybrid positions."
+
+- name: Siemens Digital Industries Software
+  domain: siemens.com
+  careers_url: https://jobs.siemens.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, data_platform, industrial_software]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large software portfolio with Microsoft-stack and data opportunities, but many openings are hybrid, domain-heavy, or outside the U.S."
+
+- name: PTC
+  domain: ptc.com
+  careers_url: https://www.ptc.com/en/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, apis, industrial_software]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Product engineering can use .NET/Azure and APIs, but manufacturing/PLM expertise and location requirements are frequent."
+
+- name: AVEVA
+  domain: aveva.com
+  careers_url: https://www.aveva.com/en/about/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, sql, industrial_software]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Industrial software has deep Microsoft-stack demand. Many jobs are hybrid or require specific industrial-domain knowledge, so use strict filters."
+
+- name: Schneider Electric
+  domain: se.com
+  careers_url: https://www.se.com/ww/en/about-us/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, data_platform, industrial_software]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Broad software and data organization with Azure demand, but remote U.S. product-engineering roles are a small subset and domain requirements vary."
+
+- name: Bluebeam
+  domain: bluebeam.com
+  careers_url: https://www.bluebeam.com/company/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, apis, desktop_and_cloud]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Construction-software product with C#/.NET heritage and cloud expansion. Separate modern backend roles from Windows desktop or frontend-heavy ownership and verify the band."
+
+- name: Cornerstone OnDemand
+  domain: cornerstoneondemand.com
+  careers_url: https://careers.cornerstoneondemand.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql, apis, saas_backend]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large .NET SaaS codebase and API surface, but current U.S.-remote volume, pay transparency, and culture evidence require verification."
