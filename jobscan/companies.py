@@ -18,7 +18,16 @@ class RegistryImportError(ValueError):
 
 
 def _row_to_company(row: dict) -> Company:
-    missing = REQUIRED_FIELDS - {k for k, v in row.items() if v not in (None, "")}
+    domain = (row.get("domain") or "").strip() or None
+    board_id = str(row.get("board_id") or "").strip()
+    if not board_id and domain:
+        # ATS types with no board-token API (e.g. a bespoke "custom" careers page) genuinely
+        # have no board_id. Fall back to domain — stable and unique per company — rather than
+        # requiring curators to invent one, since it's still needed as the uniqueness key
+        # alongside ats_type.
+        board_id = domain
+
+    missing = REQUIRED_FIELDS - {k for k, v in {**row, "board_id": board_id}.items() if v not in (None, "")}
     if missing:
         raise RegistryImportError(f"row missing required field(s) {missing}: {row}")
 
@@ -41,10 +50,10 @@ def _row_to_company(row: dict) -> Company:
 
     return Company(
         name=str(row["name"]).strip(),
-        domain=(row.get("domain") or "").strip() or None,
+        domain=domain,
         careers_url=(row.get("careers_url") or "").strip() or None,
         ats_type=ats_type,
-        board_id=str(row["board_id"]).strip(),
+        board_id=board_id,
         classification=classification,
         classification_source=ClassificationSource.SEED if classification != CompanyClassification.UNKNOWN else None,
         active=active,

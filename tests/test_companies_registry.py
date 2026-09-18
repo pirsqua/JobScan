@@ -144,3 +144,20 @@ class TestRegistryImport:
         path.write_text("name,ats_type\nBadCo,greenhouse\n", encoding="utf-8")
         with pytest.raises(RegistryImportError):
             parse_registry_file(path)
+
+    def test_blank_board_id_falls_back_to_domain(self, tmp_path: Path, db: Database):
+        # "custom" (bespoke career-page) entries have no board-token API, so no real board_id —
+        # domain is a stable, unique-per-company fallback rather than requiring one be invented.
+        path = tmp_path / "custom.csv"
+        path.write_text(
+            "name,domain,ats_type,board_id,active\nBitwarden,bitwarden.com,custom,,false\n",
+            encoding="utf-8",
+        )
+        companies = parse_registry_file(path)
+        assert companies[0].board_id == "bitwarden.com"
+
+    def test_blank_board_id_without_domain_still_raises(self, tmp_path: Path):
+        path = tmp_path / "bad.csv"
+        path.write_text("name,ats_type,board_id,active\nBadCo,custom,,false\n", encoding="utf-8")
+        with pytest.raises(RegistryImportError):
+            parse_registry_file(path)
