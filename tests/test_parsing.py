@@ -65,6 +65,27 @@ class TestSalaryParsing:
         result = parse_salary_from_text("Our company is valued at $1,500,000 - $2,500,000 today.")
         assert result.salary_min is None
 
+    def test_distant_hourly_disclaimer_does_not_misclassify_a_real_annual_range(self):
+        # Observed live (Sentry): a generic pay-transparency disclaimer mentioning "hourly" can
+        # sit near-ish an actual annual range in the same sentence, causing the range to be
+        # evaluated against hourly bounds ($15-$300) and discarded as implausible. Real text:
+        text = (
+            "This role focuses on cross-cutting projects that span multiple engineers and teams. "
+            "The base salary range (or hourly wage range, if applicable) that the company "
+            "reasonably expects to pay for this position is $155,000 to $400,000."
+        )
+        result = parse_salary_from_text(text)
+        assert result.salary_min == 155000
+        assert result.salary_max == 400000
+        assert result.salary_period == "year"
+
+    def test_hourly_indicator_immediately_adjacent_still_detected(self):
+        # The fix must not lose genuine proximity-based hourly detection.
+        text = "We raised $150,000,000 in funding. This contract role pays $85/hr - $100/hr."
+        result = parse_salary_from_text(text)
+        assert result.salary_period == "hour"
+        assert result.salary_min == 85
+
     def test_structured_takes_precedence_over_text(self):
         result = resolve_salary(150000, 190000, "USD", "year", "This role pays $999,000 - $1,000,000 (typo in description).")
         assert result.salary_min == 150000

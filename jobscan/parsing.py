@@ -68,50 +68,68 @@ class ParsedSalary:
     salary_source: SalarySource
 
 
+_HOURLY_PROXIMITY_CHARS = 45
+
+
+def _is_hourly_nearby(text: str, start: int, end: int) -> bool:
+    """Whether an hourly-pay indicator appears close to this specific match — not just anywhere
+    in the document. Job descriptions commonly include a generic "(or hourly wage range, if
+    applicable)" disclaimer as pay-transparency boilerplate even for salaried roles; treating the
+    whole text as hourly-paid because that phrase appears somewhere makes an unrelated
+    $155,000-$400,000 range look like an implausible hourly rate and get discarded."""
+    nearby = text[max(0, start - _HOURLY_PROXIMITY_CHARS) : end + _HOURLY_PROXIMITY_CHARS]
+    return bool(_HOURLY_HINT_RE.search(nearby))
+
+
 def parse_salary_from_text(text: str | None) -> ParsedSalary:
     """Best-effort extraction of a salary range from free-form job description text."""
     if not text:
         return ParsedSalary(None, None, None, None, SalarySource.NONE)
 
-    period = "hour" if _HOURLY_HINT_RE.search(text) else "year"
-    lo_bound, hi_bound = (
-        (MIN_PLAUSIBLE_HOURLY, MAX_PLAUSIBLE_HOURLY)
-        if period == "hour"
-        else (MIN_PLAUSIBLE_ANNUAL, MAX_PLAUSIBLE_ANNUAL)
-    )
-
-    candidates: list[tuple[int, float, float, str | None]] = []  # (context_score, min, max, currency)
+    candidates: list[tuple[int, float, float, str | None, str]] = []  # (score, min, max, currency, period)
     for match in _RANGE_RE.finditer(text):
         low = _to_number(match.group("low"), bool(match.group("low_k")))
         high = _to_number(match.group("high"), bool(match.group("high_k")))
         if low > high:
             low, high = high, low
+        period = "hour" if _is_hourly_nearby(text, match.start(), match.end()) else "year"
+        lo_bound, hi_bound = (
+            (MIN_PLAUSIBLE_HOURLY, MAX_PLAUSIBLE_HOURLY)
+            if period == "hour"
+            else (MIN_PLAUSIBLE_ANNUAL, MAX_PLAUSIBLE_ANNUAL)
+        )
         if not (lo_bound <= low <= hi_bound and lo_bound <= high <= hi_bound):
             continue
         window_start = max(0, match.start() - 60)
         context = text[window_start : match.start()]
         score = 1 if _SALARY_CONTEXT_RE.search(context) else 0
-        candidates.append((score, low, high, match.group("currency")))
+        candidates.append((score, low, high, match.group("currency"), period))
 
     if candidates:
         candidates.sort(key=lambda c: c[0], reverse=True)
-        _, low, high, currency = candidates[0]
+        _, low, high, currency, period = candidates[0]
         return ParsedSalary(low, high, (currency or "USD").upper(), period, SalarySource.DESCRIPTION)
 
     # Fall back to a single dollar figure (e.g. "starting at $190,000").
-    single_candidates: list[tuple[int, float]] = []
+    single_candidates: list[tuple[int, float, str]] = []
     for match in _SINGLE_RE.finditer(text):
         value = _to_number(match.group("value"), bool(match.group("k")))
+        period = "hour" if _is_hourly_nearby(text, match.start(), match.end()) else "year"
+        lo_bound, hi_bound = (
+            (MIN_PLAUSIBLE_HOURLY, MAX_PLAUSIBLE_HOURLY)
+            if period == "hour"
+            else (MIN_PLAUSIBLE_ANNUAL, MAX_PLAUSIBLE_ANNUAL)
+        )
         if not (lo_bound <= value <= hi_bound):
             continue
         window_start = max(0, match.start() - 60)
         context = text[window_start : match.start()]
         score = 1 if _SALARY_CONTEXT_RE.search(context) else 0
-        single_candidates.append((score, value))
+        single_candidates.append((score, value, period))
 
     if single_candidates:
         single_candidates.sort(key=lambda c: c[0], reverse=True)
-        _, value = single_candidates[0]
+        _, value, period = single_candidates[0]
         return ParsedSalary(value, value, "USD", period, SalarySource.DESCRIPTION)
 
     return ParsedSalary(None, None, None, None, SalarySource.NONE)
