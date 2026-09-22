@@ -15,19 +15,26 @@ if TYPE_CHECKING:
 
 
 class AtsType(str, Enum):
-    """Greenhouse/Ashby/Lever/Workday have real adapters (see jobscan.adapters.ADAPTERS). The rest
-    are recorded-but-not-yet-crawlable — a registry curator can note that a company uses e.g.
-    SmartRecruiters without the import failing, and jobscan.crawl already skips any company whose
-    ats_type has no entry in ADAPTERS (reported as "no adapter registered" rather than attempted).
-    Keep such companies active=false until a real adapter exists. Workday's board_id encodes
-    "{tenant}/{cluster}/{site}" (see jobscan.adapters.workday) rather than a single token."""
+    """Greenhouse/Ashby/Lever/Workday/Jobvite have real adapters (see jobscan.adapters.ADAPTERS).
+    The rest are recorded-but-not-yet-crawlable — a registry curator can note that a company uses
+    e.g. SmartRecruiters without the import failing, and jobscan.crawl already skips any company
+    whose ats_type has no entry in ADAPTERS (reported as "no adapter registered" rather than
+    attempted). Keep such companies active=false until a real adapter exists. Workday's board_id
+    encodes "{tenant}/{cluster}/{site}" (see jobscan.adapters.workday) rather than a single token.
+
+    ESRI is a one-off: a bespoke, single-company careers platform (not a multi-tenant ATS other
+    registry companies could ever share) that still turned out to be crawlable — its own real
+    search API. Deliberately NOT folded into CUSTOM, since CUSTOM has no adapter and ADAPTERS is
+    keyed by ats_type; doing so would wrongly route every other "custom" company through Esri's
+    API. A future one-off bespoke platform worth crawling gets its own value the same way."""
 
     GREENHOUSE = "greenhouse"
     ASHBY = "ashby"
     LEVER = "lever"
     WORKDAY = "workday"
-    SMARTRECRUITERS = "smartrecruiters"
     JOBVITE = "jobvite"
+    ESRI = "esri"
+    SMARTRECRUITERS = "smartrecruiters"
     CUSTOM = "custom"
 
 

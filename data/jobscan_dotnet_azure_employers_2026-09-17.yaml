@@ -179,17 +179,17 @@
 - name: Esri
   domain: esri.com
   careers_url: https://www.esri.com/en-us/about/careers/overview
-  ats_type: custom
-  board_id: ""
+  ats_type: esri
+  board_id: esri
   classification: product
-  active: false
+  active: true
   priority: A-
   fit_lanes: [csharp, dotnet, python, gis, data_platform, apis]
   remote_signal: team_specific
   compensation_signal: uncertain
   evidence_level: recurring_stack
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Rare exact overlap with C#/.NET, Python, GIS, geospatial processing, APIs, and data pipelines. Many roles are location-bound and compensation may miss the threshold, so verify both early."
+  notes: "Rare exact overlap with C#/.NET, Python, GIS, geospatial processing, APIs, and data pipelines. Many roles are location-bound and compensation may miss the threshold, so verify both early. Curated file guessed 'custom', but Esri runs its own crawlable search API (esearchapi.esri.com) with 450 open roles, ~95 engineering-titled — verified live 2026-09-22, dedicated EsriAdapter built."
 
 - name: Motorola Solutions
   domain: motorolasolutions.com
@@ -253,18 +253,18 @@
 
 - name: Progress Software
   domain: progress.com
-  careers_url: https://www.progress.com/company/careers
-  ats_type: custom
-  board_id: ""
+  careers_url: https://jobs.jobvite.com/progress
+  ats_type: jobvite
+  board_id: progress
   classification: product
-  active: false
+  active: true
   priority: A-
   fit_lanes: [dotnet, csharp, apis, developer_tools, sql]
   remote_signal: team_specific
   compensation_signal: uncertain
   evidence_level: recurring_stack
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Owns Telerik and other .NET/developer products, creating unusually relevant platform and API work. U.S.-remote openings and $170K base bands are not consistently available."
+  notes: "Owns Telerik and other .NET/developer products, creating unusually relevant platform and API work. U.S.-remote openings and $170K base bands are not consistently available. Curated file guessed 'custom', but progress.com/company/careers proxies a real Jobvite board (jobs.jobvite.com/progress) — verified live 2026-09-22, JobviteAdapter built."
 
 - name: GoTo
   domain: goto.com
@@ -482,14 +482,14 @@
   ats_type: jobvite
   board_id: optimizely
   classification: product
-  active: false
+  active: true
   priority: B+
   fit_lanes: [dotnet, csharp, azure, apis, content_platform]
   remote_signal: team_specific
   compensation_signal: uncertain
   evidence_level: current_role_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Current .NET role confirms C#, ASP.NET, Azure, Docker, and testing demand. U.S.-remote availability and compensation are the main uncertainties."
+  notes: "Current .NET role confirms C#, ASP.NET, Azure, Docker, and testing demand. U.S.-remote availability and compensation are the main uncertainties. JobviteAdapter built 2026-09-22 (paired with Progress Software)."
 
 - name: Experian
   domain: experian.com
