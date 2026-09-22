@@ -253,12 +253,13 @@
   ats_type: greenhouse
   board_id: aiven36
   classification: product
-  active: true
+  active: false
   discovery_source: curated_remote_wlb_2026
   notes: 'Priority A. Remote-first; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend
     api, python, distributed systems, observability, ci cd. Positive employer-level culture signal, but verify the current
     engineering team; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404''d on live
-    crawl; verified via web search + direct API probe.]'
+    crawl; verified via web search + direct API probe.] [Deactivated 2026-09-21: all 16 postings ever crawled were Helsinki
+    or Israel, zero US signal — confirmed location dead end, not a WA-remote source.]'
 - name: Cloudflare
   domain: cloudflare.com
   careers_url: https://job-boards.greenhouse.io/cloudflare
@@ -561,12 +562,13 @@
   ats_type: lever
   board_id: jumpcloud
   classification: product
-  active: true
+  active: false
   discovery_source: curated_remote_wlb_2026
   notes: 'Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable
     roles. Relevant lanes: backend api, identity, azure, event driven, sql. Recent engineering-team WLB evidence still needs
     verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404''d on live crawl;
-    verified via web search + direct API probe.]'
+    verified via web search + direct API probe.] [Deactivated 2026-09-21: all 7 postings ever crawled were Bangalore, Ankara,
+    or Delhi, zero US signal — the "history of U.S.-remote roles" hasn''t held up in current data.]'
 - name: Teleport
   domain: goteleport.com
   careers_url: https://job-boards.greenhouse.io/teleport

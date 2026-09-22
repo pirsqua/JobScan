@@ -11,9 +11,14 @@
 # omitted.
 #
 # active means the board is currently crawlable by the existing Greenhouse,
-# Ashby, or Lever adapters. It does NOT mean the employer is better or is hiring
-# a matching role today. Unsupported and custom boards are retained as
+# Ashby, Lever, or Workday adapters. It does NOT mean the employer is better or
+# is hiring a matching role today. Unsupported and custom boards are retained as
 # active=false so future adapters or browser discovery can cover them honestly.
+#
+# Workday board_id encodes "{tenant}/{cluster}/{site}" (verified live against
+# each company's real Workday tenant on 2026-09-19 — the curator's initial
+# guesses were wrong for 3 of 7, and Procore turned out not to be on Workday
+# at all, so it was reclassified to custom).
 #
 # Evidence levels:
 #   current_role_verified  = a current role/board recently demonstrated the fit
@@ -55,24 +60,24 @@
   domain: relativity.com
   careers_url: https://www.relativity.com/company/careers/
   ats_type: workday
-  board_id: kcura
+  board_id: kcura/wd1/External_Career_Site
   classification: product
-  active: false
+  active: true
   priority: A
   fit_lanes: [dotnet, csharp, azure, sql, saas_backend]
   remote_signal: team_specific
   compensation_signal: likely_170k_path
   evidence_level: current_role_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "RelativityOne engineering repeatedly uses C#/.NET and Azure. Strong natural fit, but Workday is unsupported and legal/e-discovery or AI requirements must be evaluated posting by posting."
+  notes: "RelativityOne engineering repeatedly uses C#/.NET and Azure. Strong natural fit; legal/e-discovery or AI requirements must be evaluated posting by posting. Workday tenant is 'kcura' (Relativity's former company name), verified live via the Workday adapter."
 
 - name: ServiceTitan
   domain: servicetitan.com
   careers_url: https://servicetitan.wd1.myworkdayjobs.com/ServiceTitan
   ats_type: workday
-  board_id: ServiceTitan
+  board_id: servicetitan/wd1/ServiceTitan
   classification: product
-  active: false
+  active: true
   priority: A
   fit_lanes: [dotnet, csharp, sql, apis, distributed_systems]
   remote_signal: current_us_remote
@@ -102,22 +107,22 @@
   ats_type: ashby
   board_id: sitecore
   classification: product
-  active: true
+  active: false
   priority: A
   fit_lanes: [dotnet, csharp, azure, apis, content_platform]
   remote_signal: team_specific
   compensation_signal: uncertain
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Direct overlap with prior Sitecore/C# experience and a live engineering board. U.S.-remote availability and $170K base must be confirmed; many openings are outside the U.S."
+  notes: "Direct overlap with prior Sitecore/C# experience and a live engineering board. U.S.-remote availability and $170K base must be confirmed; many openings are outside the U.S. [Deactivated 2026-09-21: all 3 postings ever crawled were Kuala Lumpur, zero US signal — thin sample, but matches this note's own original caution.]"
 
 - name: Thomson Reuters
   domain: thomsonreuters.com
   careers_url: https://careers.thomsonreuters.com/us/en
   ats_type: workday
-  board_id: ThomsonReuters
+  board_id: thomsonreuters/wd5/External_Career_Site
   classification: product
-  active: false
+  active: true
   priority: A-
   fit_lanes: [dotnet, csharp, azure, python, data_platform, apis]
   remote_signal: team_specific
@@ -190,9 +195,9 @@
   domain: motorolasolutions.com
   careers_url: https://motorolasolutions.wd5.myworkdayjobs.com/Careers
   ats_type: workday
-  board_id: Careers
+  board_id: motorolasolutions/wd5/Careers
   classification: product
-  active: false
+  active: true
   priority: A-
   fit_lanes: [dotnet, csharp, azure, apis, sql]
   remote_signal: team_specific
@@ -219,8 +224,8 @@
 - name: DISCO
   domain: csdisco.com
   careers_url: https://csdisco.com/careers
-  ats_type: custom
-  board_id: ""
+  ats_type: greenhouse
+  board_id: disco
   classification: product
   active: false
   priority: A-
@@ -229,7 +234,7 @@
   compensation_signal: likely_170k_path
   evidence_level: recurring_stack
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Legal-tech product with strong Microsoft-stack history and high-scale data work. Recent organizational changes and AI emphasis make current team/culture diligence important."
+  notes: "Legal-tech product with strong Microsoft-stack history and high-scale data work. Recent organizational changes and AI emphasis make current team/culture diligence important. Curated file guessed 'custom' with no board_id, but csdisco.com/careers embeds a real Greenhouse board (job-boards.greenhouse.io/disco) — verified live 2026-09-21. [Deactivated 2026-09-21: all 9 postings crawled from the real board were London, Manchester, or Gurugram, zero US signal — confirmed location dead end.]"
 
 - name: SmartBear
   domain: smartbear.com
@@ -237,14 +242,14 @@
   ats_type: greenhouse
   board_id: smartbear
   classification: product
-  active: true
+  active: false
   priority: A-
   fit_lanes: [apis, integrations, testing, dotnet, backend]
   remote_signal: sparse_us_remote
   compensation_signal: uncertain
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Excellent Swagger/API/testing adjacency and supported board. The current board has few U.S. engineering roles, so treat it as a low-cost monitor rather than a near-term source."
+  notes: "Excellent Swagger/API/testing adjacency and supported board. The current board has few U.S. engineering roles, so treat it as a low-cost monitor rather than a near-term source. [Deactivated 2026-09-21: all 5 postings ever crawled were Bengaluru, Wroclaw, or Ahmedabad, zero US signal — confirmed dead end, not just sparse.]"
 
 - name: Progress Software
   domain: progress.com
@@ -264,25 +269,25 @@
 - name: GoTo
   domain: goto.com
   careers_url: https://www.goto.com/company/careers
-  ats_type: custom
-  board_id: ""
+  ats_type: workday
+  board_id: goto/wd5/GoToCareers
   classification: product
-  active: false
+  active: true
   priority: A-
   fit_lanes: [dotnet, csharp, apis, integrations, saas_backend]
   remote_signal: remote_history
   compensation_signal: likely_170k_path
   evidence_level: recurring_stack
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Remote-work products and integrations align well with API/backend experience; multiple stacks coexist. Confirm that a role is backend-heavy and not Java/Go- or frontend-centered."
+  notes: "Remote-work products and integrations align well with API/backend experience; multiple stacks coexist. Confirm that a role is backend-heavy and not Java/Go- or frontend-centered. Curated file guessed 'custom', but goto.com/company/careers embeds a real Workday board (goto.wd5.myworkdayjobs.com/GoToCareers) — verified live 2026-09-21."
 
 - name: Genesys
   domain: genesys.com
   careers_url: https://genesys.wd1.myworkdayjobs.com/Genesys
   ats_type: workday
-  board_id: Genesys
+  board_id: genesys/wd1/Genesys
   classification: product
-  active: false
+  active: true
   priority: A-
   fit_lanes: [apis, integrations, csharp, azure, sql, event_driven]
   remote_signal: team_specific
@@ -458,9 +463,9 @@
 
 - name: Procore
   domain: procore.com
-  careers_url: https://procore.wd12.myworkdayjobs.com/Procore_External
-  ats_type: workday
-  board_id: Procore_External
+  careers_url: https://careers.procore.com/
+  ats_type: custom
+  board_id: ""
   classification: product
   active: false
   priority: B+
@@ -469,7 +474,7 @@
   compensation_signal: likely_170k_path
   evidence_level: recurring_stack
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Large product engineering organization with Microsoft-stack pockets and qualifying senior pay. Remote availability and stack differ sharply by team."
+  notes: "Large product engineering organization with Microsoft-stack pockets and qualifying senior pay. Remote availability and stack differ sharply by team. Curated file guessed Workday (procore.wd12.myworkdayjobs.com/Procore_External), but careers.procore.com is a different, bespoke platform — verified live 2026-09-19, no myworkdayjobs.com reference on the page."
 
 - name: Optimizely
   domain: optimizely.com
@@ -745,9 +750,9 @@
   domain: rockwellautomation.com
   careers_url: https://rockwellautomation.wd1.myworkdayjobs.com/External_Rockwell_Automation
   ats_type: workday
-  board_id: External_Rockwell_Automation
+  board_id: rockwellautomation/wd1/External_Rockwell_Automation
   classification: product
-  active: false
+  active: true
   priority: B
   fit_lanes: [dotnet, csharp, azure, sql, industrial_software]
   remote_signal: team_specific
