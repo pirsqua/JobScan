@@ -6,7 +6,9 @@ import respx
 
 from jobscan.adapters.ashby import AshbyAdapter
 from jobscan.adapters.base import AdapterError
+from jobscan.adapters.esri import EsriAdapter
 from jobscan.adapters.greenhouse import GreenhouseAdapter
+from jobscan.adapters.jobvite import JobviteAdapter
 from jobscan.adapters.lever import LeverAdapter
 from jobscan.adapters.workday import WorkdayAdapter
 from jobscan.models import SalarySource
@@ -479,3 +481,352 @@ class TestWorkdayAdapter:
     def test_board_id_with_blank_segment_raises_adapter_error(self, http_client):
         with pytest.raises(AdapterError):
             list(WorkdayAdapter(http_client).fetch_postings("acme//Acme"))
+
+
+class TestJobviteAdapter:
+    LIST_URL = "https://jobs.jobvite.com/acme"
+    DETAIL_URL = "https://jobs.jobvite.com/acme/job/abc123"
+
+    LIST_HTML = """
+    <html><body>
+        <h3 class="h2">Engineering</h3>
+        <table class="jv-job-list">
+            <tbody>
+                <tr>
+                    <td class="jv-job-list-name"><a href="/acme/job/abc123">Senior Backend Engineer</a></td>
+                    <td class="jv-job-list-location">United States</td>
+                </tr>
+            </tbody>
+        </table>
+        <h3 class="h2">Sales</h3>
+        <table class="jv-job-list">
+            <tbody>
+                <tr>
+                    <td class="jv-job-list-name"><a href="/acme/job/xyz789">Account Executive</a></td>
+                    <td class="jv-job-list-location">Remote</td>
+                </tr>
+            </tbody>
+        </table>
+    </body></html>
+    """
+
+    @staticmethod
+    def detail_html(json_ld: str, extra_blocks: str = "") -> str:
+        return f"""
+        <html><head>
+        {extra_blocks}
+        <script type="application/ld+json">{json_ld}</script>
+        </head><body>Detail page</body></html>
+        """
+
+    @respx.mock
+    def test_fetches_detail_only_for_engineering_titles(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
+        detail_route = respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text=self.detail_html(
+                    """{
+                        "@type": "JobPosting",
+                        "title": "Senior Backend Engineer",
+                        "description": "<p>Build our platform.</p>",
+                        "datePosted": "2026-08-01",
+                        "employmentType": "Full-Time"
+                    }"""
+                ),
+            )
+        )
+
+        adapter = JobviteAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+
+        assert detail_route.call_count == 1
+        assert len(postings) == 1
+        posting = postings[0]
+        assert posting.source_job_id == "abc123"
+        assert posting.title == "Senior Backend Engineer"
+        assert posting.location_raw == "United States"
+        assert posting.employment_type_raw == "Full-Time"
+        assert "Build our platform" in posting.description_html
+        assert posting.salary_source == SalarySource.NONE
+
+    @respx.mock
+    def test_extracts_structured_salary_when_published(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text=self.detail_html(
+                    """{
+                        "@type": "JobPosting",
+                        "title": "Senior Backend Engineer",
+                        "description": "<p>Build our platform.</p>",
+                        "baseSalary": {
+                            "@type": "MonetaryAmount",
+                            "currency": "USD",
+                            "value": {"@type": "QuantitativeValue", "minValue": "170000", "maxValue": "210000", "unitText": "YEAR"}
+                        }
+                    }"""
+                ),
+            )
+        )
+
+        adapter = JobviteAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+
+        assert len(postings) == 1
+        posting = postings[0]
+        assert posting.salary_min == 170000
+        assert posting.salary_max == 210000
+        assert posting.salary_currency == "USD"
+        assert posting.salary_period == "year"
+        assert posting.salary_source == SalarySource.STRUCTURED
+
+    @respx.mock
+    def test_empty_salary_strings_are_not_treated_as_structured(self, http_client):
+        # Observed live: unpublished salary still sends the baseSalary object, just with every
+        # value as an empty string rather than the field being absent.
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text=self.detail_html(
+                    """{
+                        "@type": "JobPosting",
+                        "title": "Senior Backend Engineer",
+                        "description": "<p>Build our platform.</p>",
+                        "baseSalary": {
+                            "@type": "MonetaryAmount",
+                            "currency": "",
+                            "value": {"@type": "QuantitativeValue", "minValue": "", "maxValue": "", "unitText": ""}
+                        }
+                    }"""
+                ),
+            )
+        )
+
+        adapter = JobviteAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+
+        assert postings[0].salary_source == SalarySource.NONE
+        assert postings[0].salary_min is None
+
+    @respx.mock
+    def test_ignores_non_jobposting_json_ld_blocks(self, http_client):
+        # Detail pages can carry other ld+json blocks (breadcrumbs, organization, ...) — only the
+        # one typed JobPosting should be used.
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text=self.detail_html(
+                    json_ld="""{"@type": "JobPosting", "title": "Senior Backend Engineer", "description": "<p>Real.</p>"}""",
+                    extra_blocks='<script type="application/ld+json">{"@type": "Organization", "name": "Acme"}</script>',
+                ),
+            )
+        )
+
+        adapter = JobviteAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+
+        assert len(postings) == 1
+        assert "Real." in postings[0].description_html
+
+    @respx.mock
+    def test_detail_missing_json_ld_is_skipped_not_fatal(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
+        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, text="<html><body>No data here.</body></html>"))
+
+        adapter = JobviteAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert postings == []
+
+    @respx.mock
+    def test_list_http_error_raises_adapter_error(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(500))
+        adapter = JobviteAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme"))
+
+    @respx.mock
+    def test_multi_node_location_whitespace_is_collapsed(self, http_client):
+        # Observed live: a location cell split across text nodes (e.g. "Stockholm," and "Sweden"
+        # on separate lines in the source HTML) leaves embedded newlines/indentation that
+        # get_text(strip=True) alone doesn't collapse.
+        list_html = """
+        <html><body>
+            <table class="jv-job-list"><tbody><tr>
+                <td class="jv-job-list-name"><a href="/acme/job/abc123">Senior Backend Engineer</a></td>
+                <td class="jv-job-list-location">
+                    Stockholm,
+                    Sweden
+                </td>
+            </tr></tbody></table>
+        </body></html>
+        """
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=list_html))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text=self.detail_html(
+                    """{"@type": "JobPosting", "title": "Senior Backend Engineer", "description": "<p>Role.</p>"}"""
+                ),
+            )
+        )
+
+        adapter = JobviteAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert postings[0].location_raw == "Stockholm, Sweden"
+
+
+class FakeRenderer:
+    """Stands in for the real Playwright-backed renderer in tests — see EsriAdapter.__init__."""
+
+    def __init__(self, text: str = "Full rendered description.", raise_for: set[str] | None = None):
+        self.text = text
+        self.raise_for = raise_for or set()
+        self.rendered_urls: list[str] = []
+        self.closed = False
+
+    def render(self, url: str) -> str:
+        self.rendered_urls.append(url)
+        if url in self.raise_for:
+            raise RuntimeError("simulated render failure")
+        return self.text
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def esri_hit(title: str, job_id: str, job_title: str | None = None, locations: str | None = None) -> dict:
+    meta = {}
+    if job_title is not None:
+        meta["JobTitle"] = job_title
+    if locations is not None:
+        meta["locations"] = locations
+    return {"doc": {"displayurl": f"https://www.esri.com/careers/{job_id}", "title": title, "metaFields": meta}}
+
+
+class TestEsriAdapter:
+    SEARCH_URL = "https://esearchapi.esri.com/search"
+
+    @respx.mock
+    def test_fetches_detail_only_for_engineering_titles(self, http_client):
+        respx.post(self.SEARCH_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "search": {
+                        "count": 2,
+                        "hits": [
+                            esri_hit(
+                                "Software Development Engineer II Job | Esri Career Opportunity",
+                                "1001", job_title="Software Development Engineer II", locations="Redlands-CA",
+                            ),
+                            esri_hit("Account Executive Job | Esri Career Opportunity", "1002", job_title="Account Executive"),
+                        ],
+                    }
+                },
+            )
+        )
+        renderer = FakeRenderer(text="Full job description text.")
+        adapter = EsriAdapter(http_client, renderer=renderer)
+        postings = list(adapter.fetch_postings("esri"))
+
+        assert len(renderer.rendered_urls) == 1
+        assert len(postings) == 1
+        posting = postings[0]
+        assert posting.source_job_id == "1001"
+        assert posting.title == "Software Development Engineer II"
+        assert posting.location_raw == "Redlands, CA"
+        assert posting.description_text == "Full job description text."
+        # An injected renderer is caller-owned — the adapter doesn't close it.
+        assert renderer.closed is False
+
+    @respx.mock
+    def test_falls_back_to_stripped_title_when_job_title_metafield_missing(self, http_client):
+        respx.post(self.SEARCH_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "search": {
+                        "count": 1,
+                        "hits": [esri_hit("Senior Software Engineer Job | Esri Career Opportunity", "2001")],
+                    }
+                },
+            )
+        )
+        adapter = EsriAdapter(http_client, renderer=FakeRenderer())
+        postings = list(adapter.fetch_postings("esri"))
+        assert postings[0].title == "Senior Software Engineer"
+
+    @respx.mock
+    def test_list_valued_metafield_does_not_crash(self, http_client):
+        # Observed live elsewhere (Greenhouse): a metadata field can come back as a list instead
+        # of a bare string.
+        hit = esri_hit("Software Engineer Job | Esri Career Opportunity", "3001", job_title="Software Engineer")
+        hit["doc"]["metaFields"]["locations"] = ["Redlands-CA"]
+        respx.post(self.SEARCH_URL).mock(return_value=httpx.Response(200, json={"search": {"count": 1, "hits": [hit]}}))
+        adapter = EsriAdapter(http_client, renderer=FakeRenderer())
+        postings = list(adapter.fetch_postings("esri"))
+        assert postings[0].location_raw == "Redlands, CA"
+
+    @respx.mock
+    def test_pagination_stops_at_reported_count(self, http_client, monkeypatch):
+        import jobscan.adapters.esri as esri_module
+
+        monkeypatch.setattr(esri_module, "PAGE_SIZE", 1)
+
+        route = respx.post(self.SEARCH_URL)
+        route.side_effect = [
+            httpx.Response(200, json={"search": {"count": 2, "hits": [esri_hit("Software Engineer I Job | Esri Career Opportunity", "1", job_title="Software Engineer I")]}}),
+            httpx.Response(200, json={"search": {"count": 2, "hits": [esri_hit("Software Engineer II Job | Esri Career Opportunity", "2", job_title="Software Engineer II")]}}),
+        ]
+        adapter = EsriAdapter(http_client, renderer=FakeRenderer())
+        postings = list(adapter.fetch_postings("esri"))
+
+        assert route.call_count == 2
+        assert len(postings) == 2
+
+    @respx.mock
+    def test_render_failure_is_skipped_not_fatal(self, http_client):
+        respx.post(self.SEARCH_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "search": {
+                        "count": 1,
+                        "hits": [esri_hit("Software Engineer Job | Esri Career Opportunity", "9001", job_title="Software Engineer")],
+                    }
+                },
+            )
+        )
+        renderer = FakeRenderer(raise_for={"https://www.esri.com/careers/9001"})
+        adapter = EsriAdapter(http_client, renderer=renderer)
+        postings = list(adapter.fetch_postings("esri"))
+        assert postings == []
+
+    @respx.mock
+    def test_search_http_error_raises_adapter_error(self, http_client):
+        respx.post(self.SEARCH_URL).mock(return_value=httpx.Response(500))
+        adapter = EsriAdapter(http_client, renderer=FakeRenderer())
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("esri"))
+
+    @respx.mock
+    def test_owned_renderer_is_closed_after_fetch(self, http_client, monkeypatch):
+        import jobscan.adapters.esri as esri_module
+
+        respx.post(self.SEARCH_URL).mock(return_value=httpx.Response(200, json={"search": {"count": 0, "hits": []}}))
+
+        created = {}
+
+        class FakeOwnedRenderer(FakeRenderer):
+            def __init__(self):
+                super().__init__()
+                created["instance"] = self
+
+        monkeypatch.setattr(esri_module, "_PlaywrightRenderer", FakeOwnedRenderer)
+        adapter = EsriAdapter(http_client)  # no renderer injected -> adapter creates + owns one
+        list(adapter.fetch_postings("esri"))
+        assert created["instance"].closed is True

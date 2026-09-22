@@ -165,3 +165,68 @@ class WorkdayJobPostingInfo(BaseModel):
 class WorkdayJobDetailResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
     jobPostingInfo: WorkdayJobPostingInfo
+
+
+# ---------------------------------------------------------------------------
+# Jobvite: GET https://jobs.jobvite.com/{company} (HTML list)
+#          GET https://jobs.jobvite.com/{company}/job/{id} (HTML detail, with an embedded
+#          schema.org JobPosting JSON-LD block carrying the full description/salary/type)
+# ---------------------------------------------------------------------------
+
+
+class JsonLdQuantitativeValue(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    # minValue/maxValue come back as an empty string, not an absent field, when a company hasn't
+    # published a range — str | float so both the empty-string and populated cases validate.
+    minValue: str | float | None = None
+    maxValue: str | float | None = None
+    unitText: str | None = None
+
+
+class JsonLdBaseSalary(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    currency: str | None = None
+    value: JsonLdQuantitativeValue | None = None
+
+
+# ---------------------------------------------------------------------------
+# Esri: POST https://esearchapi.esri.com/search
+# ---------------------------------------------------------------------------
+
+
+class EsriSearchHitDoc(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    displayurl: str | None = None
+    # Includes a " Job | Esri Career Opportunity" SEO suffix; metaFields.JobTitle is the clean
+    # title and is preferred where present.
+    title: str = ""
+    metaFields: dict[str, Any] = {}
+
+
+class EsriSearchHit(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    doc: EsriSearchHitDoc
+
+
+class EsriSearchInner(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    count: int = 0
+    hits: list[EsriSearchHit] = []
+
+
+class EsriSearchResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    search: EsriSearchInner
+
+
+class JobPostingJsonLd(BaseModel):
+    """schema.org JobPosting structured data embedded on each Jobvite detail page for SEO/
+    Google-for-Jobs indexing — a de facto standard, not Jobvite-specific, but this is the only
+    adapter that currently relies on it."""
+
+    model_config = ConfigDict(extra="ignore")
+    title: str = ""
+    description: str | None = None
+    datePosted: str | None = None
+    employmentType: str | None = None
+    baseSalary: JsonLdBaseSalary | None = None
