@@ -136,10 +136,10 @@ class TestCrawlOrchestration:
 
     @respx.mock
     def test_company_with_unsupported_ats_is_reported_not_crashed(self, db: Database, settings):
-        # A registry can record a company on an ATS with no adapter yet (Workday, SmartRecruiters,
+        # A registry can record a company on an ATS with no adapter yet (SmartRecruiters, Jobvite,
         # a custom site) — the run should report it as a failed board and continue, not raise.
         good = make_company("Good Co", "goodco")
-        unsupported = make_company("Workday Co", "workdayco", ats_type=AtsType.WORKDAY)
+        unsupported = make_company("SmartRecruiters Co", "smartco", ats_type=AtsType.SMARTRECRUITERS)
         db.upsert_company(good)
         db.upsert_company(unsupported)
 
@@ -162,5 +162,5 @@ class TestCrawlOrchestration:
         assert stats.companies_attempted == 2
         assert stats.companies_succeeded == 1
         assert len(stats.boards_failed) == 1
-        assert "Workday Co" in stats.boards_failed[0]
+        assert "SmartRecruiters Co" in stats.boards_failed[0]
         assert "no adapter registered" in stats.boards_failed[0]

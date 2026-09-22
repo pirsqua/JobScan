@@ -120,24 +120,23 @@ class TestRegistryImport:
             parse_registry_file(path)
 
     def test_recorded_unsupported_ats_types_do_not_raise(self, tmp_path: Path, db: Database):
-        # workday/smartrecruiters/jobvite/custom have no crawl adapter yet, but a registry curator
-        # should be able to record that a company uses one (typically active=false) without the
-        # import failing — see AtsType's docstring.
+        # smartrecruiters/jobvite/custom have no crawl adapter yet, but a registry curator should
+        # be able to record that a company uses one (typically active=false) without the import
+        # failing — see AtsType's docstring.
         path = tmp_path / "unsupported.csv"
         path.write_text(
             "name,ats_type,board_id,active\n"
-            "Workday Co,workday,workdayco,false\n"
             "SmartRecruiters Co,smartrecruiters,smartco,false\n"
             "Jobvite Co,jobvite,jobviteco,false\n"
             "Custom Co,custom,customco,false\n",
             encoding="utf-8",
         )
         processed, total, _ = import_registry(db, path)
-        assert processed == 4
-        assert total == 4
+        assert processed == 3
+        assert total == 3
         boards = {c.board_id: c for c in db.list_companies(active_only=False)}
-        assert boards["workdayco"].ats_type == AtsType.WORKDAY
-        assert boards["workdayco"].active is False
+        assert boards["smartco"].ats_type == AtsType.SMARTRECRUITERS
+        assert boards["smartco"].active is False
 
     def test_missing_required_field_raises(self, tmp_path: Path):
         path = tmp_path / "bad.csv"
