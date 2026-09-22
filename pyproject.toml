@@ -11,6 +11,7 @@ dependencies = [
     "PyYAML>=6.0",
     "python-dotenv>=1.0",
     "tzdata>=2024.1; sys_platform == 'win32'",
+    "playwright>=1.40",
 ]
 
 [project.optional-dependencies]
