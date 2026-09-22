@@ -246,12 +246,45 @@ class TestJobEvaluation:
         assert "Requires 5+ years Ruby on Rails." in evaluation.credibility_assessment
 
     def test_missing_gettability_field_without_rejection_reason_still_raises(self, profile):
-        # No primary_rejection_reason to backfill from — this should still be a genuine failure,
-        # not silently papered over.
+        # Not a reject/borderline verdict, so the backfill never engages regardless of what else
+        # is missing — this should still be a genuine failure, not silently papered over.
         bad_input = dict(VALID_EVAL_INPUT)
         del bad_input["why_this_is_or_is_not_gettable"]
         bad_input["primary_rejection_reason"] = None
         sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, bad_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            evaluate_job(client, profile, make_company(), make_job())
+
+    def test_reject_missing_both_reason_and_gettability_field_is_synthesized(self, profile):
+        # Observed live (Airbnb, Staff Workday Integration Engineer): the model omitted BOTH
+        # primary_rejection_reason and the required why_this_is_or_is_not_gettable field on a
+        # reject verdict, which used to fail validation outright since the old backfill only
+        # covered "reason present, gettability field missing". required_gaps was still populated,
+        # so a reason is derivable and the evaluation should be recovered rather than discarded.
+        loose_input = dict(
+            VALID_EVAL_INPUT, verdict="reject", primary_rejection_reason=None,
+            required_gaps=["Deep Workday Studio/XML configuration expertise", "5+ years HR-systems integration"],
+        )
+        del loose_input["why_this_is_or_is_not_gettable"]
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.primary_rejection_reason == "Deep Workday Studio/XML configuration expertise; 5+ years HR-systems integration"
+        assert "Deep Workday Studio/XML configuration expertise" in evaluation.why_this_is_or_is_not_gettable
+
+    def test_reject_with_nothing_at_all_to_synthesize_from_still_raises(self, profile):
+        # required_gaps, growth_dimensions, and credibility_assessment are all empty/blank too —
+        # a genuinely unsalvageable response should still fail rather than backfilling nonsense.
+        loose_input = dict(
+            VALID_EVAL_INPUT, verdict="reject", primary_rejection_reason=None,
+            required_gaps=[], growth_dimensions=[], credibility_assessment="",
+        )
+        del loose_input["why_this_is_or_is_not_gettable"]
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         with pytest.raises(LlmCallError):
