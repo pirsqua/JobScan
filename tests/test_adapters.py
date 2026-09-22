@@ -8,6 +8,7 @@ from jobscan.adapters.ashby import AshbyAdapter
 from jobscan.adapters.base import AdapterError
 from jobscan.adapters.greenhouse import GreenhouseAdapter
 from jobscan.adapters.lever import LeverAdapter
+from jobscan.adapters.workday import WorkdayAdapter
 from jobscan.models import SalarySource
 
 
@@ -260,3 +261,221 @@ class TestLeverAdapter:
         assert postings[0].source_job_id == "lev-2"
         assert postings[0].location_raw is None
         assert postings[0].employment_type_raw is None
+
+
+class TestWorkdayAdapter:
+    LIST_URL = "https://acme.wd1.myworkdayjobs.com/wday/cxs/acme/Acme/jobs"
+    DETAIL_URL = "https://acme.wd1.myworkdayjobs.com/wday/cxs/acme/Acme/job/US-Remote/Senior-Backend-Engineer_JR1"
+
+    @respx.mock
+    def test_fetches_detail_only_for_engineering_titles(self, http_client):
+        # The board lists both an engineering and a non-engineering role; only the engineering
+        # one's title should trigger a (relatively expensive) per-posting detail request.
+        respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobPostings": [
+                        {
+                            "title": "Senior Backend Engineer",
+                            "externalPath": "/job/US-Remote/Senior-Backend-Engineer_JR1",
+                            "locationsText": "US Remote",
+                        },
+                        {
+                            "title": "Account Executive",
+                            "externalPath": "/job/US-Remote/Account-Executive_JR2",
+                            "locationsText": "US Remote",
+                        },
+                    ]
+                },
+            )
+        )
+        detail_route = respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobPostingInfo": {
+                        "title": "Senior Backend Engineer",
+                        "jobDescription": "<p>Build our platform.</p>",
+                        "location": "US Remote",
+                        "timeType": "Full time",
+                        "jobReqId": "JR1",
+                        "externalUrl": "https://acme.wd1.myworkdayjobs.com/Acme/job/1",
+                    }
+                },
+            )
+        )
+
+        adapter = WorkdayAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme/wd1/Acme"))
+
+        assert detail_route.call_count == 1
+        assert len(postings) == 1
+        posting = postings[0]
+        assert posting.source_job_id == "JR1"
+        assert posting.title == "Senior Backend Engineer"
+        assert posting.employment_type_raw == "Full time"
+        assert "Build our platform" in posting.description_html
+
+    @respx.mock
+    def test_pagination_follows_offset_until_short_page(self, http_client, monkeypatch):
+        import jobscan.adapters.workday as workday_module
+
+        monkeypatch.setattr(workday_module, "PAGE_SIZE", 2)
+
+        def make_brief(n: int) -> dict:
+            return {
+                "title": f"Software Engineer {n}",
+                "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}",
+                "locationsText": "US Remote",
+            }
+
+        list_route = respx.post(self.LIST_URL)
+        list_route.side_effect = [
+            httpx.Response(200, json={"jobPostings": [make_brief(1), make_brief(2)]}),
+            httpx.Response(200, json={"jobPostings": [make_brief(3)]}),
+        ]
+        respx.get(url__regex=r".*/job/US-Remote/Software-Engineer-\d_JR\d").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobPostingInfo": {
+                        "title": "Software Engineer",
+                        "jobDescription": "<p>Role.</p>",
+                        "timeType": "Full time",
+                        "jobReqId": "JRX",
+                    }
+                },
+            )
+        )
+
+        adapter = WorkdayAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme/wd1/Acme"))
+
+        assert list_route.call_count == 2
+        assert len(postings) == 3
+
+    @respx.mock
+    def test_pagination_stops_at_reported_total_even_if_pages_never_go_short(self, http_client, monkeypatch):
+        # Observed live (Motorola Solutions): past the real end of results, this API doesn't
+        # return a short/empty page to signal "done" — it wraps around and re-serves page 1
+        # forever, with `total` still reported normally. Without using `total` to stop, this
+        # loops until MAX_PAGES (or forever, before that backstop existed).
+        import jobscan.adapters.workday as workday_module
+
+        monkeypatch.setattr(workday_module, "PAGE_SIZE", 2)
+
+        def make_brief(n: int) -> dict:
+            return {"title": f"Software Engineer {n}", "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}"}
+
+        # total=4 real postings, but every page — including ones past the real end — comes back
+        # full length (2), simulating the wrap-around.
+        list_route = respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200, json={"total": 4, "jobPostings": [make_brief(1), make_brief(2)]}
+            )
+        )
+        respx.get(url__regex=r".*/job/US-Remote/Software-Engineer-\d_JR\d").mock(
+            return_value=httpx.Response(
+                200,
+                json={"jobPostingInfo": {"title": "Software Engineer", "jobDescription": "<p>Role.</p>", "jobReqId": "JRX"}},
+            )
+        )
+
+        adapter = WorkdayAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme/wd1/Acme"))
+
+        # Stops after offset reaches total=4 (2 pages of 2), not MAX_PAGES.
+        assert list_route.call_count == 2
+
+    @respx.mock
+    def test_pagination_ignores_a_flaky_zero_total_on_an_otherwise_normal_page(self, http_client, monkeypatch):
+        import jobscan.adapters.workday as workday_module
+
+        monkeypatch.setattr(workday_module, "PAGE_SIZE", 2)
+
+        def make_brief(n: int) -> dict:
+            return {"title": f"Software Engineer {n}", "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}"}
+
+        list_route = respx.post(self.LIST_URL)
+        list_route.side_effect = [
+            # First page inconsistently reports total=0 despite having real postings.
+            httpx.Response(200, json={"total": 0, "jobPostings": [make_brief(1), make_brief(2)]}),
+            httpx.Response(200, json={"total": 3, "jobPostings": [make_brief(3)]}),
+        ]
+        respx.get(url__regex=r".*/job/US-Remote/Software-Engineer-\d_JR\d").mock(
+            return_value=httpx.Response(
+                200,
+                json={"jobPostingInfo": {"title": "Software Engineer", "jobDescription": "<p>Role.</p>", "jobReqId": "JRX"}},
+            )
+        )
+
+        adapter = WorkdayAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme/wd1/Acme"))
+
+        assert list_route.call_count == 2
+        assert len(postings) == 3
+
+    @respx.mock
+    def test_pagination_stops_at_max_pages_if_total_is_never_reached(self, http_client, monkeypatch):
+        # Backstop for the case where `total` is missing/wrong for every page — must not hang.
+        import jobscan.adapters.workday as workday_module
+
+        monkeypatch.setattr(workday_module, "PAGE_SIZE", 2)
+        monkeypatch.setattr(workday_module, "MAX_PAGES", 3)
+
+        def make_brief(n: int) -> dict:
+            return {"title": f"Software Engineer {n}", "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}"}
+
+        list_route = respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(200, json={"jobPostings": [make_brief(1), make_brief(2)]})
+        )
+        respx.get(url__regex=r".*/job/US-Remote/Software-Engineer-\d_JR\d").mock(
+            return_value=httpx.Response(
+                200,
+                json={"jobPostingInfo": {"title": "Software Engineer", "jobDescription": "<p>Role.</p>", "jobReqId": "JRX"}},
+            )
+        )
+
+        adapter = WorkdayAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme/wd1/Acme"))
+
+        assert list_route.call_count == 3
+
+    @respx.mock
+    def test_detail_fetch_failure_is_skipped_not_fatal(self, http_client):
+        # A single bad requisition (removed mid-crawl, malformed detail page, ...) shouldn't drop
+        # the rest of an otherwise-healthy board.
+        respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobPostings": [
+                        {
+                            "title": "Senior Backend Engineer",
+                            "externalPath": "/job/US-Remote/Senior-Backend-Engineer_JR1",
+                        }
+                    ]
+                },
+            )
+        )
+        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(404))
+
+        adapter = WorkdayAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme/wd1/Acme"))
+        assert postings == []
+
+    @respx.mock
+    def test_list_http_error_raises_adapter_error(self, http_client):
+        respx.post(self.LIST_URL).mock(return_value=httpx.Response(500))
+        adapter = WorkdayAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme/wd1/Acme"))
+
+    def test_malformed_board_id_raises_adapter_error(self, http_client):
+        with pytest.raises(AdapterError):
+            list(WorkdayAdapter(http_client).fetch_postings("acme"))
+
+    def test_board_id_with_blank_segment_raises_adapter_error(self, http_client):
+        with pytest.raises(AdapterError):
+            list(WorkdayAdapter(http_client).fetch_postings("acme//Acme"))

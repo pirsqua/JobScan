@@ -131,3 +131,37 @@ class LeverPosting(BaseModel):
 
 
 LeverPostingsAdapter = TypeAdapter(list[LeverPosting])
+
+
+# ---------------------------------------------------------------------------
+# Workday: POST https://{tenant}.{cluster}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs
+#          GET  https://{tenant}.{cluster}.myworkdayjobs.com/wday/cxs/{tenant}/{site}{externalPath}
+# ---------------------------------------------------------------------------
+
+
+class WorkdayJobBrief(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    title: str = ""
+    externalPath: str | None = None
+    locationsText: str | None = None
+
+
+class WorkdayJobsListResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    total: int = 0
+    jobPostings: list[WorkdayJobBrief] = []
+
+
+class WorkdayJobPostingInfo(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    title: str = ""
+    jobDescription: str | None = None
+    location: str | None = None
+    timeType: str | None = None
+    jobReqId: str | None = None
+    externalUrl: str | None = None
+
+
+class WorkdayJobDetailResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    jobPostingInfo: WorkdayJobPostingInfo
