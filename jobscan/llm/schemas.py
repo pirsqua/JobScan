@@ -22,6 +22,17 @@ _LIST_FIELDS = (
     "growth_dimensions", "hidden_staff_signals",
 )
 
+
+def _first_point(value: object) -> str | None:
+    """First one or two points from a list-shaped field, joined — or the whole thing if the
+    model sent a bare string instead of a list (this runs before _coerce_str_to_list normalizes
+    that). None if there's nothing usable."""
+    if isinstance(value, list) and value:
+        return "; ".join(str(item) for item in value[:2])
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
 # extra="ignore" on every model below: observed live, the model occasionally adds one stray
 # duplicate-ish field (e.g. "preferred_only_gaps_2", "specialist_tenure_assessment_dummy")
 # alongside the correctly-named ones. Drop unrecognized keys rather than rejecting an otherwise-
@@ -120,14 +131,27 @@ class JobEvaluationResult(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _backfill_gettability_fields_for_clear_rejects(cls, data: object) -> object:
-        """Observed live: on a clear-cut reject the model sometimes omits
-        why_this_is_or_is_not_gettable (occasionally credibility_assessment too), treating
-        primary_rejection_reason as sufficient on its own. Backfill from that reason instead of
-        discarding an otherwise-valid evaluation — only when a reason is actually present, so a
-        genuinely malformed response still fails validation as before."""
-        if not isinstance(data, dict):
+        """Observed live: on a clear-cut reject/borderline the model sometimes omits
+        primary_rejection_reason, why_this_is_or_is_not_gettable (a required field with no
+        default — missing it fails validation outright), or both — treating whichever
+        gap-describing field it did fill in as self-explanatory. Synthesize a reason from
+        required_gaps/growth_dimensions/credibility_assessment when primary_rejection_reason
+        itself is missing (mirroring jobscan.llm.job_eval's post-validation fallback for the
+        already-valid case), then backfill the gettability fields from that reason — only when a
+        reason is actually derivable, so a genuinely malformed response still fails as before."""
+        if not isinstance(data, dict) or data.get("verdict") not in ("reject", "borderline"):
             return data
+
         reason = data.get("primary_rejection_reason")
+        if not reason:
+            reason = (
+                _first_point(data.get("required_gaps"))
+                or _first_point(data.get("growth_dimensions"))
+                or data.get("credibility_assessment")
+            )
+            if reason:
+                data["primary_rejection_reason"] = reason
+
         if reason:
             if not data.get("why_this_is_or_is_not_gettable"):
                 data["why_this_is_or_is_not_gettable"] = f"Not gettable as described: {reason}"
