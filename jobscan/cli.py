@@ -52,8 +52,9 @@ def cmd_evaluate(args: argparse.Namespace, settings: Settings) -> int:
     print(f"Sent to LLM: {stats.sent_to_llm}  Cache hits: {stats.cache_hits}  Unverified: {stats.unverified}")
     print(f"Verdicts: {stats.verdict_counts}")
     cost = stats.estimated_cost_usd(settings)
-    print(f"Tokens: {stats.input_tokens} in / {stats.output_tokens} out; est. cost: "
-          f"{'$%.4f' % cost if cost is not None else 'n/a'}")
+    print(f"Tokens: {stats.input_tokens} in / {stats.output_tokens} out "
+          f"(+ {stats.cache_creation_input_tokens} cache-write / {stats.cache_read_input_tokens} cache-read); "
+          f"est. cost: {'$%.4f' % cost if cost is not None else 'n/a'}")
     return 0
 
 

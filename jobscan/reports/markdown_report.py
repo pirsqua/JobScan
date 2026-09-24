@@ -135,7 +135,14 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
 
 def _render_rejected_or_unverified(data: ReportData) -> list[str]:
     lines = ["", "## Rejected or Unverified", ""]
-    llm_rejected = [r for r in data.all_evaluated if r.evaluation and r.evaluation.verdict.value == "reject"]
+    # Includes verdict=reject outright, and verdict=borderline where worth_applying is False —
+    # the latter is a borderline the model didn't formally reject but also judged not realistically
+    # attainable (see _report_section's docstring), so it belongs in this listing, not silently
+    # dropped from every section.
+    llm_declined = [
+        r for r in data.all_evaluated
+        if r.evaluation and (r.evaluation.verdict.value == "reject" or not r.evaluation.worth_applying)
+    ]
 
     es = data.evaluate_stats
     summary = [f"- Unverified (no evaluation on record): **{data.unverified_count}**"]
@@ -143,21 +150,23 @@ def _render_rejected_or_unverified(data: ReportData) -> list[str]:
         summary.insert(0, f"- Rejected by safe factual filters this run: **{es.factual_rejected}**")
     lines += summary
     lines.append(
-        f"- Rejected by the LLM: **{len(llm_rejected)}** (listed below; run `python -m jobscan audit` "
-        "for the complete factual-filter and unverified listing with reasons)"
+        f"- Rejected or not realistically worth applying per the LLM: **{len(llm_declined)}** "
+        "(listed below; run `python -m jobscan audit` for the complete factual-filter and "
+        "unverified listing with reasons)"
     )
     lines.append("")
 
-    if not llm_rejected:
+    if not llm_declined:
         lines.append("_No LLM rejections to list._")
         return lines
 
-    lines.append("| Company | Title | Primary rejection reason |")
-    lines.append("|---|---|---|")
-    for row in llm_rejected:
+    lines.append("| Company | Title | Verdict | Primary rejection reason |")
+    lines.append("|---|---|---|---|")
+    for row in llm_declined:
         ev: Evaluation = row.evaluation  # type: ignore[assignment]
         reason = (ev.primary_rejection_reason or "(not specified)").replace("|", "\\|")
-        lines.append(f"| {row.company.name} | {row.job.title} | {reason} |")
+        verdict_label = ev.verdict.value if ev.verdict.value == "reject" else "borderline, not worth applying"
+        lines.append(f"| {row.company.name} | {row.job.title} | {verdict_label} | {reason} |")
     return lines
 
 

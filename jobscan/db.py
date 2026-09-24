@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS evaluations (
     why_this_is_or_is_not_gettable TEXT,
     is_product_company INTEGER,
     primary_rejection_reason TEXT,
+    worth_applying INTEGER,
     model_name TEXT,
     input_tokens INTEGER,
     output_tokens INTEGER,
@@ -175,7 +176,9 @@ CREATE TABLE IF NOT EXISTS evaluation_runs (
     unverified INTEGER,
     llm_errors INTEGER,
     input_tokens INTEGER,
-    output_tokens INTEGER
+    output_tokens INTEGER,
+    cache_creation_input_tokens INTEGER,
+    cache_read_input_tokens INTEGER
 );
 """
 
@@ -203,6 +206,18 @@ class Database:
 
     def migrate(self) -> None:
         self.conn.executescript(SCHEMA)
+        # CREATE TABLE IF NOT EXISTS above is a no-op against an already-existing table, so a
+        # brand-new column needs an explicit, idempotent ADD COLUMN for existing databases.
+        self._add_column_if_missing("evaluations", "worth_applying", "INTEGER")
+        self._add_column_if_missing("evaluations", "cache_creation_input_tokens", "INTEGER")
+        self._add_column_if_missing("evaluations", "cache_read_input_tokens", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "cache_creation_input_tokens", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "cache_read_input_tokens", "INTEGER")
+
+    def _add_column_if_missing(self, table: str, column: str, sql_type: str) -> None:
+        existing = {row["name"] for row in self.conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}")
 
     def close(self) -> None:
         self.conn.close()
@@ -606,9 +621,14 @@ class Database:
             why_this_is_or_is_not_gettable=row["why_this_is_or_is_not_gettable"],
             is_product_company=bool(row["is_product_company"]),
             primary_rejection_reason=row["primary_rejection_reason"],
+            # NULL for evaluations cached before this column existed — default True so they
+            # aren't retroactively treated as "not worth applying" (see Evaluation.worth_applying).
+            worth_applying=bool(row["worth_applying"]) if row["worth_applying"] is not None else True,
             model_name=row["model_name"],
             input_tokens=row["input_tokens"],
             output_tokens=row["output_tokens"],
+            cache_creation_input_tokens=row["cache_creation_input_tokens"],
+            cache_read_input_tokens=row["cache_read_input_tokens"],
             created_at=_parse_dt(row["created_at"]),
         )
 
@@ -639,8 +659,9 @@ class Database:
                 hidden_staff_signals, compensation_assessment, remote_employment_verification,
                 required_matches, required_gaps, preferred_only_gaps, minor_caveats, evidence,
                 credibility_assessment, why_this_is_or_is_not_gettable, is_product_company,
-                primary_rejection_reason, model_name, input_tokens, output_tokens, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                primary_rejection_reason, worth_applying, model_name, input_tokens, output_tokens,
+                cache_creation_input_tokens, cache_read_input_tokens, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(job_id, description_hash) DO UPDATE SET
                  verdict=excluded.verdict, confidence=excluded.confidence,
                  scope_fit=excluded.scope_fit,
@@ -658,8 +679,12 @@ class Database:
                  why_this_is_or_is_not_gettable=excluded.why_this_is_or_is_not_gettable,
                  is_product_company=excluded.is_product_company,
                  primary_rejection_reason=excluded.primary_rejection_reason,
+                 worth_applying=excluded.worth_applying,
                  model_name=excluded.model_name, input_tokens=excluded.input_tokens,
-                 output_tokens=excluded.output_tokens, created_at=excluded.created_at
+                 output_tokens=excluded.output_tokens,
+                 cache_creation_input_tokens=excluded.cache_creation_input_tokens,
+                 cache_read_input_tokens=excluded.cache_read_input_tokens,
+                 created_at=excluded.created_at
                """,
             (
                 evaluation.job_id, evaluation.description_hash, evaluation.verdict.value,
@@ -671,8 +696,10 @@ class Database:
                 json.dumps(evaluation.preferred_only_gaps), json.dumps(evaluation.minor_caveats),
                 json.dumps(evaluation.evidence), evaluation.credibility_assessment,
                 evaluation.why_this_is_or_is_not_gettable, int(evaluation.is_product_company),
-                evaluation.primary_rejection_reason, evaluation.model_name,
-                evaluation.input_tokens, evaluation.output_tokens, _dt(evaluation.created_at),
+                evaluation.primary_rejection_reason, int(evaluation.worth_applying),
+                evaluation.model_name, evaluation.input_tokens, evaluation.output_tokens,
+                evaluation.cache_creation_input_tokens, evaluation.cache_read_input_tokens,
+                _dt(evaluation.created_at),
             ),
         )
         return cur.lastrowid or self.get_evaluation_for_job(evaluation.job_id).id
@@ -753,8 +780,9 @@ class Database:
         cur = self.conn.execute(
             "INSERT INTO evaluation_runs (started_at, jobs_considered, factual_rejected, "
             "companies_classified, sent_to_llm, cache_hits, manual_overrides_applied, "
-            "verdict_counts, unverified, llm_errors, input_tokens, output_tokens) "
-            "VALUES (?,0,0,0,0,0,0,'{}',0,0,0,0)",
+            "verdict_counts, unverified, llm_errors, input_tokens, output_tokens, "
+            "cache_creation_input_tokens, cache_read_input_tokens) "
+            "VALUES (?,0,0,0,0,0,0,'{}',0,0,0,0,0,0)",
             (_dt(stats.started_at),),
         )
         return cur.lastrowid
@@ -763,13 +791,15 @@ class Database:
         self.conn.execute(
             """UPDATE evaluation_runs SET finished_at=?, jobs_considered=?, factual_rejected=?,
                companies_classified=?, sent_to_llm=?, cache_hits=?, manual_overrides_applied=?,
-               verdict_counts=?, unverified=?, llm_errors=?, input_tokens=?, output_tokens=?
+               verdict_counts=?, unverified=?, llm_errors=?, input_tokens=?, output_tokens=?,
+               cache_creation_input_tokens=?, cache_read_input_tokens=?
                WHERE id=?""",
             (
                 _dt(stats.finished_at or _now()), stats.jobs_considered, stats.factual_rejected,
                 stats.companies_classified, stats.sent_to_llm, stats.cache_hits,
                 stats.manual_overrides_applied, json.dumps(stats.verdict_counts),
                 stats.unverified, stats.llm_errors, stats.input_tokens, stats.output_tokens,
+                stats.cache_creation_input_tokens, stats.cache_read_input_tokens,
                 run_id,
             ),
         )
@@ -793,4 +823,6 @@ class Database:
             llm_errors=row["llm_errors"],
             input_tokens=row["input_tokens"],
             output_tokens=row["output_tokens"],
+            cache_creation_input_tokens=row["cache_creation_input_tokens"] or 0,
+            cache_read_input_tokens=row["cache_read_input_tokens"] or 0,
         )
