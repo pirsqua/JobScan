@@ -104,6 +104,7 @@ def evaluate_all(
                     why_this_is_or_is_not_gettable="Manually overridden by candidate.",
                     is_product_company=company.classification == CompanyClassification.PRODUCT,
                     primary_rejection_reason=None,
+                    worth_applying=True,
                     model_name="manual_override",
                     created_at=_now(),
                 )
@@ -128,11 +129,13 @@ def evaluate_all(
                 if client is not None:
                     homepage_text = fetch_homepage_text(http_client, company.domain)
                     try:
-                        result, in_tok, out_tok = classify_company(
+                        result, in_tok, out_tok, cache_write_tok, cache_read_tok = classify_company(
                             client, company.name, company.domain, homepage_text, job.description_text
                         )
                         stats.input_tokens += in_tok
                         stats.output_tokens += out_tok
+                        stats.cache_creation_input_tokens += cache_write_tok
+                        stats.cache_read_input_tokens += cache_read_tok
                         stats.companies_classified += 1
                         db.set_company_classification(
                             company.id,
@@ -185,6 +188,8 @@ def evaluate_all(
             stats.sent_to_llm += 1
             stats.input_tokens += evaluation.input_tokens or 0
             stats.output_tokens += evaluation.output_tokens or 0
+            stats.cache_creation_input_tokens += evaluation.cache_creation_input_tokens or 0
+            stats.cache_read_input_tokens += evaluation.cache_read_input_tokens or 0
             stats._bump_verdict(evaluation.verdict.value)
 
     stats.finished_at = _now()

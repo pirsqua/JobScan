@@ -237,6 +237,13 @@ class Evaluation:
     id: int | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
+    # Defaults True so evaluations cached before this field existed aren't retroactively treated
+    # as "not worth applying" — only newly-evaluated postings get the stricter routing.
+    worth_applying: bool = True
+    # Separate from input_tokens (non-cached portion only) because prompt caching bills them at
+    # different rates — see EvaluateStats.estimated_cost_usd.
+    cache_creation_input_tokens: int | None = None
+    cache_read_input_tokens: int | None = None
 
 
 @dataclass
@@ -289,8 +296,20 @@ class EvaluateStats:
     llm_errors: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
+    # Populated once prompt caching is in use (system prompt + tool schema + candidate profile
+    # are cached on every job-eval/company-eval call — see AnthropicClient.call_tool). Tracked
+    # separately from input_tokens because Anthropic bills them at different rates: a cache write
+    # costs more than a normal input token, a cache read costs much less.
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
     finished_at: datetime | None = None
     id: int | None = None
+
+    # Anthropic's standard ephemeral-cache multipliers of the base input price, applied to
+    # whatever a model's own input_per_million is configured as — these ratios are the same
+    # across models, only the base rate differs.
+    _CACHE_WRITE_MULTIPLIER = 1.25
+    _CACHE_READ_MULTIPLIER = 0.1
 
     def estimated_cost_usd(self, settings: "Settings") -> float | None:
         pricing = settings.pricing_for(settings.anthropic_model)
@@ -298,6 +317,8 @@ class EvaluateStats:
             return None
         return (
             self.input_tokens / 1_000_000 * pricing.input_per_million
+            + self.cache_creation_input_tokens / 1_000_000 * pricing.input_per_million * self._CACHE_WRITE_MULTIPLIER
+            + self.cache_read_input_tokens / 1_000_000 * pricing.input_per_million * self._CACHE_READ_MULTIPLIER
             + self.output_tokens / 1_000_000 * pricing.output_per_million
         )
 

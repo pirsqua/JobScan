@@ -69,7 +69,15 @@ def _ranking_group(evaluation: Evaluation) -> int:
 def _report_section(evaluation: Evaluation | None) -> str:
     """Which of the four report sections a row belongs in. Decoupled from _ranking_group: e.g. a
     borderline verdict lands in "attractive_stretches" regardless of exactly which scope_fit it
-    carries, since that's the section's whole purpose — group number only orders rows within it."""
+    carries, since that's the section's whole purpose — group number only orders rows within it.
+
+    worth_applying is the gate for that section specifically: verdict=borderline alone doesn't
+    mean "genuine stretch" — the model can also reach for it on a role that's really just not
+    attainable (central requirements in a technology/domain/scale never demonstrated) without
+    formally calling it a reject. Observed live: a role requiring Rust/Kafka/Kubernetes-as-core
+    systems the candidate has never touched landed in Attractive Stretches purely because the
+    verdict happened to be "borderline" rather than "reject" — worth_applying=False routes those
+    to rejected_or_unverified instead, regardless of the nominal verdict/scope_fit label."""
     if evaluation is None or evaluation.verdict == Verdict.REJECT:
         return "rejected_or_unverified"
     if evaluation.verdict in (Verdict.STRONG_MATCH, Verdict.PLAUSIBLE_MATCH):
@@ -79,6 +87,8 @@ def _report_section(evaluation: Evaluation | None) -> str:
             return "growth_bets"
         if evaluation.scope_fit == ScopeFit.BELOW_LEVEL:
             return "rejected_or_unverified"
+    if not evaluation.worth_applying:
+        return "rejected_or_unverified"
     # Anything else attractive-but-unconfident (borderline at any scope_fit, or a
     # verdict/scope_fit combination the prompt's own rules shouldn't produce) is a stretch.
     return "attractive_stretches"

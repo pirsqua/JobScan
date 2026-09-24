@@ -12,7 +12,7 @@ FIELDS = [
     "employment_type", "posting_url", "apply_url", "published_at", "first_seen_at",
     "required_matches", "required_gaps", "preferred_only_gaps", "minor_caveats",
     "growth_dimensions", "hidden_staff_signals", "specialist_tenure_classification",
-    "primary_rejection_reason", "is_product_company", "model_name",
+    "primary_rejection_reason", "worth_applying", "is_product_company", "model_name",
 ]
 
 
@@ -50,6 +50,7 @@ def write_csv_report(data: ReportData, path: Path) -> None:
                     "hidden_staff_signals": "; ".join(ev.hidden_staff_signals),
                     "specialist_tenure_classification": ev.specialist_tenure_assessment.classification.value,
                     "primary_rejection_reason": ev.primary_rejection_reason or "",
+                    "worth_applying": ev.worth_applying,
                     "is_product_company": ev.is_product_company,
                     "model_name": ev.model_name,
                 }

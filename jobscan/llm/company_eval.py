@@ -43,8 +43,9 @@ def classify_company(
     domain: str | None,
     homepage_text: str,
     sample_job_text: str,
-) -> tuple[CompanyClassificationResult, int, int]:
-    """Returns (result, input_tokens, output_tokens)."""
+) -> tuple[CompanyClassificationResult, int, int, int, int]:
+    """Returns (result, input_tokens, output_tokens, cache_creation_input_tokens,
+    cache_read_input_tokens)."""
     user_message = build_company_eval_user_message(
         company_name, domain, homepage_text, sample_job_text[:MAX_JOB_TEXT_CHARS]
     )
@@ -58,4 +59,7 @@ def classify_company(
         parsed = CompanyClassificationResult.model_validate(result.input)
     except ValidationError as exc:
         raise LlmCallError(f"company classification response failed schema validation: {exc}") from exc
-    return parsed, result.input_tokens, result.output_tokens
+    return (
+        parsed, result.input_tokens, result.output_tokens,
+        result.cache_creation_input_tokens, result.cache_read_input_tokens,
+    )

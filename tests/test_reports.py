@@ -70,6 +70,7 @@ class TestReports:
                 "credibility_assessment": "Great fit.",
                 "why_this_is_or_is_not_gettable": "At-level with strong direct evidence.",
                 "primary_rejection_reason": None,
+                "worth_applying": True,
             },
         )
         usage = SimpleNamespace(input_tokens=100, output_tokens=50)

@@ -20,6 +20,10 @@ class ToolCallResult:
     input: dict
     input_tokens: int
     output_tokens: int
+    # Separate from input_tokens (which is only the non-cached portion) because they're billed at
+    # different rates — see EvaluateStats.estimated_cost_usd.
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
 
 class AnthropicClient:
@@ -51,14 +55,31 @@ class AnthropicClient:
         tool_schema: dict,
         tool_name: str,
         max_tokens: int = 2048,
+        cacheable_prefix: str | None = None,
     ) -> ToolCallResult:
+        """``system`` and ``tool_schema`` are identical on every call a given caller makes (the
+        same evaluation prompt/schema every time), so they're always marked cacheable — a batch
+        of calls pays full input price for that ~3,000-token prefix once, then ~10% of it on
+        every subsequent call within the cache window. ``cacheable_prefix`` is for content that's
+        static within a run but caller-specific (e.g. the rendered candidate profile, identical
+        across every job in an evaluate run but not shared with company classification calls) —
+        pass it to cache that too, ahead of the per-call dynamic ``user_message``."""
+        content: str | list[dict]
+        if cacheable_prefix is not None:
+            content = [
+                {"type": "text", "text": cacheable_prefix, "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": user_message},
+            ]
+        else:
+            content = user_message
+
         try:
             response = self._client.messages.create(
                 model=self.model,
                 max_tokens=max_tokens,
-                system=system,
-                messages=[{"role": "user", "content": user_message}],
-                tools=[tool_schema],
+                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+                messages=[{"role": "user", "content": content}],
+                tools=[{**tool_schema, "cache_control": {"type": "ephemeral"}}],
                 tool_choice={"type": "tool", "name": tool_name},
             )
         except anthropic.APIError as exc:
@@ -72,6 +93,8 @@ class AnthropicClient:
                     input=block.input,
                     input_tokens=getattr(usage, "input_tokens", 0),
                     output_tokens=getattr(usage, "output_tokens", 0),
+                    cache_creation_input_tokens=getattr(usage, "cache_creation_input_tokens", 0) or 0,
+                    cache_read_input_tokens=getattr(usage, "cache_read_input_tokens", 0) or 0,
                 )
 
         raise LlmCallError(f"model response did not include a '{tool_name}' tool_use block")

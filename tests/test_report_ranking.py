@@ -68,6 +68,7 @@ def make_evaluation(
     job_id: int, verdict: Verdict, scope_fit: ScopeFit, evidence_coverage_percent: int = 50,
     central_directly_demonstrated: int = 0, required_gaps: list[str] | None = None,
     growth_dimensions: list[str] | None = None, hidden_staff_signals: list[str] | None = None,
+    worth_applying: bool = True,
 ) -> Evaluation:
     requirement_evidence = [
         RequirementEvidence(
@@ -88,7 +89,7 @@ def make_evaluation(
         remote_employment_verification="ok", required_matches=[], required_gaps=required_gaps or [],
         preferred_only_gaps=[], minor_caveats=[], evidence=[], credibility_assessment="ok",
         why_this_is_or_is_not_gettable="ok", is_product_company=True, primary_rejection_reason=None,
-        model_name="test-model", created_at=NOW,
+        worth_applying=worth_applying, model_name="test-model", created_at=NOW,
     )
 
 
@@ -151,6 +152,24 @@ class TestRankingAndGrouping:
         data = assemble_report_data(db, settings)
 
         assert len(data.attractive_stretches) == 1
+
+    def test_borderline_not_worth_applying_is_excluded_from_stretches(self, db: Database, settings):
+        # Observed live: a role requiring Rust/Kafka/Kubernetes as core systems the candidate has
+        # never touched landed in Attractive Stretches purely because its verdict happened to be
+        # "borderline" rather than "reject". worth_applying=False is the model's own explicit
+        # judgment that this specific posting isn't realistically attainable despite the verdict
+        # label, and must route it out of the stretches section regardless of scope_fit.
+        company = seed_company(db)
+        job = seed_job(db, settings, company, "1", "Senior Backend Engineer", "x", 190000, 230000)
+        db.save_evaluation(
+            make_evaluation(job.id, Verdict.BORDERLINE, ScopeFit.TWO_PLUS_STEPS_UP, worth_applying=False)
+        )
+
+        data = assemble_report_data(db, settings)
+
+        assert len(data.attractive_stretches) == 0
+        assert len(data.best_bets) == 0
+        assert len(data.growth_bets) == 0
 
     def test_reject_is_not_in_any_positive_section(self, db: Database, settings):
         company = seed_company(db)
@@ -316,6 +335,7 @@ DOXIMITY_EXPECTED_RESPONSE = {
     "expectations mean this is not a confident near-term win.",
     "primary_rejection_reason": "Requires specialized, repeated data-engineering tenure "
     "(5+ years dedicated, several pipelines from scratch) beyond the one demonstrated pipeline.",
+    "worth_applying": True,
 }
 
 REVENUECAT_DESCRIPTION = (
@@ -384,6 +404,7 @@ REVENUECAT_EXPECTED_RESPONSE = {
     "primary_rejection_reason": "Combines extreme production scale, repeated zero-to-one system "
     "ownership, and hidden staff-level scope at a small, highly selective company — two or more "
     "unproven dimensions beyond demonstrated experience.",
+    "worth_applying": True,
 }
 
 SYNTHETIC_AT_LEVEL_DESCRIPTION = (
@@ -451,6 +472,7 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
     "demonstrated, the company has an established Staff/Principal track above Senior (making the "
     "title credible), and the role is collaborative rather than sole-ownership scope.",
     "primary_rejection_reason": None,
+    "worth_applying": True,
 }
 
 

@@ -55,6 +55,7 @@ def build_audit_rows(db: Database) -> list[AuditRow]:
                 detail=json.dumps(
                     {
                         "scope_fit": evaluation.scope_fit.value,
+                        "worth_applying": evaluation.worth_applying,
                         "growth_dimensions": evaluation.growth_dimensions,
                         "required_gaps": evaluation.required_gaps,
                         "evidence": evaluation.evidence,

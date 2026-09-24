@@ -62,6 +62,7 @@ def _job_dict(row) -> dict:
             "why_this_is_or_is_not_gettable": ev.why_this_is_or_is_not_gettable,
             "is_product_company": ev.is_product_company,
             "primary_rejection_reason": ev.primary_rejection_reason,
+            "worth_applying": ev.worth_applying,
             "model_name": ev.model_name,
         }
     else:

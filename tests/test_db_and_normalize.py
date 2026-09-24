@@ -9,10 +9,14 @@ from jobscan.models import (
     ClassificationSource,
     Company,
     CompanyClassification,
+    Evaluation,
     JobStatus,
     ManualOverride,
     RawPosting,
     SalarySource,
+    ScopeFit,
+    SpecialistTenureAssessment,
+    SpecialistTenureClassification,
     Verdict,
 )
 from jobscan.normalize import compute_description_hash, normalize_posting
@@ -206,3 +210,43 @@ class TestCompanyClassification:
         updated = db.get_company(company_id)
         assert updated.classification == CompanyClassification.PRODUCT
         assert updated.classification_confidence == 0.9
+
+
+def make_evaluation(job_id: int, worth_applying: bool = True) -> Evaluation:
+    return Evaluation(
+        job_id=job_id, description_hash="hash-1", verdict=Verdict.BORDERLINE,
+        confidence=0.6, scope_fit=ScopeFit.TWO_PLUS_STEPS_UP, evidence_coverage_percent=45,
+        specialist_tenure_assessment=SpecialistTenureAssessment(
+            classification=SpecialistTenureClassification.NOT_APPLICABLE, specialty="", explanation="",
+        ),
+        requirement_evidence=[], growth_dimensions=[], hidden_staff_signals=[],
+        compensation_assessment="ok", remote_employment_verification="ok",
+        required_matches=[], required_gaps=[], preferred_only_gaps=[], minor_caveats=[],
+        evidence=[], credibility_assessment="ok", why_this_is_or_is_not_gettable="ok",
+        is_product_company=True, primary_rejection_reason="not gettable",
+        worth_applying=worth_applying, model_name="test-model",
+        created_at=datetime.now(timezone.utc),
+    )
+
+
+class TestEvaluationPersistence:
+    def test_worth_applying_round_trips(self, db: Database, settings: Settings, sample_company: Company):
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+
+        db.save_evaluation(make_evaluation(job_id, worth_applying=False))
+
+        loaded = db.get_evaluation_for_job(job_id)
+        assert loaded.worth_applying is False
+
+    def test_legacy_row_missing_worth_applying_column_defaults_true(self, db: Database, settings: Settings, sample_company: Company):
+        # Simulates an evaluation cached before this column existed: a raw INSERT that never
+        # touches worth_applying leaves it NULL, same as every pre-existing row after the
+        # ADD COLUMN migration ran. Must not be silently treated as "not worth applying".
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+        db.save_evaluation(make_evaluation(job_id, worth_applying=False))
+        db.conn.execute("UPDATE evaluations SET worth_applying = NULL WHERE job_id = ?", (job_id,))
+
+        loaded = db.get_evaluation_for_job(job_id)
+        assert loaded.worth_applying is True

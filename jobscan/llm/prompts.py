@@ -149,10 +149,31 @@ Write `why_this_is_or_is_not_gettable` as a concise, specific verdict on intervi
 plausibility grounded in scope_fit and evidence_coverage_percent — not a restatement of the \
 verdict label. When the posting is ambiguous, say so in evidence/caveats rather than guessing.
 
+9. SET `worth_applying` (boolean) — a forced yes/no distillation of the gettability judgment \
+above, independent of the verdict label. False specifically when central requirements depend on \
+a technology, domain, or scale the candidate has never demonstrably touched — a new primary \
+language or datastore the role centers on (e.g. Rust, Kafka, Kubernetes as core systems, not a \
+minor mention), a security clearance, formal people management, production AI/ML ownership — such \
+that a real interview loop would almost certainly expose the mismatch, even when \
+evidence_coverage_percent looks moderate because of secondary-requirement overlap. True for \
+genuine aspirational stretches where the gap is depth/scale/tenure in already-familiar territory \
+(more years, larger scale, broader ownership of tools/domains the candidate already works in) \
+rather than unfamiliar core technology. Always True for strong_match and plausible_match — this \
+field exists to separate real stretches from roles that only look attractive on a keyword scan.
+
 Always call the submit_job_evaluation tool exactly once with your full structured evaluation."""
 
 
-def build_job_eval_user_message(profile_text: str, company: Company, job: JobPosting) -> str:
+def build_candidate_profile_block(profile_text: str) -> str:
+    """Split out from the rest of the user message so it can be sent as a separate, cached
+    content block — identical across every posting evaluated in a run, since it depends only on
+    the candidate profile, never on the specific job."""
+    return f"""# Candidate profile
+
+{profile_text}"""
+
+
+def build_job_eval_user_message(company: Company, job: JobPosting) -> str:
     salary_line = "not published"
     if job.salary_min is not None or job.salary_max is not None:
         lo = f"${job.salary_min:,.0f}" if job.salary_min is not None else "?"
@@ -160,11 +181,7 @@ def build_job_eval_user_message(profile_text: str, company: Company, job: JobPos
         period = job.salary_period or "year"
         salary_line = f"{lo} - {hi} per {period} (source: {job.salary_source.value})"
 
-    return f"""# Candidate profile
-
-{profile_text}
-
-# Company
+    return f"""# Company
 
 Name: {company.name}
 Domain: {company.domain or 'unknown'}

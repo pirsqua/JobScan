@@ -6,7 +6,12 @@ from datetime import datetime, timezone
 from pydantic import ValidationError
 
 from jobscan.llm.client import AnthropicClient, LlmCallError
-from jobscan.llm.prompts import JOB_EVAL_SYSTEM, build_job_eval_user_message, render_profile_text
+from jobscan.llm.prompts import (
+    JOB_EVAL_SYSTEM,
+    build_candidate_profile_block,
+    build_job_eval_user_message,
+    render_profile_text,
+)
 from jobscan.llm.schemas import JOB_EVALUATION_TOOL_NAME, JOB_EVALUATION_TOOL_SCHEMA, JobEvaluationResult
 from jobscan.models import (
     Company,
@@ -34,13 +39,22 @@ def evaluate_job(
     assert job.id is not None
 
     profile_text = render_profile_text(profile)
-    user_message = build_job_eval_user_message(profile_text, company, job)
+    profile_block = build_candidate_profile_block(profile_text)
+    user_message = build_job_eval_user_message(company, job)
 
     result = client.call_tool(
         system=JOB_EVAL_SYSTEM,
         user_message=user_message,
         tool_schema=JOB_EVALUATION_TOOL_SCHEMA,
         tool_name=JOB_EVALUATION_TOOL_NAME,
+        # Observed live: the default 2048 was silently truncating ~99% of real calls
+        # (stop_reason="max_tokens") — requirement_evidence in particular is expensive (a list of
+        # structured objects) and was missing from 93% of historical evaluations as a result,
+        # masked as "no findings" by its empty-list default rather than a visible failure.
+        max_tokens=8192,
+        # The candidate profile (~1,900 tokens) is identical for every posting in a run —
+        # cached alongside the always-cached system prompt/tool schema.
+        cacheable_prefix=profile_block,
     )
 
     try:
@@ -100,8 +114,11 @@ def evaluate_job(
         why_this_is_or_is_not_gettable=parsed.why_this_is_or_is_not_gettable,
         is_product_company=parsed.is_product_company,
         primary_rejection_reason=primary_rejection_reason,
+        worth_applying=parsed.worth_applying,
         model_name=client.model,
         created_at=datetime.now(timezone.utc),
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
+        cache_creation_input_tokens=result.cache_creation_input_tokens,
+        cache_read_input_tokens=result.cache_read_input_tokens,
     )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -14,6 +15,7 @@ from jobscan.models import (
     ClassificationSource,
     Company,
     CompanyClassification,
+    EvaluateStats,
     ManualOverride,
     RawPosting,
     Verdict,
@@ -44,6 +46,7 @@ VALID_EVAL_INPUT = {
     "credibility_assessment": "Strong fit.",
     "why_this_is_or_is_not_gettable": "At-level scope, strong direct evidence, credible near-term interview.",
     "primary_rejection_reason": None,
+    "worth_applying": True,
 }
 
 
@@ -216,3 +219,26 @@ class TestEvaluateAll:
 
         assert stats.sent_to_llm == 2
         assert sdk.messages.call_count == 2
+
+
+class TestEstimatedCost:
+    def test_applies_cache_write_and_read_multipliers(self, settings):
+        # $3/MTok input, $15/MTok output (from the settings fixture). Cache writes cost 1.25x
+        # base input, cache reads 0.1x — Anthropic's standard ephemeral-cache multipliers.
+        stats = EvaluateStats(
+            input_tokens=1000, cache_creation_input_tokens=1000, cache_read_input_tokens=1000,
+            output_tokens=1000,
+        )
+        cost = stats.estimated_cost_usd(settings)
+        expected = (1000 * 3.0 + 1000 * 3.0 * 1.25 + 1000 * 3.0 * 0.1) / 1_000_000 + 1000 * 15.0 / 1_000_000
+        assert cost == pytest.approx(expected)
+
+    def test_zero_cache_tokens_matches_plain_input_output_cost(self, settings):
+        stats = EvaluateStats(input_tokens=2000, output_tokens=500)
+        cost = stats.estimated_cost_usd(settings)
+        assert cost == pytest.approx(2000 * 3.0 / 1_000_000 + 500 * 15.0 / 1_000_000)
+
+    def test_unrecognized_model_returns_none(self, settings):
+        stats = EvaluateStats(input_tokens=1000, output_tokens=100)
+        unpriced_settings = dataclasses.replace(settings, anthropic_model="some-unpriced-model")
+        assert stats.estimated_cost_usd(unpriced_settings) is None

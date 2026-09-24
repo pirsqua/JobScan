@@ -109,6 +109,17 @@ class JobEvaluationResult(BaseModel):
         description="Concise, specific explanation of interview/offer plausibility given scope_fit "
         "and evidence_coverage_percent — not a restatement of the verdict."
     )
+    worth_applying: bool = Field(
+        description="A forced yes/no distillation of why_this_is_or_is_not_gettable, independent "
+        "of the verdict label — would a real interview loop plausibly survive contact with this "
+        "posting's central requirements? False when central requirements depend on a technology, "
+        "domain, or scale the candidate has never demonstrably touched (e.g. the role centers on "
+        "Rust/Kafka/Kubernetes-as-core-systems, a security clearance, formal people management, "
+        "production AI/ML ownership) such that interviewers would almost certainly expose the "
+        "mismatch — even when evidence_coverage_percent looks moderate from secondary-requirement "
+        "overlap. True for genuine aspirational stretches where the gap is depth/scale/tenure in "
+        "already-familiar territory, and always True for strong_match/plausible_match.",
+    )
     primary_rejection_reason: str | None = Field(
         default=None,
         description="REQUIRED (non-null) whenever verdict is 'reject' or 'borderline' — always "

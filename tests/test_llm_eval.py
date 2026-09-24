@@ -119,6 +119,7 @@ VALID_EVAL_INPUT = {
     "evidence": ["\"We build our own SaaS platform using C# and Azure.\""],
     "credibility_assessment": "Strong fit, worth applying.",
     "why_this_is_or_is_not_gettable": "At-level scope with strong direct evidence makes this a credible near-term interview.",
+    "worth_applying": True,
     "primary_rejection_reason": None,
 }
 
@@ -129,12 +130,64 @@ def profile(settings):
 
 
 class TestJobEvaluation:
+    def test_requests_enough_max_tokens_to_avoid_truncation(self, profile):
+        # Observed live: the old default of 2048 silently truncated ~99% of real calls
+        # (stop_reason="max_tokens"), with requirement_evidence in particular going missing 93%
+        # of the time — masked as "no findings" by its empty-list default, not a visible error.
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, VALID_EVAL_INPUT)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluate_job(client, profile, make_company(), make_job())
+
+        assert sdk.messages.calls[0]["max_tokens"] >= 8192
+
+    def test_worth_applying_false_is_passed_through(self, profile):
+        # A borderline verdict the model judged not realistically attainable (central
+        # requirements in an unfamiliar core technology, e.g. Rust/Kafka) — worth_applying=False
+        # is what routes this out of Attractive Stretches in the report, so it must survive
+        # unchanged from the raw model response through to the Evaluation the report reads.
+        loose_input = dict(VALID_EVAL_INPUT, verdict="borderline", scope_fit="two_plus_steps_up", worth_applying=False)
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, loose_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.worth_applying is False
+
+    def test_worth_applying_missing_raises(self, profile):
+        bad_input = dict(VALID_EVAL_INPUT)
+        del bad_input["worth_applying"]
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, bad_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            evaluate_job(client, profile, make_company(), make_job())
+
+    def test_cache_tokens_are_captured_separately_from_input_tokens(self, profile):
+        # cache_creation/cache_read tokens are billed at different rates than plain input tokens
+        # (see EvaluateStats.estimated_cost_usd) and must survive from the raw API usage object
+        # through to the stored Evaluation, not be dropped or folded into input_tokens.
+        block = SimpleNamespace(type="tool_use", name=JOB_EVALUATION_TOOL_NAME, input=VALID_EVAL_INPUT)
+        usage = SimpleNamespace(
+            input_tokens=500, output_tokens=300,
+            cache_creation_input_tokens=7743, cache_read_input_tokens=0,
+        )
+        sdk = FakeSdkClient([SimpleNamespace(content=[block], usage=usage)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.input_tokens == 500
+        assert evaluation.cache_creation_input_tokens == 7743
+        assert evaluation.cache_read_input_tokens == 0
+
     def test_happy_path_returns_evaluation(self, profile):
         sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, VALID_EVAL_INPUT)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         evaluation = evaluate_job(client, profile, make_company(), make_job())
 
+        assert evaluation.worth_applying is True
         assert evaluation.verdict == Verdict.STRONG_MATCH
         assert evaluation.confidence == pytest.approx(0.85)
         assert evaluation.scope_fit == ScopeFit.AT_LEVEL
@@ -393,9 +446,13 @@ class TestCompanyClassification:
             })]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
-        result, in_tok, out_tok = classify_company(client, "Acme Corp", "acme.example.com", "We build tools for developers.", "Join our engineering team.")
+        result, in_tok, out_tok, cache_write_tok, cache_read_tok = classify_company(
+            client, "Acme Corp", "acme.example.com", "We build tools for developers.", "Join our engineering team."
+        )
         assert result.classification == "product"
         assert in_tok == 120
+        assert cache_write_tok == 0
+        assert cache_read_tok == 0
 
     def test_invalid_classification_enum_raises(self):
         sdk = FakeSdkClient(
