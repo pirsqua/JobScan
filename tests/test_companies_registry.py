@@ -120,23 +120,33 @@ class TestRegistryImport:
             parse_registry_file(path)
 
     def test_recorded_unsupported_ats_types_do_not_raise(self, tmp_path: Path, db: Database):
-        # smartrecruiters/jobvite/custom have no crawl adapter yet, but a registry curator should
-        # be able to record that a company uses one (typically active=false) without the import
-        # failing — see AtsType's docstring.
+        # These have no crawl adapter yet, but a registry curator should be able to record that a
+        # company uses one (typically active=false) without the import failing — see AtsType's
+        # docstring. (Greenhouse/Ashby/Lever/Workday/Jobvite/Esri are the supported ones and are
+        # exercised elsewhere, not here.)
         path = tmp_path / "unsupported.csv"
         path.write_text(
             "name,ats_type,board_id,active\n"
             "SmartRecruiters Co,smartrecruiters,smartco,false\n"
-            "Jobvite Co,jobvite,jobviteco,false\n"
+            "iCIMS Co,icims,icimsco,false\n"
+            "Taleo Co,taleo,taleoco,false\n"
+            "Avature Co,avature,avatureco,false\n"
+            "Phenom Co,phenom,phenomco,false\n"
+            "Eightfold Co,eightfold,eightfoldco,false\n"
             "Custom Co,custom,customco,false\n",
             encoding="utf-8",
         )
         processed, total, _ = import_registry(db, path)
-        assert processed == 3
-        assert total == 3
+        assert processed == 7
+        assert total == 7
         boards = {c.board_id: c for c in db.list_companies(active_only=False)}
         assert boards["smartco"].ats_type == AtsType.SMARTRECRUITERS
         assert boards["smartco"].active is False
+        assert boards["icimsco"].ats_type == AtsType.ICIMS
+        assert boards["taleoco"].ats_type == AtsType.TALEO
+        assert boards["avatureco"].ats_type == AtsType.AVATURE
+        assert boards["phenomco"].ats_type == AtsType.PHENOM
+        assert boards["eightfoldco"].ats_type == AtsType.EIGHTFOLD
 
     def test_missing_required_field_raises(self, tmp_path: Path):
         path = tmp_path / "bad.csv"

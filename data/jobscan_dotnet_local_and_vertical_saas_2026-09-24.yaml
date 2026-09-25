@@ -1,0 +1,640 @@
+# Curated on 2026-09-24 for a Seattle-based senior backend/.NET/Azure engineer.
+#
+# Two real gaps in the existing 120-company registry this fills:
+#   1. Puget-Sound-local employers (Bellevue/Seattle/Redmond/Issaquah) — genuine locality value
+#      even where the tech stack is uncertain, since local companies are easier to network into
+#      and more likely to support Seattle-based hybrid/remote arrangements.
+#   2. National vertical-SaaS companies in industries (insurance, HR/payroll, property
+#      management, fleet/dealer software) where the core product has historically been built on
+#      the Microsoft stack as an industry norm, not an exception — a much higher hit rate for
+#      C#/.NET/SQL Server than a random sample of "modern" SaaS companies.
+#
+# None of these ATS/board_id guesses are live-verified — same caveat as every prior file. Expect
+# a live-verification pass (same as the dotnet_azure/priority_a files got) before trusting any of
+# them; active is left false throughout until that happens, deliberately, rather than guessing
+# specific board tokens with no real confidence behind them.
+#
+# Healthcare/health-systems and clearance-heavy defense/aerospace roles are intentionally
+# excluded, consistent with the priority_a file's original exclusion and the candidate's explicit
+# "no security clearance" limitation.
+#
+# Evidence levels:
+#   recurring_stack = plausible/likely based on known industry or company-technology patterns,
+#                     not a specific verified current posting
+#   monitor_only    = real but weaker signal (uncertain remote policy, big generalist employer,
+#                     stack genuinely mixed) — worth tracking, not a near-term target
+
+- name: Smartsheet
+  domain: smartsheet.com
+  careers_url: https://www.smartsheet.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A
+  fit_lanes: [dotnet, csharp, azure, apis, saas_backend]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Bellevue, WA HQ (literal local employer) — work-management SaaS with a long C#/.NET and Azure history. Strong locality plus stack fit; verify current team/remote policy per role. [Verified 2026-09-25: JS-rendered SPA, no static ATS marker found — still unresolved, not one of Greenhouse/Ashby/Lever/Workday.]"
+
+- name: Icertis
+  domain: icertis.com
+  careers_url: https://www.icertis.com/company/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A
+  fit_lanes: [dotnet, csharp, azure, apis, saas_backend]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Bellevue, WA HQ — enterprise contract-lifecycle-management SaaS, Microsoft-stack backend and a Microsoft-alumni-heavy engineering culture. Verify U.S.-remote eligibility and current base band."
+
+- name: PitchBook
+  domain: pitchbook.com
+  careers_url: https://pitchbook.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A
+  fit_lanes: [dotnet, csharp, sql_server, apis, data_platform]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, Morningstar-owned financial-data platform with a historically heavy C#/.NET and SQL Server engineering org. Strong stack and locality fit; confirm current remote policy (has leaned in-office historically)."
+
+- name: Trupanion
+  domain: trupanion.com
+  careers_url: https://trupanion.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, sql_server, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, pet-insurance SaaS with a long-standing .NET/SQL Server backend. Smaller org than most on this list; verify current opening volume and base compensation."
+
+- name: Highspot
+  domain: seismic.com
+  careers_url: https://seismic.com/company/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [apis, azure, saas_backend, integrations]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Highspot merged into Seismic (completed August 2026, confirmed via web search); Seattle remains an R&D location per coverage of the merger. Stack is more mixed/modern than most on this list — included primarily for locality and credible senior compensation. Careers page/ATS unresolved post-merger; revisit."
+
+- name: Expedia Group
+  domain: expediagroup.com
+  careers_url: https://careers.expediagroup.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [apis, azure, sql, saas_backend, data_platform]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, huge and genuinely polyglot engineering org (Java/.NET/Node coexist across brands) — treat as a monitor and screen hard per team rather than assuming stack fit from the company alone."
+
+- name: Nordstrom
+  domain: nordstrom.com
+  careers_url: https://careers.nordstrom.com/
+  ats_type: workday
+  board_id: nordstrom/wd501/nordstrom_careers
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ retailer with a real internal technology org and Microsoft-stack history (commerce, supply chain, loyalty systems). Compensation and remote policy need verification; retail tech orgs vary widely by team. [Verified 2026-09-25: Workday tenant confirmed live, total=1307.]"
+
+- name: Starbucks
+  domain: starbucks.com
+  careers_url: https://www.starbucks.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, large enterprise IT org historically built substantially on the Microsoft stack (store systems, loyalty, supply chain). Attendance policy has tightened; verify remote eligibility per role before counting on it."
+
+- name: T-Mobile
+  domain: t-mobile.com
+  careers_url: https://www.t-mobile.com/careers
+  ats_type: workday
+  board_id: tmobile/wd1/External
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Bellevue, WA HQ (Magenta Tower) — large enterprise IT org with real Microsoft-stack presence in billing/OSS/BSS systems alongside more modern cloud-native teams. Screen hard per team. [Verified 2026-09-25: Workday tenant confirmed live, total=2000+.]"
+
+- name: F5
+  domain: f5.com
+  careers_url: https://www.f5.com/company/careers
+  ats_type: workday
+  board_id: ffive/wd5/f5jobs
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [apis, azure, sql, saas_backend]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, networking/app-security vendor. Core products lean C/C++ and Go; management-plane/SaaS teams are the more plausible fit. Verify team and stack before assuming overlap. [Verified 2026-09-25: Workday tenant confirmed live, total=225.]"
+
+- name: Impinj
+  domain: impinj.com
+  careers_url: https://www.impinj.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [apis, azure, sql, data_platform]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, RFID/IoT hardware and platform company. Software teams (cloud platform, enterprise systems) are the relevant lane, not the embedded/RF engineering side. Smaller org; verify current openings."
+
+- name: Qumulo
+  domain: qumulo.com
+  careers_url: https://qumulo.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [apis, azure, data_platform]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, enterprise storage software. Core file-system engineering is C/C++; management/cloud-control-plane teams are the more plausible backend-API fit. Verify before targeting."
+
+- name: Outreach
+  domain: outreach.io
+  careers_url: https://www.outreach.io/careers
+  ats_type: lever
+  board_id: outreach
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [apis, azure, saas_backend, integrations]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, sales-engagement SaaS. Stack is more modern/polyglot than most on this list — included for locality and credible comp; verify backend language mix per team. [Verified 2026-09-25: Lever board confirmed live, 28 jobs; outreach.io now redirects to outreach.ai — domain kept as-is since it's still the registered/stable identifier.]"
+
+- name: Redfin
+  domain: redfin.com
+  careers_url: https://www.redfin.com/about/jobs
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [apis, sql, data_platform]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ real-estate marketplace. Backend is historically more Python-centric than .NET — included mainly for locality and general backend/API/SQL overlap; verify fit per team before targeting."
+
+- name: Zillow
+  domain: zillow.com
+  careers_url: https://www.zillow.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [apis, sql, data_platform]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, large and genuinely polyglot engineering org (Java is more central than .NET). Included for locality and strong compensation; screen hard per team rather than assuming stack overlap."
+
+- name: Symetra
+  domain: symetra.com
+  careers_url: https://www.symetra.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Bellevue, WA HQ — life insurance/annuities carrier. Insurance carriers' internal technology organizations skew heavily Microsoft-stack; verify current openings and remote policy (smaller, more traditional employer)."
+
+- name: SAP Concur
+  domain: concur.com
+  careers_url: https://www.concur.com/en-us/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Bellevue, WA HQ — travel/expense SaaS, historically a substantial C#/.NET shop (pre-SAP heritage). Verify current stack (some teams may have shifted since SAP acquisition) and remote eligibility."
+
+- name: Costco Technology
+  domain: costco.com
+  careers_url: https://jobs.costco.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Issaquah, WA HQ — large retailer with a substantial internal IT organization and real Microsoft-stack presence (merchandising, supply chain, membership systems). Historically conservative on remote work; verify before counting on it."
+
+- name: PACCAR
+  domain: paccar.com
+  careers_url: https://www.paccar.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Bellevue, WA HQ — truck manufacturer (Kenworth/Peterbilt) with a real enterprise IT organization; dealer/parts/fleet systems are plausible .NET territory. Verify current openings and remote policy."
+
+- name: Weyerhaeuser
+  domain: weyerhaeuser.com
+  careers_url: https://www.weyerhaeuser.com/careers/
+  ats_type: taleo
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ — forestry/building-products company with a real enterprise IT org (ERP, supply chain, forestry-management systems). Traditional employer; verify remote policy and opening volume before targeting. [Verified 2026-09-25: real ATS is Taleo — no adapter yet, stays inactive.]"
+
+- name: Alaska Airlines
+  domain: alaskaair.com
+  careers_url: https://www.alaskaair.com/careers
+  ats_type: icims
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ airline with a real internal technology organization (reservations, loyalty, operations systems); airlines commonly run significant Microsoft-stack backends. Verify current openings and remote eligibility. [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.]"
+
+- name: CDK Global
+  domain: cdkglobal.com
+  careers_url: https://www.cdkglobal.com/careers
+  ats_type: workday
+  board_id: cdk/wd1/CDK
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [dotnet, csharp, sql_server, apis, integrations]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Dominant auto-dealer management software vendor, historically one of the largest C#/.NET/SQL Server shops in enterprise software. Not Seattle-based; verify current remote policy and base band. [Verified 2026-09-25: Workday tenant confirmed live, total=36.]"
+
+- name: Duck Creek Technologies
+  domain: duckcreek.com
+  careers_url: https://www.duckcreek.com/careers/
+  ats_type: workday
+  board_id: duckcreek/wd1/duckcreekcareers
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Core P&C-insurance policy/billing/claims software, built and marketed as a .NET/Azure platform. Strong stack-fit pairing with the insurance carriers (Allstate/Liberty Mutual/Travelers/Nationwide) already in the registry. [Verified 2026-09-25: Workday tenant confirmed live, total=33.]"
+
+- name: Vertafore
+  domain: vertafore.com
+  careers_url: https://www.vertafore.com/company/careers
+  ats_type: icims
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: remote_history
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Insurance-agency management software, historically a Microsoft-stack shop (Denver-based, private-equity owned). Verify current openings and compensation transparency. [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.]"
+
+- name: Applied Systems
+  domain: appliedsystems.com
+  careers_url: https://www1.appliedsystems.com/en/about-us/careers/
+  ats_type: icims
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Insurance-agency/broker management software, long-standing .NET/SQL Server product line. Verify current U.S.-remote openings and base compensation. [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.]"
+
+- name: Paycor
+  domain: paycor.com
+  careers_url: https://www.paycor.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, sql, apis]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "HR/payroll SaaS with a historically strong C#/.NET/Azure backend (Cincinnati-based). Verify current stack, since HR-tech platforms sometimes migrate pieces to newer languages over time."
+
+- name: Paycom
+  domain: paycom.com
+  careers_url: https://www.paycom.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, apis]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "HR/payroll SaaS (Oklahoma City-based); Microsoft-stack heritage similar to other payroll vendors on this list, but historically less remote-friendly. Verify remote policy before targeting."
+
+- name: Workiva
+  domain: workiva.com
+  careers_url: https://www.workiva.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [apis, azure, sql, saas_backend]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Compliance/reporting SaaS (Ames, IA-based, remote-friendly history). Stack is more mixed/modern than the insurance/payroll vendors on this list; verify backend language per team."
+
+- name: nCino
+  domain: ncino.com
+  careers_url: https://www.ncino.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [apis, azure, sql, saas_backend]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Bank-operations cloud platform, built on Salesforce plus a substantial services layer (mixed stack). Verify backend language mix per team before assuming .NET overlap."
+
+- name: Jack Henry & Associates
+  domain: jackhenry.com
+  careers_url: https://www.jackhenry.com/careers
+  ats_type: avature
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, apis, integrations]
+  remote_signal: remote_history
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Core banking/credit-union software vendor with a long Microsoft-stack (C#/.NET, SQL Server) history. Verify current openings, remote eligibility, and compensation transparency (historically inconsistent). [Verified 2026-09-25: real ATS is Avature — no adapter yet, stays inactive.]"
+
+- name: SS&C Technologies
+  domain: ssctech.com
+  careers_url: https://www.ssctech.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Large financial-services software conglomerate (many acquired product lines, stack varies significantly by team). Verify specific product/team stack before targeting."
+
+- name: Epicor
+  domain: epicor.com
+  careers_url: https://www.epicor.com/en-us/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "ERP software (manufacturing/distribution/retail editions), long-standing C#/.NET/SQL Server product lines, private-equity owned, generally remote-friendly. Verify current openings."
+
+- name: CoStar Group
+  domain: costar.com
+  careers_url: https://www.costargroup.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, apis, data_platform]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Commercial real-estate data/marketplace platform (DC-based), historically a substantial C#/.NET/SQL Server engineering org with strong published compensation. Verify current remote policy (has pushed return-to-office at times)."
+
+- name: Yardi Systems
+  domain: yardi.com
+  careers_url: https://www.yardi.com/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Large property-management software vendor (Santa Barbara-based), historically Microsoft-stack. Privately held with limited public compensation/remote-policy transparency; verify both before targeting."
+
+- name: RealPage
+  domain: realpage.com
+  careers_url: https://www.realpage.com/careers/
+  ats_type: icims
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Property-management software vendor (Dallas-based, private-equity owned), Microsoft-stack heritage across many acquired product lines. Verify current openings and remote policy. [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.]"
+
+- name: ConnectWise
+  domain: connectwise.com
+  careers_url: https://www.connectwise.com/company/careers
+  ats_type: greenhouse
+  board_id: connectwise
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "MSP/IT-management software vendor, long-standing C#/.NET product lines (similar territory to N-able/SolarWinds/Netwrix already in the registry). Verify current openings and remote policy. [Verified 2026-09-25: Greenhouse board confirmed live, 55 jobs.]"
+
+- name: UiPath
+  domain: uipath.com
+  careers_url: https://www.uipath.com/careers
+  ats_type: ashby
+  board_id: uipath
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, apis]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "RPA platform originally built substantially in C#/.NET (Windows-automation heritage), though the platform has broadened significantly since IPO. Verify current backend stack per team before assuming overlap. [Verified 2026-09-25: Ashby board confirmed live, 97 jobs.]"
+
+- name: Blue Yonder
+  domain: blueyonder.com
+  careers_url: https://blueyonder.com/careers
+  ats_type: phenom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Supply-chain software (Scottsdale-based, Panasonic-owned, absorbed the JDA Software product line with Microsoft-stack heritage). Verify current stack and remote policy per team. [Verified 2026-09-25: real ATS is Phenom — no adapter yet, stays inactive.]"
+
+- name: Infor
+  domain: infor.com
+  careers_url: https://www.infor.com/company/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Large ERP vendor (Koch-owned) assembled from many acquisitions; stack varies significantly by product line, with real Microsoft-stack pockets. Verify specific team/product before targeting."
+
+- name: Blackbaud
+  domain: blackbaud.com
+  careers_url: https://www.blackbaud.com/company/careers
+  ats_type: phenom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: remote_history
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Nonprofit/social-good software vendor (Charleston-based), long-standing C#/.NET/SQL Server product lines and generally remote-friendly. Verify current openings and compensation transparency. [Verified 2026-09-25: real ATS is Phenom — no adapter yet, stays inactive.]"
+
+- name: Five9
+  domain: five9.com
+  careers_url: https://www.five9.com/company/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [apis, azure, sql, integrations]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Cloud contact-center software, similar territory to Genesys already in the registry. Stack confidence is lower than the insurance/payroll vendors on this list; verify before targeting."

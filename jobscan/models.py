@@ -35,6 +35,16 @@ class AtsType(str, Enum):
     JOBVITE = "jobvite"
     ESRI = "esri"
     SMARTRECRUITERS = "smartrecruiters"
+    # Recurring enterprise ATS platforms observed live across multiple registry companies —
+    # recorded specifically (not folded into CUSTOM) so future adapter work has a real target,
+    # and so a curator's finding isn't lost. None have an adapter yet: iCIMS/Eightfold sites
+    # 403/reCAPTCHA-gate headless browsers (see jobscan.adapters' Playwright investigation
+    # notes); Taleo/Avature/Phenom simply haven't been investigated for a crawlable API yet.
+    ICIMS = "icims"
+    TALEO = "taleo"
+    AVATURE = "avature"
+    PHENOM = "phenom"
+    EIGHTFOLD = "eightfold"
     CUSTOM = "custom"
 
 
