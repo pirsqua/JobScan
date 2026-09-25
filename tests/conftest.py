@@ -20,7 +20,11 @@ def settings(tmp_path: Path) -> Settings:
         anthropic_timeout_seconds=5,
         anthropic_pricing={
             "claude-sonnet-5": ModelPricing(input_per_million=3.0, output_per_million=15.0),
+            "claude-haiku-test": ModelPricing(input_per_million=0.8, output_per_million=4.0),
         },
+        # None by default so existing tests exercise the full-evaluation path unchanged; tests
+        # covering triage explicitly override this with dataclasses.replace.
+        triage_model=None,
         min_base_salary=170000,
         candidate_state="WA",
         candidate_state_name="Washington",

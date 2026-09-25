@@ -9,7 +9,7 @@ import pytest
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.llm.client import AnthropicClient
-from jobscan.llm.schemas import JOB_EVALUATION_TOOL_NAME
+from jobscan.llm.schemas import JOB_EVALUATION_TOOL_NAME, TRIAGE_TOOL_NAME
 from jobscan.models import (
     AtsType,
     ClassificationSource,
@@ -69,6 +69,15 @@ class FakeSdkClient:
 
 def tool_response(input_dict, input_tokens=100, output_tokens=50):
     block = SimpleNamespace(type="tool_use", name=JOB_EVALUATION_TOOL_NAME, input=input_dict)
+    usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
+    return SimpleNamespace(content=[block], usage=usage)
+
+
+def triage_tool_response(skip_full_evaluation: bool, reason="test reason", input_tokens=30, output_tokens=10):
+    block = SimpleNamespace(
+        type="tool_use", name=TRIAGE_TOOL_NAME,
+        input={"skip_full_evaluation": skip_full_evaluation, "reason": reason},
+    )
     usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
     return SimpleNamespace(content=[block], usage=usage)
 
@@ -242,3 +251,133 @@ class TestEstimatedCost:
         stats = EvaluateStats(input_tokens=1000, output_tokens=100)
         unpriced_settings = dataclasses.replace(settings, anthropic_model="some-unpriced-model")
         assert stats.estimated_cost_usd(unpriced_settings) is None
+
+    def test_triage_tokens_priced_at_the_triage_models_own_rate(self, settings):
+        # Triage typically runs a cheaper model than the main evaluation ($0.8/$4 vs $3/$15 in
+        # this fixture) — its tokens must use ITS pricing, not the main model's, or a run using
+        # both would silently misreport cost.
+        stats = EvaluateStats(
+            input_tokens=1000, output_tokens=200,
+            triage_input_tokens=5000, triage_output_tokens=500, triage_model="claude-haiku-test",
+        )
+        cost = stats.estimated_cost_usd(settings)
+        expected = (1000 * 3.0 + 200 * 15.0) / 1_000_000 + (5000 * 0.8 + 500 * 4.0) / 1_000_000
+        assert cost == pytest.approx(expected)
+
+    def test_unpriced_triage_model_is_silently_excluded_not_fatal(self, settings):
+        # The main run's cost estimate shouldn't disappear just because the triage model has no
+        # pricing entry — that would make estimated_cost_usd return None for the whole run over a
+        # config gap in a secondary, optional feature.
+        stats = EvaluateStats(
+            input_tokens=1000, output_tokens=200,
+            triage_input_tokens=5000, triage_output_tokens=500, triage_model="some-unpriced-triage-model",
+        )
+        cost = stats.estimated_cost_usd(settings)
+        assert cost == pytest.approx((1000 * 3.0 + 200 * 15.0) / 1_000_000)
+
+
+class TestTriageIntegration:
+    def test_skip_avoids_the_full_evaluation_call(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+
+        full_eval_sdk = FakeSdkClient([])  # no responses queued — an unexpected call raises
+        full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
+        triage_sdk = FakeSdkClient([triage_tool_response(skip_full_evaluation=True, reason="Requires 8+ years Rust.")])
+        triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
+
+        stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
+
+        assert full_eval_sdk.messages.call_count == 0
+        assert stats.triaged == 1
+        assert stats.triage_skipped == 1
+        assert stats.sent_to_llm == 0
+        assert stats.verdict_counts == {"reject": 1}
+
+        saved = db.get_evaluation_by_hash(db.get_active_jobs()[0].description_hash)
+        assert saved.worth_applying is False
+        assert saved.verdict == Verdict.REJECT
+        assert saved.primary_rejection_reason == "Requires 8+ years Rust."
+        assert saved.model_name == "triage:test-haiku-model"
+
+    def test_no_skip_proceeds_to_the_full_evaluation(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+
+        full_eval_sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
+        triage_sdk = FakeSdkClient([triage_tool_response(skip_full_evaluation=False, reason="Real overlap.")])
+        triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
+
+        stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
+
+        assert full_eval_sdk.messages.call_count == 1
+        assert stats.triaged == 1
+        assert stats.triage_skipped == 0
+        assert stats.sent_to_llm == 1
+
+    def test_failed_triage_call_fails_safe_to_full_evaluation(self, db: Database, settings):
+        # A triage error must never be silently treated as "safe to skip" — it should behave as
+        # if triage were never configured for that posting.
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+
+        full_eval_sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
+        triage_sdk = FakeSdkClient([SimpleNamespace(content=[], usage=SimpleNamespace(input_tokens=0, output_tokens=0))])
+        triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
+
+        stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
+
+        assert full_eval_sdk.messages.call_count == 1
+        assert stats.sent_to_llm == 1
+        assert stats.triage_skipped == 0
+
+    def test_no_triage_client_skips_triage_entirely(self, db: Database, settings):
+        # No triage_model configured (or no triage_client override) — behavior must be identical
+        # to before triage existed.
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+
+        full_eval_sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
+
+        stats = evaluate_all(db, settings, client=full_eval_client)
+
+        assert stats.triaged == 0
+        assert stats.triage_model is None
+        assert stats.sent_to_llm == 1
+
+    def test_limit_counts_triage_calls(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        for i in range(2):
+            seed_job(db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}")
+
+        full_eval_sdk = FakeSdkClient([])
+        full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
+        triage_sdk = FakeSdkClient([triage_tool_response(skip_full_evaluation=True)])
+        triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
+
+        stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client, limit=1)
+
+        assert stats.triaged == 1
+        assert full_eval_sdk.messages.call_count == 0
+
+    def test_triage_stats_are_persisted_and_recoverable(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+
+        full_eval_client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
+        triage_client = AnthropicClient(
+            api_key=None, model="test-haiku-model",
+            client=FakeSdkClient([triage_tool_response(skip_full_evaluation=True, reason="No overlap.")]),
+        )
+
+        stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
+        recovered = db.latest_evaluation_run()
+
+        assert recovered is not None
+        assert recovered.triaged == stats.triaged == 1
+        assert recovered.triage_skipped == stats.triage_skipped == 1
+        assert recovered.triage_model == stats.triage_model == "test-haiku-model"
+        assert recovered.triage_input_tokens == stats.triage_input_tokens

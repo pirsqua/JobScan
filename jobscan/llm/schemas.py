@@ -180,6 +180,26 @@ JOB_EVALUATION_TOOL_SCHEMA = {
 }
 
 
+class TriageResult(BaseModel):
+    skip_full_evaluation: bool = Field(
+        description="True only when confident a careful reviewer would also reject this posting "
+        "outright. False whenever there's real overlap alongside gaps, or any genuine uncertainty "
+        "— the full evaluation exists for exactly that judgment call."
+    )
+    reason: str = Field(description="One short sentence.")
+
+    model_config = {"extra": "ignore"}
+
+
+TRIAGE_TOOL_NAME = "submit_triage"
+
+TRIAGE_TOOL_SCHEMA = {
+    "name": TRIAGE_TOOL_NAME,
+    "description": "Submit the fast lenient screening decision for whether a posting warrants a full evaluation.",
+    "input_schema": TriageResult.model_json_schema(),
+}
+
+
 class CompanyClassificationResult(BaseModel):
     classification: CompanyClass
     confidence: float = Field(ge=0.0, le=1.0)

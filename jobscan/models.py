@@ -302,6 +302,16 @@ class EvaluateStats:
     # costs more than a normal input token, a cache read costs much less.
     cache_creation_input_tokens: int = 0
     cache_read_input_tokens: int = 0
+    # Cheap first-pass screen (jobscan.llm.triage) — tracked entirely separately from the fields
+    # above because it typically runs a different, cheaper model than the main evaluation, so it
+    # needs its own token counts and its own model name to look up its own pricing tier.
+    triaged: int = 0
+    triage_skipped: int = 0
+    triage_input_tokens: int = 0
+    triage_output_tokens: int = 0
+    triage_cache_creation_input_tokens: int = 0
+    triage_cache_read_input_tokens: int = 0
+    triage_model: str | None = None
     finished_at: datetime | None = None
     id: int | None = None
 
@@ -311,16 +321,35 @@ class EvaluateStats:
     _CACHE_WRITE_MULTIPLIER = 1.25
     _CACHE_READ_MULTIPLIER = 0.1
 
+    @staticmethod
+    def _tier_cost(
+        input_tokens: int, output_tokens: int, cache_creation_input_tokens: int,
+        cache_read_input_tokens: int, pricing: "ModelPricing",
+    ) -> float:
+        return (
+            input_tokens / 1_000_000 * pricing.input_per_million
+            + cache_creation_input_tokens / 1_000_000 * pricing.input_per_million * EvaluateStats._CACHE_WRITE_MULTIPLIER
+            + cache_read_input_tokens / 1_000_000 * pricing.input_per_million * EvaluateStats._CACHE_READ_MULTIPLIER
+            + output_tokens / 1_000_000 * pricing.output_per_million
+        )
+
     def estimated_cost_usd(self, settings: "Settings") -> float | None:
         pricing = settings.pricing_for(settings.anthropic_model)
         if pricing is None:
             return None
-        return (
-            self.input_tokens / 1_000_000 * pricing.input_per_million
-            + self.cache_creation_input_tokens / 1_000_000 * pricing.input_per_million * self._CACHE_WRITE_MULTIPLIER
-            + self.cache_read_input_tokens / 1_000_000 * pricing.input_per_million * self._CACHE_READ_MULTIPLIER
-            + self.output_tokens / 1_000_000 * pricing.output_per_million
+        cost = self._tier_cost(
+            self.input_tokens, self.output_tokens,
+            self.cache_creation_input_tokens, self.cache_read_input_tokens, pricing,
         )
+        if self.triage_model:
+            triage_pricing = settings.pricing_for(self.triage_model)
+            if triage_pricing is not None:
+                cost += self._tier_cost(
+                    self.triage_input_tokens, self.triage_output_tokens,
+                    self.triage_cache_creation_input_tokens, self.triage_cache_read_input_tokens,
+                    triage_pricing,
+                )
+        return cost
 
     def _bump_verdict(self, verdict: str) -> None:
         self.verdict_counts[verdict] = self.verdict_counts.get(verdict, 0) + 1
