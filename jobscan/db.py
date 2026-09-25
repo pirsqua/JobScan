@@ -178,7 +178,14 @@ CREATE TABLE IF NOT EXISTS evaluation_runs (
     input_tokens INTEGER,
     output_tokens INTEGER,
     cache_creation_input_tokens INTEGER,
-    cache_read_input_tokens INTEGER
+    cache_read_input_tokens INTEGER,
+    triaged INTEGER,
+    triage_skipped INTEGER,
+    triage_input_tokens INTEGER,
+    triage_output_tokens INTEGER,
+    triage_cache_creation_input_tokens INTEGER,
+    triage_cache_read_input_tokens INTEGER,
+    triage_model TEXT
 );
 """
 
@@ -213,6 +220,13 @@ class Database:
         self._add_column_if_missing("evaluations", "cache_read_input_tokens", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "cache_creation_input_tokens", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "cache_read_input_tokens", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "triaged", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "triage_skipped", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "triage_input_tokens", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "triage_output_tokens", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "triage_cache_creation_input_tokens", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "triage_cache_read_input_tokens", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "triage_model", "TEXT")
 
     def _add_column_if_missing(self, table: str, column: str, sql_type: str) -> None:
         existing = {row["name"] for row in self.conn.execute(f"PRAGMA table_info({table})")}
@@ -781,8 +795,10 @@ class Database:
             "INSERT INTO evaluation_runs (started_at, jobs_considered, factual_rejected, "
             "companies_classified, sent_to_llm, cache_hits, manual_overrides_applied, "
             "verdict_counts, unverified, llm_errors, input_tokens, output_tokens, "
-            "cache_creation_input_tokens, cache_read_input_tokens) "
-            "VALUES (?,0,0,0,0,0,0,'{}',0,0,0,0,0,0)",
+            "cache_creation_input_tokens, cache_read_input_tokens, triaged, triage_skipped, "
+            "triage_input_tokens, triage_output_tokens, triage_cache_creation_input_tokens, "
+            "triage_cache_read_input_tokens) "
+            "VALUES (?,0,0,0,0,0,0,'{}',0,0,0,0,0,0,0,0,0,0,0,0)",
             (_dt(stats.started_at),),
         )
         return cur.lastrowid
@@ -792,7 +808,10 @@ class Database:
             """UPDATE evaluation_runs SET finished_at=?, jobs_considered=?, factual_rejected=?,
                companies_classified=?, sent_to_llm=?, cache_hits=?, manual_overrides_applied=?,
                verdict_counts=?, unverified=?, llm_errors=?, input_tokens=?, output_tokens=?,
-               cache_creation_input_tokens=?, cache_read_input_tokens=?
+               cache_creation_input_tokens=?, cache_read_input_tokens=?, triaged=?,
+               triage_skipped=?, triage_input_tokens=?, triage_output_tokens=?,
+               triage_cache_creation_input_tokens=?, triage_cache_read_input_tokens=?,
+               triage_model=?
                WHERE id=?""",
             (
                 _dt(stats.finished_at or _now()), stats.jobs_considered, stats.factual_rejected,
@@ -800,6 +819,9 @@ class Database:
                 stats.manual_overrides_applied, json.dumps(stats.verdict_counts),
                 stats.unverified, stats.llm_errors, stats.input_tokens, stats.output_tokens,
                 stats.cache_creation_input_tokens, stats.cache_read_input_tokens,
+                stats.triaged, stats.triage_skipped, stats.triage_input_tokens,
+                stats.triage_output_tokens, stats.triage_cache_creation_input_tokens,
+                stats.triage_cache_read_input_tokens, stats.triage_model,
                 run_id,
             ),
         )
@@ -825,4 +847,11 @@ class Database:
             output_tokens=row["output_tokens"],
             cache_creation_input_tokens=row["cache_creation_input_tokens"] or 0,
             cache_read_input_tokens=row["cache_read_input_tokens"] or 0,
+            triaged=row["triaged"] or 0,
+            triage_skipped=row["triage_skipped"] or 0,
+            triage_input_tokens=row["triage_input_tokens"] or 0,
+            triage_output_tokens=row["triage_output_tokens"] or 0,
+            triage_cache_creation_input_tokens=row["triage_cache_creation_input_tokens"] or 0,
+            triage_cache_read_input_tokens=row["triage_cache_read_input_tokens"] or 0,
+            triage_model=row["triage_model"],
         )

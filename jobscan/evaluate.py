@@ -17,7 +17,9 @@ from jobscan.filters import FilterReason, apply_factual_filters
 from jobscan.llm.client import AnthropicClient, LlmCallError
 from jobscan.llm.company_eval import classify_company, fetch_homepage_text
 from jobscan.llm.job_eval import evaluate_job
-from jobscan.llm.prompts import load_profile
+from jobscan.llm.prompts import load_profile, render_profile_text
+from jobscan.llm.schemas import TriageResult
+from jobscan.llm.triage import triage_job
 from jobscan.logging_setup import get_logger, log_extra
 from jobscan.models import (
     ClassificationSource,
@@ -26,6 +28,7 @@ from jobscan.models import (
     Evaluation,
     EvaluateStats,
     FilterLogEntry,
+    JobPosting,
     ManualOverride,
     ScopeFit,
     SpecialistTenureAssessment,
@@ -40,18 +43,70 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# Placeholder confidence for a triage-skip pseudo-evaluation: the triage prompt only skips when it
+# professes confidence the posting is a clear reject, but it doesn't produce its own confidence
+# score, so this reflects that framing rather than a real measured value.
+_TRIAGE_SKIP_CONFIDENCE = 0.9
+
+
+def _build_triage_skip_evaluation(job: JobPosting, company: Company, triage: TriageResult, triage_model: str) -> Evaluation:
+    """A lightweight stand-in Evaluation for a posting the cheap triage screened out before the
+    expensive full evaluation ran — cached the same way a real evaluation would be (by job_id +
+    description_hash), so it isn't re-triaged every run, and clearly distinguishable via
+    model_name from a real full evaluation."""
+    reason = triage.reason
+    return Evaluation(
+        job_id=job.id,
+        description_hash=job.description_hash,
+        verdict=Verdict.REJECT,
+        confidence=_TRIAGE_SKIP_CONFIDENCE,
+        # Not actually assessed — scope_fit is irrelevant for a REJECT verdict in report routing,
+        # this is just a valid placeholder rather than a real classification.
+        scope_fit=ScopeFit.TWO_PLUS_STEPS_UP,
+        evidence_coverage_percent=0,
+        specialist_tenure_assessment=SpecialistTenureAssessment(
+            classification=SpecialistTenureClassification.NOT_APPLICABLE,
+            specialty="",
+            explanation="Screened out by the cheap triage pass before a full evaluation ran.",
+        ),
+        requirement_evidence=[],
+        growth_dimensions=[],
+        hidden_staff_signals=[],
+        compensation_assessment="not independently assessed (screened out by triage)",
+        remote_employment_verification="not independently assessed (screened out by triage)",
+        required_matches=[],
+        required_gaps=[reason],
+        preferred_only_gaps=[],
+        minor_caveats=[],
+        evidence=[],
+        credibility_assessment=reason,
+        why_this_is_or_is_not_gettable=f"Not gettable as described: {reason}",
+        is_product_company=company.classification == CompanyClassification.PRODUCT,
+        primary_rejection_reason=reason,
+        worth_applying=False,
+        model_name=f"triage:{triage_model}",
+        created_at=_now(),
+    )
+
+
 def evaluate_all(
     db: Database,
     settings: Settings,
     client: AnthropicClient | None = None,
+    triage_client: AnthropicClient | None = None,
     limit: int | None = None,
 ) -> EvaluateStats:
     """``limit``, if set, caps the number of real LLM calls (job evaluations + company
-    classifications) made in this run — factual filtering and cache hits are free and unaffected.
-    Useful for bounding spend on a single invocation."""
+    classifications + triage screens) made in this run — factual filtering and cache hits are
+    free and unaffected. Useful for bounding spend on a single invocation.
+
+    ``triage_client``, if not overridden, is built from ``settings.triage_model`` when set — a
+    cheap first-pass screen (jobscan.llm.triage) that runs before the expensive full evaluation.
+    Leave triage_model unset in settings to disable triage entirely."""
     stats = EvaluateStats()
     run_id = db.start_evaluation_run(stats)
     profile = load_profile(settings.profile_path)
+    profile_text = render_profile_text(profile)
 
     if client is None and settings.anthropic_api_key:
         client = AnthropicClient(
@@ -63,11 +118,21 @@ def evaluate_all(
     if client is None:
         logger.warning("no ANTHROPIC_API_KEY configured — postings will be filtered but not LLM-evaluated")
 
+    if triage_client is None and settings.anthropic_api_key and settings.triage_model:
+        triage_client = AnthropicClient(
+            api_key=settings.anthropic_api_key,
+            model=settings.triage_model,
+            max_retries=settings.anthropic_max_retries,
+            timeout_seconds=settings.anthropic_timeout_seconds,
+        )
+    if triage_client is not None:
+        stats.triage_model = triage_client.model
+
     headers = {"User-Agent": settings.http_user_agent}
     with httpx.Client(timeout=settings.http_timeout_seconds, headers=headers) as http_client:
         jobs = db.get_active_jobs()
         for job in jobs:
-            if limit is not None and (stats.sent_to_llm + stats.companies_classified) >= limit:
+            if limit is not None and (stats.sent_to_llm + stats.companies_classified + stats.triaged) >= limit:
                 break
 
             stats.jobs_considered += 1
@@ -174,6 +239,31 @@ def evaluate_all(
             if client is None:
                 stats.unverified += 1
                 continue
+
+            if triage_client is not None:
+                try:
+                    triage_result, t_in, t_out, t_cache_w, t_cache_r = triage_job(
+                        triage_client, profile_text, company, job
+                    )
+                except LlmCallError as exc:
+                    # A failed triage call is not evidence of a safe reject — proceed to the full
+                    # evaluation rather than risk silently dropping a real opportunity.
+                    logger.warning(
+                        "triage call failed — proceeding to full evaluation",
+                        extra=log_extra(job_id=job.id, title=job.title, error=str(exc)),
+                    )
+                else:
+                    stats.triaged += 1
+                    stats.triage_input_tokens += t_in
+                    stats.triage_output_tokens += t_out
+                    stats.triage_cache_creation_input_tokens += t_cache_w
+                    stats.triage_cache_read_input_tokens += t_cache_r
+                    if triage_result.skip_full_evaluation:
+                        stats.triage_skipped += 1
+                        skip_evaluation = _build_triage_skip_evaluation(job, company, triage_result, triage_client.model)
+                        db.save_evaluation(skip_evaluation)
+                        stats._bump_verdict(skip_evaluation.verdict.value)
+                        continue
 
             try:
                 evaluation = evaluate_job(client, profile, company, job)

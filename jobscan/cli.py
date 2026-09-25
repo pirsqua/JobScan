@@ -50,11 +50,17 @@ def cmd_evaluate(args: argparse.Namespace, settings: Settings) -> int:
     print(f"Companies newly classified: {stats.companies_classified}")
     print(f"Manual overrides applied: {stats.manual_overrides_applied}")
     print(f"Sent to LLM: {stats.sent_to_llm}  Cache hits: {stats.cache_hits}  Unverified: {stats.unverified}")
+    if stats.triage_model:
+        print(f"Triaged ({stats.triage_model}): {stats.triaged}  Skipped before full evaluation: {stats.triage_skipped}")
     print(f"Verdicts: {stats.verdict_counts}")
     cost = stats.estimated_cost_usd(settings)
     print(f"Tokens: {stats.input_tokens} in / {stats.output_tokens} out "
           f"(+ {stats.cache_creation_input_tokens} cache-write / {stats.cache_read_input_tokens} cache-read); "
           f"est. cost: {'$%.4f' % cost if cost is not None else 'n/a'}")
+    if stats.triage_model and (stats.triage_input_tokens or stats.triage_output_tokens):
+        print(f"Triage tokens: {stats.triage_input_tokens} in / {stats.triage_output_tokens} out "
+              f"(+ {stats.triage_cache_creation_input_tokens} cache-write / "
+              f"{stats.triage_cache_read_input_tokens} cache-read)")
     return 0
 
 

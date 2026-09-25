@@ -32,6 +32,7 @@ class Settings:
     anthropic_max_retries: int
     anthropic_timeout_seconds: int
     anthropic_pricing: dict[str, ModelPricing]
+    triage_model: str | None
     min_base_salary: int
     candidate_state: str
     candidate_state_name: str
@@ -90,6 +91,7 @@ def load_settings(
         anthropic_max_retries=int(raw.get("anthropic_max_retries", 3)),
         anthropic_timeout_seconds=int(raw.get("anthropic_timeout_seconds", 60)),
         anthropic_pricing=pricing,
+        triage_model=env_or("JOBSCAN_TRIAGE_MODEL", raw.get("triage_model")) or None,
         min_base_salary=int(raw.get("min_base_salary", 170000)),
         candidate_state=raw.get("candidate_state", "WA"),
         candidate_state_name=raw.get("candidate_state_name", "Washington"),

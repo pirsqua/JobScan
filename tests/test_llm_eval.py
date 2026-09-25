@@ -8,8 +8,9 @@ import pytest
 from jobscan.llm.client import AnthropicClient, LlmCallError
 from jobscan.llm.company_eval import classify_company
 from jobscan.llm.job_eval import evaluate_job
-from jobscan.llm.prompts import load_profile
-from jobscan.llm.schemas import COMPANY_CLASSIFICATION_TOOL_NAME, JOB_EVALUATION_TOOL_NAME
+from jobscan.llm.prompts import load_profile, render_profile_text
+from jobscan.llm.schemas import COMPANY_CLASSIFICATION_TOOL_NAME, JOB_EVALUATION_TOOL_NAME, TRIAGE_TOOL_NAME
+from jobscan.llm.triage import triage_job
 from jobscan.models import (
     AtsType,
     Company,
@@ -465,3 +466,50 @@ class TestCompanyClassification:
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
         with pytest.raises(LlmCallError):
             classify_company(client, "Acme Corp", "acme.example.com", "", "")
+
+
+class TestTriage:
+    def test_happy_path_skip_true(self, profile):
+        sdk = FakeSdkClient(
+            [tool_response(TRIAGE_TOOL_NAME, {"skip_full_evaluation": True, "reason": "Requires 8+ years Rust."})]
+        )
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        result, in_tok, out_tok, cache_write_tok, cache_read_tok = triage_job(
+            client, render_profile_text(profile), make_company(), make_job()
+        )
+
+        assert result.skip_full_evaluation is True
+        assert result.reason == "Requires 8+ years Rust."
+        assert in_tok == 120
+        assert cache_write_tok == 0
+        assert cache_read_tok == 0
+
+    def test_happy_path_skip_false(self, profile):
+        sdk = FakeSdkClient(
+            [tool_response(TRIAGE_TOOL_NAME, {"skip_full_evaluation": False, "reason": "Real backend overlap."})]
+        )
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        result, *_ = triage_job(client, render_profile_text(profile), make_company(), make_job())
+
+        assert result.skip_full_evaluation is False
+
+    def test_uses_a_small_max_tokens(self, profile):
+        # The whole point is a cheap, short-output call — it should not request anywhere near the
+        # 8192 the full evaluation needs.
+        sdk = FakeSdkClient(
+            [tool_response(TRIAGE_TOOL_NAME, {"skip_full_evaluation": False, "reason": "ok"})]
+        )
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        triage_job(client, render_profile_text(profile), make_company(), make_job())
+
+        assert sdk.messages.calls[0]["max_tokens"] <= 500
+
+    def test_missing_required_field_raises(self, profile):
+        sdk = FakeSdkClient([tool_response(TRIAGE_TOOL_NAME, {"reason": "missing the boolean"})])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            triage_job(client, render_profile_text(profile), make_company(), make_job())

@@ -205,6 +205,54 @@ complete structured result, including requirement_evidence for each important re
 strongly implied qualification."""
 
 
+TRIAGE_SYSTEM = """You do a fast, deliberately lenient first-pass screen: is this job posting even \
+worth a full detailed evaluation against the candidate profile, or is it such a clear mismatch that \
+a detailed review would just waste money confirming what's already obvious?
+
+Mark skip_full_evaluation=true ONLY when you're confident a careful reviewer would also reject it \
+outright — a hard disqualifying requirement stated as a genuine central expectation, not a passing \
+mention: a completely different primary technology stack/language than the candidate's (e.g. the \
+role centers on Rust/Go/Java with no .NET/Python/C# presence), formal people-management \
+responsibility, a specialized domain or production scale far beyond general backend/data-pipeline \
+work, a hard employment-type/location mismatch not already caught by factual filters, or an \
+explicit title/seniority far above Senior (Staff/Principal/Director) with no dual-track ambiguity.
+
+When you're genuinely unsure, or the posting has real overlap alongside some gaps, do NOT skip — \
+that's exactly the judgment call the full evaluation exists for. Skipping a posting that deserved a \
+full look silently destroys a real opportunity; sending a clear reject through for full evaluation \
+only costs a few cents. Treat those two mistakes as very different in severity.
+
+Always call the submit_triage tool exactly once with a one-sentence reason."""
+
+
+def build_triage_user_message(company: Company, job: JobPosting) -> str:
+    salary_line = "not published"
+    if job.salary_min is not None or job.salary_max is not None:
+        lo = f"${job.salary_min:,.0f}" if job.salary_min is not None else "?"
+        hi = f"${job.salary_max:,.0f}" if job.salary_max is not None else "?"
+        period = job.salary_period or "year"
+        salary_line = f"{lo} - {hi} per {period} (source: {job.salary_source.value})"
+
+    return f"""# Company
+
+Name: {company.name}
+Domain: {company.domain or 'unknown'}
+
+# Job posting
+
+Title: {job.title}
+Location (raw): {job.location_raw or 'unknown'}
+Employment type (raw): {job.employment_type_raw or 'unknown'}
+Published salary: {salary_line}
+
+Full description:
+---
+{job.description_text}
+---
+
+Call submit_triage with your skip_full_evaluation decision and a one-sentence reason."""
+
+
 COMPANY_EVAL_SYSTEM = """You classify companies as either a PRODUCT company (builds and operates its \
 own software product or platform, hiring engineers to build features for its own users) or a \
 CONSULTING/STAFFING/OUTSOURCING company (sells engineering time/delivery to other companies' \

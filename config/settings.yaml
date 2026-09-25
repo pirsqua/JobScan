@@ -9,6 +9,13 @@ anthropic_model: claude-sonnet-5
 anthropic_max_retries: 3
 anthropic_timeout_seconds: 60
 
+# Cheap first-pass screen (jobscan.llm.triage) run before the full job evaluation: a fast, lenient
+# yes/no on whether a posting is worth the expensive full evaluation at all, using a smaller/
+# cheaper model. Validated against 692 historical evaluations before enabling: 0 false negatives
+# on the 3 known genuine matches, ~89% of real rejects correctly flagged skippable. Leave unset
+# (blank/removed) to disable triage entirely and send every posting straight to full evaluation.
+triage_model: claude-haiku-4-5-20251001
+
 # Approximate USD price per 1M tokens, used only to estimate run cost in reports.
 # Update if pricing changes; unrecognized models report cost as "n/a".
 anthropic_pricing:
