@@ -26,8 +26,9 @@ Strongest skills:
 Representative accomplishments:
 {_bullets(profile.get('accomplishments', []))}
 
-Important limitations (do not assume expertise beyond these):
-{_bullets(profile.get('limitations', []))}
+Specialty areas outside current focus (no direct demonstrated evidence — do not credit a
+posting's overlap with these as if it were already proven):
+{_bullets(profile.get('specialty_areas_outside_current_focus', []))}
 
 Do not inflate the evidence above:
 {_bullets(profile.get('non_inflation_rules', []))}
@@ -52,7 +53,7 @@ Qualification-language interpretation rules:
 {_bullets(profile.get('qualification_interpretation_rules', []))}
 
 Compensation rule: {profile.get('compensation_rule', '').strip()}
-Minimum acceptable base salary: ${profile.get('min_base_salary', 170000):,}
+Minimum acceptable base salary: ${profile.get('min_base_salary', 160000):,}
 
 Hard employment filters (already partially checked by code, verify from the text):
 {_bullets(profile.get('hard_filters', []))}

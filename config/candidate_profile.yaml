@@ -35,19 +35,18 @@ accomplishments:
   - Established C# Selenium WebDriver automation infrastructure, built internal
     migration/performance tools, supported production releases and mentored junior engineers.
 
-# What is NOT demonstrated — read together with non_inflation_rules below. These are absence-of-
-# evidence facts, not just "nice to have" gaps: do not credit a posting's overlap with these areas
-# as if it were demonstrated.
-limitations:
-  - Has not demonstrated several independent data platforms designed from scratch
-  - Does not have five or more years specifically as a dedicated data engineer
-  - Does not have a deep track record operating extremely large distributed systems
-  - Does not have production LLM, AI-agent, retrieval-augmented generation or vector-database
-    experience
-  - Does not have deep AWS or Google Cloud specialization
-  - Does not have deep professional React, Angular or TypeScript experience
-  - Does not have extensive formal people-management experience
-  - No security clearance
+# Specialty areas outside current focus — read together with non_inflation_rules below. These are
+# areas without direct demonstrated evidence in the profile above, not just "nice to have" gaps:
+# do not credit a posting's overlap with these areas as if it were demonstrated.
+specialty_areas_outside_current_focus:
+  - Architecting several independent data platforms from scratch, as a dedicated multi-year specialty
+  - A five-or-more-year track record specifically as a dedicated data engineer
+  - Deep, sustained ownership of extremely large-scale distributed systems
+  - Production LLM, AI-agent, retrieval-augmented-generation or vector-database systems
+  - Deep AWS or Google Cloud specialization
+  - Deep professional React, Angular or TypeScript ownership
+  - Extensive formal people-management responsibility
+  - Security clearance
 
 # Explicit anti-inflation instructions — these are the most common ways scope gets
 # over-credited, so state them directly rather than trusting them to be inferred.
@@ -113,24 +112,24 @@ company_preferences:
 
 qualification_interpretation_rules:
   - '"Azure or AWS" is compatible.'
-  - '"Deep AWS expertise required" is a material gap.'
+  - '"Deep AWS expertise required" is outside current fit.'
   - "React familiarity is acceptable."
-  - "Strong React/TypeScript ownership is a material gap."
+  - "Strong React/TypeScript ownership is outside current fit."
   - "AI coding-tool usage is compatible."
-  - "Required production LLM or AI-agent integration is a material gap."
+  - "Required production LLM or AI-agent integration is outside current fit."
   - "Technical leadership is a match."
-  - "Several years of formal people management is not."
+  - "Several years of formal people management is outside current fit."
   - "General distributed-systems experience may be compatible; deep high-scale platform architecture may not be."
 
-min_base_salary: 170000
+min_base_salary: 160000
 compensation_rule: >
-  The published range does not need to start at $170,000. Reject when the published maximum is
-  below $170,000. Pass when the midpoint is at least $170,000. A lower midpoint may still pass
-  when the candidate's experience makes a $170,000+ offer reasonably attainable. Reject or
-  heavily deprioritize ranges where $170,000 is only the extreme ceiling. Use the
+  The published range does not need to start at $160,000. Reject when the published maximum is
+  below $160,000. Pass when the midpoint is at least $160,000. A lower midpoint may still pass
+  when the candidate's experience makes a $160,000+ offer reasonably attainable. Reject or
+  heavily deprioritize ranges where $160,000 is only the extreme ceiling. Use the
   Washington/Seattle range when geographic pay bands differ. Explicitly distinguish base salary
   from total compensation when a posting blends them. Compensation is primarily a gate, not an
-  unlimited positive score: once a role clears a credible path to $170,000+, a materially higher
+  unlimited positive score: once a role clears a credible path to $160,000+, a materially higher
   salary must not be used to justify recommending it over a role with better scope fit — extra
   compensation may only break a tie between similarly credible roles.
 
@@ -140,4 +139,4 @@ hard_filters:
   - Employer principally builds and operates its own product or platform (not a consulting,
     staffing or outsourcing firm; not client-delivery/billable work)
   - Current official posting that still accepts applications
-  - Published base-salary range with a credible path to at least $170,000
+  - Published base-salary range with a credible path to at least $160,000

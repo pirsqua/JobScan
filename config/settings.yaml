@@ -30,7 +30,7 @@ anthropic_pricing:
     output_per_million: 4.00
 
 # Compensation rule.
-min_base_salary: 170000
+min_base_salary: 160000
 
 # Candidate's employment-eligible state, used for remote-location screening.
 candidate_state: WA
