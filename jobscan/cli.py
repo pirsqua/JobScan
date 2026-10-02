@@ -135,8 +135,9 @@ def cmd_companies_list(args: argparse.Namespace, settings: Settings) -> int:
         companies = db.list_companies(active_only=not args.all)
     for c in companies:
         crawled = c.last_crawled_at.isoformat() if c.last_crawled_at else "never"
+        applied_tag = " [APPLIED]" if c.applied else ""
         print(f"{c.id:>4}  {c.name:<30} {c.ats_type.value:<10} {c.board_id:<20} "
-              f"{c.classification.value:<10} active={c.active} last_crawled={crawled}")
+              f"{c.classification.value:<10} active={c.active} last_crawled={crawled}{applied_tag}")
     return 0
 
 

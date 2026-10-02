@@ -14,22 +14,19 @@ wasted detail request per non-engineering posting.
 """
 from __future__ import annotations
 
-import json
 import re
 from typing import Iterable
 
 import httpx
 from bs4 import BeautifulSoup
-from pydantic import ValidationError
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
-from jobscan.adapters.schemas import JobPostingJsonLd
+from jobscan.adapters.jsonld import extract_job_posting_json_ld, to_float
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
 from jobscan.models import AtsType, RawPosting, SalarySource
 
 BASE_URL = "https://jobs.jobvite.com/{company}"
-_JSON_LD_RE = re.compile(r'<script type="application/ld\+json">(.*?)</script>', re.DOTALL)
 _WHITESPACE_RE = re.compile(r"\s+")
 
 logger = get_logger("adapters.jobvite")
@@ -70,7 +67,7 @@ class JobviteAdapter(SourceAdapter):
             )
             return None
 
-        detail = _extract_job_posting_json_ld(response.text)
+        detail = extract_job_posting_json_ld(response.text)
         if detail is None:
             logger.warning(
                 "jobvite job detail missing a JobPosting JSON-LD block",
@@ -81,8 +78,8 @@ class JobviteAdapter(SourceAdapter):
         salary_min = salary_max = salary_currency = salary_period = None
         salary_source = SalarySource.NONE
         if detail.baseSalary and detail.baseSalary.value:
-            salary_min = _to_float(detail.baseSalary.value.minValue)
-            salary_max = _to_float(detail.baseSalary.value.maxValue)
+            salary_min = to_float(detail.baseSalary.value.minValue)
+            salary_max = to_float(detail.baseSalary.value.maxValue)
             if salary_min or salary_max:
                 salary_currency = detail.baseSalary.currency or None
                 unit = (detail.baseSalary.value.unitText or "").upper()
@@ -106,30 +103,6 @@ class JobviteAdapter(SourceAdapter):
             salary_period=salary_period,
             salary_source=salary_source,
         )
-
-
-def _extract_job_posting_json_ld(html: str) -> JobPostingJsonLd | None:
-    for block in _JSON_LD_RE.findall(html):
-        try:
-            payload = json.loads(block, strict=False)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(payload, dict) or payload.get("@type") != "JobPosting":
-            continue
-        try:
-            return JobPostingJsonLd.model_validate(payload)
-        except ValidationError:
-            continue
-    return None
-
-
-def _to_float(value: str | float | None) -> float | None:
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
 
 
 def _parse_list_page(html: str, board_id: str) -> list[tuple[str, str, str | None]]:

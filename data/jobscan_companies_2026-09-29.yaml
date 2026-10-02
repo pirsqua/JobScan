@@ -1,0 +1,1150 @@
+# Unified employer registry for a Seattle-based senior backend/.NET/Python/Azure engineer.
+# Consolidated 2026-09-29 from five separate curation passes (remote/WLB seeds, priority-A
+# candidates, .NET/Azure demand, Puget-Sound-local + vertical-SaaS, and a batch of named leads)
+# into one alphabetized file — the old files are gone; discovery_source on each entry still
+# records which curation pass originally found it, so that context is not lost.
+#
+# active=true means the ats_type/board_id is a real, live-verified, currently-crawlable board.
+# active=false means the real ATS has no adapter yet (see AtsType in jobscan/models.py for which
+# platforms are supported) or the board could not be found/verified. Companies whose only board
+# was confirmed to carry zero US postings across every historical crawl were removed entirely
+# rather than kept inactive — see git history, not this file, for that record.
+#
+# Evidence levels:
+#   current_role_verified   = a current role/board recently demonstrated the fit directly
+#   current_board_verified  = live board verified via a direct API call with a real job count
+#   recurring_stack         = plausible/likely based on known industry or company-technology
+#                             patterns, not a specific verified current posting
+#   monitor_only            = real but weaker signal (uncertain remote policy, big generalist
+#                             employer, mixed stack, or an inconclusive live-verification result)
+#
+# Healthcare/health-systems and clearance-heavy defense/aerospace roles are intentionally
+# excluded throughout, per the candidate's explicit "no security clearance" limitation.
+
+- name: 1Password
+  domain: 1password.com
+  careers_url: https://jobs.ashbyhq.com/1password
+  ats_type: ashby
+  board_id: 1password
+  classification: product
+  active: true
+  priority: A
+  fit_lanes: [dotnet, csharp, saas_backend, apis]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_role_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Current remote Senior .NET Developer role lists $153K-$214K and directly matches C#/.NET, delivery, testing, reviews, and mentoring. Culture reviews are mixed, so inspect the team and recent engineering sentiment."
+
+- name: Aerostrat
+  domain: aerostrat.com
+  careers_url: https://jobs.lever.co/aerostrat
+  ats_type: lever
+  board_id: aerostrat
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [apis, sql]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  applied: true
+  notes: "Aviation maintenance/flight-ops scheduling software; fully remote team, flexible hours, results-focused culture, unlimited PTO. [Corrected 2026-09-30: real ATS is Lever ('aerostrat'), confirmed live with 3 jobs — the earlier Playwright probe missed it entirely.] Candidate has applied here."
+
+- name: Affirm
+  domain: affirm.com
+  careers_url: https://www.affirm.com/careers
+  ats_type: greenhouse
+  board_id: affirm
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, sql, data_platform]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  applied: true
+  notes: "Fintech (buy-now-pay-later) with known Python usage and credible senior compensation. [Verified 2026-09-28: Greenhouse board confirmed live, 177 jobs.] Large, genuinely polyglot org — screen hard per team; some roles will carry high-scale distributed-systems expectations beyond demonstrated experience. Candidate has applied here."
+
+- name: Airbnb
+  domain: airbnb.com
+  careers_url: https://job-boards.greenhouse.io/airbnb
+  ats_type: greenhouse
+  board_id: airbnb
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, data pipeline, sql, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Airbyte
+  domain: airbyte.com
+  careers_url: https://job-boards.greenhouse.io/airbyte
+  ats_type: ashby
+  board_id: airbyte
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Alaska Airlines
+  domain: alaskaair.com
+  careers_url: https://www.alaskaair.com/careers
+  ats_type: icims
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ airline with a real internal technology organization (reservations, loyalty, operations systems). [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.] [Verified 2026-09-30: genuinely strong — 80% recommend, 3.8 WLB/4.2 culture, real fully-remote engineering positions. Worth priority if an iCIMS adapter ever exists.]"
+
+- name: Aledade
+  domain: aledade.com
+  careers_url: https://jobs.lever.co/aledade
+  ats_type: lever
+  board_id: aledade
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A for gettability and fit. Current Remote-US senior/staff roles cover web apps, APIs, SQL and data ingestion and accept Python, C# or equivalent cloud experience. Glassdoor WLB about 3.9. Reject or hold postings without a published base range."
+
+- name: Allstate
+  domain: allstate.com
+  careers_url: https://www.allstate.jobs/
+  ats_type: workday
+  board_id: allstate/wd5/allstate_careers
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, sql, apis, data_platform]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large internal product/platform organization with recurring Microsoft, API, and data demand. [Verified 2026-09-29 via Playwright render: Workday tenant confirmed live, total=451.] [Verified 2026-09-30: genuinely strong remote program — 75% of employees home-based, no mandatory office attendance, 4.0 WLB/3.6-3.9 culture.] Reject insurer roles that are actually vendor management, low-code, or domain-specialist positions."
+
+- name: Asana
+  domain: asana.com
+  careers_url: https://job-boards.greenhouse.io/asana
+  ats_type: greenhouse
+  board_id: asana
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, backend api, integration, azure, sql. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Astronomer
+  domain: astronomer.io
+  careers_url: https://job-boards.greenhouse.io/astronomerio
+  ats_type: ashby
+  board_id: astronomer
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Aurora Solar
+  domain: aurorasolar.com
+  careers_url: https://aurorasolar.com/careers/
+  ats_type: ashby
+  board_id: aurorasolar
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, sql, data_platform]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  applied: true
+  notes: "Solar-design/sales-engineering SaaS, plausible Python/data-platform backend. [Verified 2026-09-28: Ashby board confirmed live, 13 jobs.] [Verified 2026-09-30: Glassdoor 4.2 WLB / 4.0 culture, genuinely remote-friendly though reviews note some growth/leadership turbulence.] Candidate has applied here."
+
+- name: Betterment
+  domain: betterment.com
+  careers_url: https://job-boards.greenhouse.io/betterment
+  ats_type: greenhouse
+  board_id: betterment
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: BeyondTrust
+  domain: beyondtrust.com
+  careers_url: https://www.beyondtrust.com/company/careers
+  ats_type: greenhouse
+  board_id: beyondtrust
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, security_product, apis, azure]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Relevant C#/.NET identity-security product work exists, but current openings increasingly emphasize Go, UI, or AI. Require a clean job-level match. [Verified 2026-09-29 via Playwright render: Greenhouse board confirmed live, 50 jobs.] [Verified 2026-09-30: genuinely remote-first, 4.1 culture, 78% recommend, strong WLB emphasis from leadership.]"
+
+- name: Bitwarden
+  domain: bitwarden.com
+  careers_url: https://job-boards.greenhouse.io/bitwarden
+  ats_type: greenhouse
+  board_id: bitwarden
+  classification: product
+  active: true
+  priority: A
+  fit_lanes: [dotnet, csharp, apis, security_product]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Remote-first product with a substantial C#/.NET codebase; senior U.S. bands can straddle $170K. Reject roles centered on Rust, cryptography research, or deep security specialization. [Corrected: live board is Greenhouse ('bitwarden'), not the custom/unverified guess this entry originally carried.]"
+
+- name: Close
+  domain: close.com
+  careers_url: https://close.com/careers
+  ats_type: ashby
+  board_id: close
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, sql, saas_backend]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  notes: "Sales-CRM SaaS, publicly known for a large Python codebase — strong plausible backend/API fit. Fully remote, small/profitable team culture. [Verified 2026-09-28: Ashby board confirmed live, 7 jobs.] Small board; verify current openings and published compensation."
+
+- name: Cloudflare
+  domain: cloudflare.com
+  careers_url: https://job-boards.greenhouse.io/cloudflare
+  ats_type: greenhouse
+  board_id: cloudflare
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Cockroach Labs
+  domain: cockroachlabs.com
+  careers_url: https://job-boards.greenhouse.io/cockroachlabs
+  ats_type: greenhouse
+  board_id: cockroachlabs
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Commvault
+  domain: commvault.com
+  careers_url: https://careers.commvault.com/
+  ats_type: greenhouse
+  board_id: commvault
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, data_platform, apis]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Cloud data-protection work can match .NET, Azure, APIs, and production troubleshooting. Some roles are systems-heavy, multi-cloud, or location-bound. [Verified 2026-09-30: decent — 76% recommend, 3.9 WLB/culture, real remote/unlimited PTO.] [Corrected 2026-10-01: real ATS is Greenhouse ('commvault') — missed in the earlier 'custom' probe, found via search for hidden boards, confirmed live with 59 jobs.]"
+
+- name: Cribl
+  domain: cribl.io
+  careers_url: https://job-boards.greenhouse.io/cribl
+  ats_type: greenhouse
+  board_id: cribl
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Remote-first; Glassdoor 4.2 overall / 4.0 WLB. Senior software roles have published roughly $185K-$215K and staff roles $205K+. Strong data/telemetry/backend fit; screen out AI-heavy and deep platform roles."
+
+- name: Dagster Labs
+  domain: dagster.io
+  careers_url: https://job-boards.greenhouse.io/elementl
+  ats_type: greenhouse
+  board_id: dagsterlabs
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Databricks
+  domain: databricks.com
+  careers_url: https://job-boards.greenhouse.io/databricks
+  ats_type: greenhouse
+  board_id: databricks
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Dayforce
+  domain: dayforce.com
+  careers_url: https://jobs.dayforcehcm.com/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, sql_server, apis]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Microsoft-stack HCM product with recurring C#/.NET, Azure, and SQL Server demand. [Verified 2026-09-30: genuinely WFH-friendly (shuttering offices pre-COVID), 70% recommend, 4.0 WLB/3.7 culture.]"
+
+- name: Delinea
+  domain: delinea.com
+  careers_url: https://jobs.ashbyhq.com/delinea
+  ats_type: ashby
+  board_id: delinea
+  classification: product
+  active: true
+  priority: A
+  fit_lanes: [dotnet, csharp, sql_server, rest_apis, azure]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_role_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Live U.S.-remote board includes .NET engineering and published ranges reaching $185K-$200K. Excellent API/SQL Server fit; reject AI-heavy or security-specialist roles whose domain requirements are mandatory."
+
+- name: DigitalOcean
+  domain: digitalocean.com
+  careers_url: https://job-boards.greenhouse.io/digitalocean98
+  ats_type: greenhouse
+  board_id: digitalocean98
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Docker
+  domain: docker.com
+  careers_url: https://job-boards.greenhouse.io/docker
+  ats_type: ashby
+  board_id: docker
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Remote-first; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Positive employer-level culture signal, but verify the current engineering team; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: DocuSign
+  domain: docusign.com
+  careers_url: https://careers.docusign.com/
+  ats_type: icims
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [csharp, apis, integrations, azure, sql]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "High-paying product engineering with strong API/integration relevance and some C#/.NET teams. [Verified 2026-09-29: real ATS is iCIMS — no adapter, stays inactive.] [Verified 2026-09-30: decent SWE-specific numbers (4.0 WLB, 3.5-3.9 culture range), real remote/hybrid/in-office role categorization exists. Python fit unconfirmed. Worth revisiting if an iCIMS adapter ever exists.]"
+
+- name: Doximity
+  domain: doximity.com
+  careers_url: https://job-boards.greenhouse.io/doximity
+  ats_type: greenhouse
+  board_id: doximity
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A for fit. Current Remote-US Senior Software Engineer, Data role asks for expert Python, SQL and end-to-end data pipelines. It publishes $165K-$221K TOTAL compensation, not a base range, so preserve as compensation-unverified under the strict rule."
+
+- name: Dropbox
+  domain: dropbox.com
+  careers_url: https://jobs.dropbox.com/
+  ats_type: greenhouse
+  board_id: dropbox
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, data_platform, sql, production_systems]
+  remote_signal: virtual_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "High-paying virtual-first Python/backend/data target. Apply only where required scale and distributed-systems depth are compatible with the demonstrated track record. [Verified 2026-09-30: genuinely strong — 4.0 culture (13% above IT industry), 67% recommend, real Virtual First policy since 2020. Real Python heritage confirmed.] [Corrected 2026-10-01: real ATS is Greenhouse ('dropbox') — missed in the earlier 'custom' probe, confirmed live with 37 jobs.]"
+
+- name: Duck Creek Technologies
+  domain: duckcreek.com
+  careers_url: https://www.duckcreek.com/careers/
+  ats_type: workday
+  board_id: duckcreek/wd1/duckcreekcareers
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Core P&C-insurance policy/billing/claims software, built and marketed as a .NET/Azure platform. [Verified 2026-09-25: Workday tenant confirmed live, total=33.] [Verified 2026-09-30: genuinely remote-first in the US, 4.1 WLB / 4.0 culture, 84% recommend.]"
+
+- name: Duolingo
+  domain: duolingo.com
+  careers_url: https://job-boards.greenhouse.io/duolingo
+  ats_type: greenhouse
+  board_id: duolingo
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, data pipeline, sql, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Epicor
+  domain: epicor.com
+  careers_url: https://www.epicor.com/en-us/careers/
+  ats_type: workday
+  board_id: epicorsoftware/wd5/epicorjobs
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "ERP software (manufacturing/distribution/retail editions), long-standing C#/.NET/SQL Server product lines, private-equity owned. [Verified 2026-09-29 via Playwright render: Workday tenant confirmed live, total=68.] [Verified 2026-09-30: 4.1 WLB / 4.0 culture, 78% recommend, genuine remote/hybrid flexibility.]"
+
+- name: Experian
+  domain: experian.com
+  careers_url: https://jobs.experian.com/jobs
+  ats_type: smartrecruiters
+  board_id: Experian
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, python, data_platform, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "High volume of product/data engineering and occasional remote .NET roles. AWS is frequently mandatory, so transferable Azure knowledge must not be counted as an exact match. [Verified 2026-09-30: excellent culture — 'World's Best Workplaces 2024' (Fortune), Great Place to Work in 24 countries, 81% recommend, genuine hybrid flexibility with no RTO mandate. [Verified 2026-09-30: built a real SmartRecruitersAdapter — 398 total postings on the board, confirmed structured compensation data (min/max/currency/period) on US postings. Now active and crawlable.]"
+
+- name: Fivetran
+  domain: fivetran.com
+  careers_url: https://job-boards.greenhouse.io/fivetran
+  ats_type: greenhouse
+  board_id: fivetran
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Genesys
+  domain: genesys.com
+  careers_url: https://genesys.wd1.myworkdayjobs.com/Genesys
+  ats_type: workday
+  board_id: genesys/wd1/Genesys
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [apis, integrations, csharp, azure, sql, event_driven]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Contact-center platform creates strong API, integration, event-driven, and Microsoft-stack opportunities. [Verified 2026-09-30: genuinely remote-first (most of the company works remotely), 4.2 overall, 83% recommend.] Reject AWS-specialist, Kubernetes-platform, or mandatory AI-product roles."
+
+- name: GitHub
+  domain: github.com
+  careers_url: https://www.github.careers/careers-home
+  ats_type: icims
+  board_id: ""
+  classification: product
+  active: false
+  priority: A-
+  fit_lanes: [apis, integrations, azure, ci_cd, developer_tools]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Excellent API, integration, Azure DevOps, CI/CD, and developer-tool adjacency with strong remote compensation. Core product teams often prefer Ruby, Go, or deep distributed-systems experience. [Verified 2026-09-29: real ATS is iCIMS — no adapter, stays inactive.] [Verified 2026-09-30: genuinely remote-first, 69% recommend, good culture. Python fit weak — core monolith is Ruby, no confirmed Python usage.]"
+
+- name: GitLab
+  domain: gitlab.com
+  careers_url: https://job-boards.greenhouse.io/gitlab
+  ats_type: greenhouse
+  board_id: gitlab
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Remote-first; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Positive employer-level culture signal, but verify the current engineering team; continue strict job-level screening."
+
+- name: Grafana Labs
+  domain: grafana.com
+  careers_url: https://job-boards.greenhouse.io/grafanalabs
+  ats_type: greenhouse
+  board_id: grafanalabs
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Vast majority of roles remote; Glassdoor 4.2 overall / 4.4 WLB. Senior/staff engineering bands can clear $170K. Excellent observability/backend company, but many roles prefer Go and deep infrastructure experience."
+
+- name: Gusto
+  domain: gusto.com
+  careers_url: https://job-boards.greenhouse.io/gusto
+  ats_type: greenhouse
+  board_id: gusto
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: HubSpot
+  domain: hubspot.com
+  careers_url: https://job-boards.greenhouse.io/hubspotjobs
+  ats_type: greenhouse
+  board_id: hubspotjobs
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, backend api, integration, azure, sql. Positive employer-level culture signal, but verify the current engineering team; continue strict job-level screening."
+
+- name: Hungryroot
+  domain: hungryroot.com
+  careers_url: https://www.hungryroot.com/careers
+  ats_type: greenhouse
+  board_id: hungryroot
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, data_platform]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  notes: "Personalized grocery/meal-kit e-commerce with a recommendation-engine core, plausible Python/data-platform overlap. [Verified 2026-09-28: Greenhouse board confirmed live, 5 jobs.] [Verified 2026-09-30: genuinely remote-first, distributed team across 28+ US states; Glassdoor 4.0 WLB / 4.4 culture.] Small board; verify opening volume."
+
+- name: Huntress
+  domain: huntress.com
+  careers_url: https://job-boards.greenhouse.io/huntress
+  ats_type: greenhouse
+  board_id: huntress
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A-. Fully remote; Glassdoor 4.1 overall / 4.3 WLB. Staff software ranges have reached roughly $162K-$257K. Good backend/product target; weigh recent engineering reviews and security-domain requirements."
+
+- name: iManage
+  domain: imanage.com
+  careers_url: https://imanage.com/about/the-company/careers/
+  ats_type: jazzhr
+  board_id: imanagecom
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Document-management SaaS has recurring C#/.NET/Azure backend demand. Legal-domain exposure is helpful but often not mandatory. [Verified 2026-09-30: 88% recommend, positive culture, but hybrid-leaning (company explicitly values in-person time) rather than remote-first — worth tracking but not a clean remote fit.] [Verified 2026-09-30: old careers URL was dead; real board is an embedded JazzHR/ApplyToJob widget (imanagecom.applytojob.com). Built a new JazzHRAdapter; confirmed live, 7 real engineering postings with structured salary ranges (e.g. Senior AI Engineer $180k-$220k, Principal Software Engineer $150k-$200k).]"
+
+- name: Impinj
+  domain: impinj.com
+  careers_url: https://www.impinj.com/careers
+  ats_type: greenhouse
+  board_id: impinjexternal
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [apis, azure, sql, data_platform]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, RFID/IoT hardware and platform company. Software teams (cloud platform, enterprise systems) are the relevant lane, not the embedded/RF engineering side. [Verified 2026-09-30: genuinely strong — explicit no-return-to-office policy, hybrid/remote choice, 4.4 WLB/4.0 culture.] [Corrected 2026-10-01: real ATS is Greenhouse ('impinjexternal') — missed in the earlier 'custom' probe, confirmed live with 19 jobs.]"
+
+- name: Infor
+  domain: infor.com
+  careers_url: https://www.infor.com/company/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Large ERP vendor (Koch-owned) assembled from many acquisitions; stack varies significantly by product line, with real Microsoft-stack pockets. [Verified 2026-09-30: genuinely strong SWE-specific numbers (4.3 WLB, 4.2 culture), real remote norm for most employees — better than the 'traditional ERP conglomerate' stereotype suggested. Python fit unconfirmed.]"
+
+- name: KoBold Metals
+  domain: koboldmetals.com
+  careers_url: https://koboldmetals.com/careers/
+  ats_type: greenhouse
+  board_id: koboldmetals
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, sql, data_platform]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: candidate_applied_2026-09-30
+  applied: true
+  notes: "AI/ML-driven mineral-exploration company (battery-metals prospecting), backed by Bill Gates/Jeff Bezos/Breakthrough Energy. [Verified 2026-09-30: Greenhouse board confirmed live, 32 jobs; 93% of postings are remote-eligible; published bands e.g. Engineering Manager, Data Systems $200K-$240K.] Candidate has applied here."
+
+- name: LaunchDarkly
+  domain: launchdarkly.com
+  careers_url: https://job-boards.greenhouse.io/launchdarkly
+  ats_type: greenhouse
+  board_id: launchdarkly
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, sql, data_platform, production_systems]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  applied: true
+  notes: "Strong API, Python, data, experimentation, and production-ownership overlap with Seattle-calibrated pay. Some roles require Go or deeper high-scale platform experience. Candidate has applied here."
+
+- name: Liberty Mutual
+  domain: libertymutualgroup.com
+  careers_url: https://searchjobs.libertymutualgroup.com/
+  ats_type: eightfold
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, apis, data_platform]
+  remote_signal: team_specific
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Substantial software organization and senior pay can qualify. AWS is common, so only accept Azure-compatible or cloud-neutral requirements. [Verified 2026-09-29: real ATS is Eightfold (Taleo branding also present, likely a legacy remnant) — no adapter (Eightfold's own search API is known to 403/reCAPTCHA-gate automated access), stays inactive.] [Verified 2026-09-30: excellent SWE-specific numbers — 4.5 overall, 91% recommend, 4.6 WLB/4.4 culture — far better than the 'traditional insurer' assumption. Genuinely remote for some roles, hybrid 2-days for others. Python fit unconfirmed.]"
+
+- name: Lumos
+  domain: lumos.com
+  careers_url: https://www.lumos.com/careers
+  ats_type: ashby
+  board_id: lumos
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [apis, saas_backend, sql]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  notes: "Identity-governance/security SaaS, enterprise B2B API surface. [Verified 2026-09-28: Ashby board confirmed live, 13 jobs.] [Verified 2026-09-30: 100% remote (+/-4 hours PST), 4.7/5 Glassdoor from a small sample.] Verify current openings."
+
+- name: Mapbox
+  domain: mapbox.com
+  careers_url: https://job-boards.greenhouse.io/mapbox
+  ats_type: ashby
+  board_id: mapbox
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, python, sql, gis, data pipeline, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Marqeta
+  domain: marqeta.com
+  careers_url: https://job-boards.greenhouse.io/marqeta
+  ats_type: ashby
+  board_id: marqeta-inc
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Modern Treasury
+  domain: moderntreasury.com
+  careers_url: https://job-boards.greenhouse.io/moderntreasury
+  ats_type: ashby
+  board_id: moderntreasury
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: MongoDB
+  domain: mongodb.com
+  careers_url: https://job-boards.greenhouse.io/mongodb
+  ats_type: greenhouse
+  board_id: mongodb
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Monte Carlo
+  domain: montecarlodata.com
+  careers_url: https://job-boards.greenhouse.io/montecarlodata
+  ats_type: ashby
+  board_id: montecarlodata
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Motorola Solutions
+  domain: motorolasolutions.com
+  careers_url: https://motorolasolutions.wd5.myworkdayjobs.com/Careers
+  ats_type: workday
+  board_id: motorolasolutions/wd5/Careers
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, apis, sql]
+  remote_signal: current_us_remote
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Own-product engineering includes substantial C#/.NET and Azure work. [Verified 2026-09-30: genuinely strong — 4.2 overall, 86% recommend, 4.3 WLB/culture, real hybrid-to-remote flexibility for engineers.] Exclude public-safety roles requiring clearance, on-site presence, or specialized radio/embedded experience."
+
+- name: Nationwide
+  domain: nationwide.com
+  careers_url: https://www.nationwide.com/personal/about-us/careers/
+  ats_type: workday
+  board_id: nationwide/wd1/Nationwide_Career
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, sql, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Relevant enterprise software demand and remote history, but many bands likely miss $170K. Retain only transparent senior/lead postings. [Verified 2026-09-30: genuinely strong SWE-specific numbers (4.0 WLB, 4.2-4.4 culture/D&I), real flexible/remote options, Glassdoor Best Places to Work 2026.] [Corrected 2026-10-01: real ATS is Workday — missed in the earlier 'custom' probe, confirmed live with total=188.]"
+
+- name: NerdWallet
+  domain: nerdwallet.com
+  careers_url: https://job-boards.greenhouse.io/nerdwallet
+  ats_type: ashby
+  board_id: nerdwallet
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Netwrix
+  domain: netwrix.com
+  careers_url: https://netwrix.com/en/careers/
+  ats_type: rippling
+  board_id: netwrix-corporation
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, security_product, azure]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Microsoft ecosystem and security products create relevant engineering, though pay transparency is inconsistent. [Verified 2026-09-30: decent — genuinely remote-first globally (unlimited PTO), 63% recommend, 4.0 WLB/3.6 culture, though one anecdote of RTO creep after several years.] [Verified 2026-09-30: careers.netwrix.com is dead DNS — real careers page is netwrix.com/en/careers/, which links out to a Rippling ATS board (ats.rippling.com/netwrix-corporation). Built a new RipplingAdapter; confirmed live, 11 real engineering postings including Krakow-based Senior/Staff Software Engineer roles.]"
+
+- name: New Relic
+  domain: newrelic.com
+  careers_url: https://job-boards.greenhouse.io/newrelic
+  ats_type: greenhouse
+  board_id: newrelic
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Octopus Deploy
+  domain: octopus.com
+  careers_url: https://octopus.com/company/careers
+  ats_type: greenhouse
+  board_id: octopusdeploy
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, ci_cd, developer_tools, azure]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Superb .NET/deployment-product and culture fit, but current U.S. engineering openings are sparse and the $170K/$160K base path is not yet established. [Verified 2026-09-29 via Playwright render: Greenhouse board confirmed live, 4 jobs — small board, let per-posting salary filtering do the real gating.]"
+
+- name: PagerDuty
+  domain: pagerduty.com
+  careers_url: https://job-boards.greenhouse.io/pagerduty
+  ats_type: greenhouse
+  board_id: pagerduty
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Plaid
+  domain: plaid.com
+  careers_url: https://job-boards.greenhouse.io/plaid
+  ats_type: ashby
+  board_id: plaid
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Precisely
+  domain: precisely.com
+  careers_url: https://www.precisely.com/careers
+  ats_type: greenhouse
+  board_id: preciselyusjobs
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [dotnet, csharp, python, data_platform, sql, integrations]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Data-integrity and integration products create relevant C#/.NET, Python, SQL, and pipeline work. Keep only roles with a published U.S. base band that makes $170K credible. [Verified 2026-09-30: excellent — 4.6 SWE rating, remote-first, unlimited PTO, and confirmed real Python usage alongside Java/Node/Go.] [Corrected 2026-10-01: real ATS is Greenhouse — two boards exist, 'preciselyusjobs' (36 jobs, used here as the US-relevant one) and 'preciselyinternationaljobs' (22 jobs); missed in the earlier 'custom' probe.]"
+
+- name: Pulumi
+  domain: pulumi.com
+  careers_url: https://job-boards.greenhouse.io/pulumicorporation
+  ats_type: greenhouse
+  board_id: pulumicorporation
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority B+. Seattle-founded and fully remote; Seattle senior range recently about $181K-$228K. Strong Python/Azure/IaC adjacency. Current engineering opening is agentic-AI centered, so wait for a conventional backend/platform role."
+
+- name: Qlik
+  domain: qlik.com
+  careers_url: https://www.qlik.com/us/company/careers
+  ats_type: eightfold
+  board_id: ""
+  classification: product
+  active: false
+  priority: B+
+  fit_lanes: [data_platform, sql, python, apis, integrations]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Data integration and analytics products align with SQL, pipelines, APIs, and Python. Many engineering roles use Java/Go or require deeper distributed-data experience. [Verified 2026-09-30: genuinely remote-friendly despite nominal 'hybrid' label, 81% recommend, 4.2 WLB/4.1 culture.] [Verified 2026-09-30: real board is careerhub.qlik.com, an Eightfold tenant — its API 403s ('Not authorized for PCSX'), same gating signature confirmed on other Eightfold boards this session. Stays inactive, not pursued.]"
+
+- name: Quizlet
+  domain: quizlet.com
+  careers_url: https://job-boards.greenhouse.io/quizlet
+  ats_type: ashby
+  board_id: quizlet-inc
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, data pipeline, sql, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: RealPage
+  domain: realpage.com
+  careers_url: https://www.realpage.com/careers/
+  ats_type: icims
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, sql_server, azure, apis]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Property-management software vendor (Dallas-based, private-equity owned), Microsoft-stack heritage across many acquired product lines. [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.] [Verified 2026-09-30: decent — 3.9-4.2 SWE range, genuinely remote-friendly, unlimited PTO, 63% recommend and rising. Python fit unconfirmed.]"
+
+- name: Reddit
+  domain: redditinc.com
+  careers_url: https://job-boards.greenhouse.io/reddit
+  ats_type: greenhouse
+  board_id: reddit
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [python, apis, sql, data_platform]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  applied: true
+  notes: "Real U.S.-remote engineering roles and credible senior pay, but real evaluation history this session shows many postings center on Go/Scala/Kafka/Kubernetes high-scale ad/ingestion systems outside the candidate's demonstrated stack — screen hard per team rather than assuming company-wide fit. Candidate has applied here."
+
+- name: RevenueCat
+  domain: revenuecat.com
+  careers_url: https://jobs.ashbyhq.com/revenuecat
+  ats_type: ashby
+  board_id: revenuecat
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [apis, sql, saas_backend]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  notes: "Fully remote, async-first, high engineering pay. Many roles involve mobile subscriptions or frontend work, so let job-level fit filtering stay strict."
+
+- name: Salsify
+  domain: salsify.com
+  careers_url: https://job-boards.greenhouse.io/salsify
+  ats_type: greenhouse
+  board_id: salsify
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, integration, python, csharp dotnet, sql. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Samsara
+  domain: samsara.com
+  careers_url: https://job-boards.greenhouse.io/samsara
+  ats_type: greenhouse
+  board_id: samsara
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, python, sql, gis, data pipeline, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Schneider Electric
+  domain: se.com
+  careers_url: https://www.se.com/ww/en/about-us/careers/
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, data_platform, industrial_software]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: recurring_stack
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Broad software and data organization with Azure demand, domain requirements vary by team. [Verified 2026-09-30: excellent for software engineers specifically — 96% SWE recommend, 4.5 WLB/4.4 culture/D&I — far better than the 'traditional industrial conglomerate' assumption suggested. One of the strongest culture finds in the whole registry.]"
+
+- name: Scribe
+  domain: scribe.com
+  careers_url: https://scribe.com/careers
+  ats_type: ashby
+  board_id: scribe
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [apis, python, saas_backend]
+  remote_signal: team_specific
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  applied: true
+  notes: "AI-assisted documentation/screen-recording SaaS. [Verified 2026-09-28: Ashby board confirmed live, 39 jobs.] [Verified 2026-09-30: Glassdoor 3.7 WLB / 3.4 culture, 62% recommend — decent but remote policy applied unevenly by level/office.] Candidate has applied here."
+
+- name: ServiceTitan
+  domain: servicetitan.com
+  careers_url: https://servicetitan.wd1.myworkdayjobs.com/ServiceTitan
+  ats_type: workday
+  board_id: servicetitan/wd1/ServiceTitan
+  classification: product
+  active: true
+  priority: A
+  fit_lanes: [dotnet, csharp, sql, apis, distributed_systems]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_role_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large C#/.NET product organization; a recent remote Senior Software Engineer band was $152.6K-$204.2K. Verify team-specific frontend, AWS, and scale expectations."
+
+- name: Siemens Digital Industries Software
+  domain: siemens.com
+  careers_url: https://jobs.siemens.com/careers
+  ats_type: avature
+  board_id: jobs.siemens.com/en_US/externaljobs
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [dotnet, csharp, azure, data_platform, industrial_software]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Large software portfolio with Microsoft-stack and data opportunities; many openings are domain-heavy or outside the U.S. [Verified 2026-09-30: 85% recommend, 4.3 WLB/4.2 culture, genuine remote/hybrid choice with no pressure either way.] [Verified 2026-09-30: real ATS is Avature, not bot-gated on this tenant (unlike other registry companies' Avature boards) — confirmed live with no captcha anywhere in the search/apply flow. This is Siemens' global board, not DISW-specific, so it includes many non-software roles; the job-family title filter narrows it down. Built a new AvatureAdapter; confirmed live, 165 real engineering postings including a Pune 'Senior Software Engineer – .NET C# Mandatory' role.]"
+
+- name: SmithRx
+  domain: smithrx.com
+  careers_url: https://job-boards.greenhouse.io/smithrx
+  ats_type: greenhouse
+  board_id: smithrx
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A-. Ranked #46 on Comparably's 2025 large-company WLB list and appears on FlexJobs' happy remote-employer list. Health-tech software and data roles can clear $170K; verify team and posting-specific remote policy."
+
+- name: Standard Metrics
+  domain: standardmetrics.io
+  careers_url: https://standardmetrics.io/careers
+  ats_type: greenhouse
+  board_id: standardmetrics
+  classification: product
+  active: true
+  priority: A
+  fit_lanes: [python, apis, sql, data_platform]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: candidate_applied_2026-09-30
+  applied: true
+  notes: "Automated financial-collaboration platform for VCs/founders (formerly Quaestor), backed by 8VC/Spark Capital. [Verified 2026-09-30: Greenhouse board confirmed live, 5 jobs including Software Engineer (Backend) at $180K-$225K, fully remote; Data Solutions Engineer role explicitly uses SQL/Python.] Candidate has applied here."
+
+- name: Stripe
+  domain: stripe.com
+  careers_url: https://job-boards.greenhouse.io/stripe
+  ats_type: greenhouse
+  board_id: stripe
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Tailscale
+  domain: tailscale.com
+  careers_url: https://job-boards.greenhouse.io/tailscale
+  ats_type: greenhouse
+  board_id: tailscale
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority B+. Remote company explicitly promotes flexible hours and WLB; Glassdoor WLB about 4.4 but from a small sample. High compensation, but engineering roles often require Go, networking or security depth."
+
+- name: Teleport
+  domain: goteleport.com
+  careers_url: https://job-boards.greenhouse.io/teleport
+  ats_type: ashby
+  board_id: goteleport
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Remote-first; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, identity, azure, event driven, sql. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Temporal
+  domain: temporal.io
+  careers_url: https://job-boards.greenhouse.io/temporaltechnologies
+  ats_type: ashby
+  board_id: temporal
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+
+- name: Todoist
+  domain: todoist.com
+  careers_url: https://www.todoist.com/careers
+  ats_type: ashby
+  board_id: todoist-inc
+  classification: product
+  active: true
+  priority: A
+  fit_lanes: [apis, python, saas_backend]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: candidate_suggested_2026-09-30
+  notes: "Doist (maker of Todoist/Twist) — fully remote/async across ~40 countries, no fixed hours beyond a 40-hour/week norm, 8 weeks PTO, 4.5/5 culture rating, 97% retention, deliberately small (~100-110 people) and highly selective hiring. [Corrected 2026-10-01: a real Ashby board does exist ('todoist-inc') — missed in the earlier Playwright probe (likely because it's not embedded on the main site at all). Confirmed live via direct API, 0 jobs open right now; now active so it surfaces automatically whenever they post.]"
+
+- name: Travelers
+  domain: travelers.com
+  careers_url: https://careers.travelers.com/
+  ats_type: workday
+  board_id: travelers/wd5/External
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [dotnet, csharp, azure, sql_server, apis]
+  remote_signal: current_us_remote
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Strong enterprise Microsoft-stack demand. [Verified 2026-09-29 via Playwright render: Workday tenant confirmed live, total=366.] [Verified 2026-09-30: genuinely strong for software engineers specifically — 4.1 SWE rating, 4.7 WLB, 4.3 culture (21% above insurance-industry average), real remote options.] Base compensation still needs per-posting verification."
+
+- name: Trimble
+  domain: trimble.com
+  careers_url: https://careers.trimble.com/
+  ats_type: workday
+  board_id: trimble/wd1/TrimbleCareers
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, python, gis, data_platform]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Excellent GIS/data/product adjacency with Microsoft and Python teams. [Verified 2026-09-30: good — 3.9 SWE rating, 4.4 WLB/4.2 culture, real flexible/remote arrangements (culture rating 8% above IT industry average).] [Corrected 2026-10-01: real ATS is Workday — missed in the earlier 'custom' probe, confirmed live with total=222.]"
+
+- name: Twilio
+  domain: twilio.com
+  careers_url: https://job-boards.greenhouse.io/twilio
+  ats_type: greenhouse
+  board_id: twilio
+  classification: product
+  active: true
+  discovery_source: curated_remote_wlb_2026
+  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, backend api, integration, azure, sql. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Veeam
+  domain: veeam.com
+  careers_url: https://careers.veeam.com/
+  ats_type: greenhouse
+  board_id: veeamsoftware
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [dotnet, csharp, azure, data_platform, apis]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_azure_demand_2026
+  notes: "Backup/data-protection products use substantial C#/.NET and cloud integrations. Screen out deep systems/C++ roles. [Verified 2026-09-29: Greenhouse board id is 'veeamsoftware' (not 'veeam'), confirmed live via direct API, 240 jobs.] [Verified 2026-09-30: describes itself as remote-first, 67% recommend, 3.7 WLB/culture — respectable, not top-tier.]"
+
+- name: Workiva
+  domain: workiva.com
+  careers_url: https://www.workiva.com/careers
+  ats_type: workday
+  board_id: workiva/wd503/careers
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [apis, azure, sql, saas_backend]
+  remote_signal: remote_history
+  compensation_signal: likely_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  notes: "Compliance/reporting SaaS (Ames, IA-based, remote-friendly history). [Verified 2026-09-28: real ATS is Workday, tenant confirmed live, total=99 — previously recorded as custom/unverified.]"
+
+- name: Zapier
+  domain: zapier.com
+  careers_url: https://jobs.ashbyhq.com/zapier
+  ats_type: ashby
+  board_id: zapier
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, apis, integrations, sql, saas_backend]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_latest_leads_2026-09-28
+  notes: "One of the best Python/API/integration matches with remote-first compensation. Senior roles can set a high distributed-systems bar, so distinguish attainable product-backend work from elite platform roles."
+
+- name: Zillow
+  domain: zillow.com
+  careers_url: https://www.zillow.com/careers/
+  ats_type: workday
+  board_id: zillow/wd5/Zillow_Group_External
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [python, apis, sql, data_platform]
+  remote_signal: remote_history
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: curated_dotnet_local_vertical_2026
+  notes: "Seattle HQ, large and genuinely polyglot engineering org (Java is more central than .NET). Included for locality and strong compensation; screen hard per team rather than assuming stack overlap. [Verified 2026-09-30: confirmed real Python usage (Python/NodeJS/Go for APIs and services), real remote-role category exists, culture mixed-but-not-bad (3.0-3.6 range).] [Corrected 2026-10-01: real ATS is Workday — missed in the earlier 'custom' probe, confirmed live with total=125.]"
