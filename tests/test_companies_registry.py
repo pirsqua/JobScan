@@ -48,6 +48,21 @@ class TestRegistryImport:
         assert companies[0].board_id == "widgets"
         assert companies[0].ats_type == AtsType.ASHBY
 
+    def test_applied_flag_defaults_false_and_round_trips_true(self, tmp_path: Path, db: Database):
+        # `applied` is independent of any fit/culture scoring — a candidate's own application
+        # history always wins, so it needs to survive import and DB round-trips accurately.
+        path = tmp_path / "companies.csv"
+        path.write_text(
+            "name,ats_type,board_id,applied\n"
+            "NotApplied Co,greenhouse,notapplied,\n"
+            "Applied Co,greenhouse,appliedco,true\n",
+            encoding="utf-8",
+        )
+        import_registry(db, path)
+        by_name = {c.name: c for c in db.list_companies(active_only=False)}
+        assert by_name["NotApplied Co"].applied is False
+        assert by_name["Applied Co"].applied is True
+
     def test_reimport_updates_rather_than_duplicates(self, tmp_path: Path, db: Database):
         path = tmp_path / "companies.csv"
         path.write_text(CSV_CONTENT, encoding="utf-8")
@@ -122,31 +137,28 @@ class TestRegistryImport:
     def test_recorded_unsupported_ats_types_do_not_raise(self, tmp_path: Path, db: Database):
         # These have no crawl adapter yet, but a registry curator should be able to record that a
         # company uses one (typically active=false) without the import failing — see AtsType's
-        # docstring. (Greenhouse/Ashby/Lever/Workday/Jobvite/Esri are the supported ones and are
-        # exercised elsewhere, not here.)
+        # docstring. (Greenhouse/Ashby/Lever/Workday/Jobvite/Esri/SmartRecruiters/Avature are the
+        # supported ones and are exercised elsewhere, not here.)
         path = tmp_path / "unsupported.csv"
         path.write_text(
             "name,ats_type,board_id,active\n"
-            "SmartRecruiters Co,smartrecruiters,smartco,false\n"
             "iCIMS Co,icims,icimsco,false\n"
             "Taleo Co,taleo,taleoco,false\n"
-            "Avature Co,avature,avatureco,false\n"
             "Phenom Co,phenom,phenomco,false\n"
             "Eightfold Co,eightfold,eightfoldco,false\n"
+            "SuccessFactors Co,successfactors,successfactorsco,false\n"
             "Custom Co,custom,customco,false\n",
             encoding="utf-8",
         )
         processed, total, _ = import_registry(db, path)
-        assert processed == 7
-        assert total == 7
+        assert processed == 6
+        assert total == 6
         boards = {c.board_id: c for c in db.list_companies(active_only=False)}
-        assert boards["smartco"].ats_type == AtsType.SMARTRECRUITERS
-        assert boards["smartco"].active is False
         assert boards["icimsco"].ats_type == AtsType.ICIMS
         assert boards["taleoco"].ats_type == AtsType.TALEO
-        assert boards["avatureco"].ats_type == AtsType.AVATURE
         assert boards["phenomco"].ats_type == AtsType.PHENOM
         assert boards["eightfoldco"].ats_type == AtsType.EIGHTFOLD
+        assert boards["successfactorsco"].ats_type == AtsType.SUCCESSFACTORS
 
     def test_missing_required_field_raises(self, tmp_path: Path):
         path = tmp_path / "bad.csv"

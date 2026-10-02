@@ -48,6 +48,11 @@ def _row_to_company(row: dict) -> Company:
     if active_raw is not None and str(active_raw).strip() != "":
         active = str(active_raw).strip().lower() not in ("0", "false", "no", "inactive")
 
+    applied_raw = row.get("applied")
+    applied = False
+    if applied_raw is not None and str(applied_raw).strip() != "":
+        applied = str(applied_raw).strip().lower() in ("1", "true", "yes")
+
     return Company(
         name=str(row["name"]).strip(),
         domain=domain,
@@ -59,6 +64,7 @@ def _row_to_company(row: dict) -> Company:
         active=active,
         discovery_source=(row.get("discovery_source") or "").strip() or None,
         notes=(row.get("notes") or "").strip() or None,
+        applied=applied,
     )
 
 

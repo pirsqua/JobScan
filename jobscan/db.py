@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS companies (
     last_crawled_at TEXT,
     discovery_source TEXT,
     notes TEXT,
+    applied INTEGER NOT NULL DEFAULT 0,
     UNIQUE (ats_type, board_id)
 );
 
@@ -227,6 +228,7 @@ class Database:
         self._add_column_if_missing("evaluation_runs", "triage_cache_creation_input_tokens", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "triage_cache_read_input_tokens", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "triage_model", "TEXT")
+        self._add_column_if_missing("companies", "applied", "INTEGER")
 
     def _add_column_if_missing(self, table: str, column: str, sql_type: str) -> None:
         existing = {row["name"] for row in self.conn.execute(f"PRAGMA table_info({table})")}
@@ -274,7 +276,7 @@ class Database:
             )
             if should_update_classification:
                 self.conn.execute(
-                    """UPDATE companies SET name=?, domain=?, careers_url=?, active=?,
+                    """UPDATE companies SET name=?, domain=?, careers_url=?, active=?, applied=?,
                        discovery_source=COALESCE(?, discovery_source), notes=COALESCE(?, notes),
                        classification=?, classification_source=?,
                        classification_confidence=COALESCE(?, classification_confidence),
@@ -282,6 +284,7 @@ class Database:
                        WHERE id=?""",
                     (
                         company.name, company.domain, company.careers_url, int(company.active),
+                        int(company.applied),
                         company.discovery_source, company.notes,
                         company.classification.value,
                         (company.classification_source or ClassificationSource.SEED).value,
@@ -291,7 +294,7 @@ class Database:
                 )
             else:
                 self.conn.execute(
-                    """UPDATE companies SET name=?, domain=?, careers_url=?, active=?,
+                    """UPDATE companies SET name=?, domain=?, careers_url=?, active=?, applied=?,
                        discovery_source=COALESCE(?, discovery_source), notes=COALESCE(?, notes)
                        WHERE id=?""",
                     (
@@ -299,6 +302,7 @@ class Database:
                         company.domain,
                         company.careers_url,
                         int(company.active),
+                        int(company.applied),
                         company.discovery_source,
                         company.notes,
                         company_id,
@@ -310,8 +314,8 @@ class Database:
             """INSERT INTO companies
                (name, domain, careers_url, ats_type, board_id, classification,
                 classification_source, classification_confidence, classification_evidence,
-                active, last_crawled_at, discovery_source, notes)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                active, last_crawled_at, discovery_source, notes, applied)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 company.name,
                 company.domain,
@@ -326,6 +330,7 @@ class Database:
                 _dt(company.last_crawled_at),
                 company.discovery_source,
                 company.notes,
+                int(company.applied),
             ),
         )
         return cur.lastrowid
@@ -348,6 +353,7 @@ class Database:
             last_crawled_at=_parse_dt(row["last_crawled_at"]),
             discovery_source=row["discovery_source"],
             notes=row["notes"],
+            applied=bool(row["applied"]) if row["applied"] is not None else False,
         )
 
     def get_company(self, company_id: int) -> Company | None:

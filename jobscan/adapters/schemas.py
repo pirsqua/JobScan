@@ -230,3 +230,128 @@ class JobPostingJsonLd(BaseModel):
     datePosted: str | None = None
     employmentType: str | None = None
     baseSalary: JsonLdBaseSalary | None = None
+
+
+# ---------------------------------------------------------------------------
+# SmartRecruiters: GET https://api.smartrecruiters.com/v1/companies/{company}/postings
+#                  GET https://api.smartrecruiters.com/v1/companies/{company}/postings/{id}
+# ---------------------------------------------------------------------------
+
+
+class SmartRecruitersLocation(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    fullLocation: str | None = None
+    remote: bool | None = None
+
+
+class SmartRecruitersLabeled(BaseModel):
+    """department/function/typeOfEmployment/experienceLevel all share this {id, label} shape —
+    only label is ever read."""
+
+    model_config = ConfigDict(extra="ignore")
+    label: str | None = None
+
+
+class SmartRecruitersPostingBrief(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    name: str = ""
+
+
+class SmartRecruitersPostingsListResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    totalFound: int = 0
+    content: list[SmartRecruitersPostingBrief] = []
+
+
+class SmartRecruitersCompensation(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    min: float | None = None
+    max: float | None = None
+    currency: str | None = None
+    period: str | None = None  # observed live: "YEARLY" or "HOURLY"
+
+
+class SmartRecruitersJobAdSection(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    title: str | None = None
+    text: str | None = None
+
+
+class SmartRecruitersJobAdSections(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    companyDescription: SmartRecruitersJobAdSection | None = None
+    jobDescription: SmartRecruitersJobAdSection | None = None
+    qualifications: SmartRecruitersJobAdSection | None = None
+    additionalInformation: SmartRecruitersJobAdSection | None = None
+
+
+class SmartRecruitersJobAd(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    sections: SmartRecruitersJobAdSections | None = None
+
+
+class SmartRecruitersPostingDetail(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    name: str = ""
+    location: SmartRecruitersLocation | None = None
+    department: SmartRecruitersLabeled | None = None
+    function: SmartRecruitersLabeled | None = None
+    typeOfEmployment: SmartRecruitersLabeled | None = None
+    releasedDate: str | None = None
+    postingUrl: str | None = None
+    applyUrl: str | None = None
+    jobAd: SmartRecruitersJobAd | None = None
+    compensation: SmartRecruitersCompensation | None = None
+
+
+# ---------------------------------------------------------------------------
+# Rippling ATS: GET https://ats.rippling.com/{slug}/jobs (HTML; embeds a __NEXT_DATA__ script
+#               tag carrying the current Next.js buildId)
+#         GET https://ats.rippling.com/_next/data/{buildId}/en-GB/{slug}/jobs.json
+#             ?jobBoardSlug={slug}&page={n}
+#         GET https://ats.rippling.com/_next/data/{buildId}/en-GB/{slug}/jobs/{id}.json
+#             ?jobBoardSlug={slug}&jobId={id}
+# ---------------------------------------------------------------------------
+
+
+class RipplingJobBrief(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    name: str = ""
+
+
+class RipplingJobPostsPage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    items: list[RipplingJobBrief] = []
+    page: int = 0
+    totalPages: int = 1
+
+
+class RipplingDepartment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str | None = None
+
+
+class RipplingEmploymentType(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    # Observed live: `id` carries the human-readable string ("Salaried, full-time") and `label`
+    # the internal code ("SALARIED_FT") — the reverse of what the names suggest.
+    id: str | None = None
+    label: str | None = None
+
+
+class RipplingJobPost(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    uuid: str | None = None
+    name: str = ""
+    # Keyed by section name (e.g. "company", "role") with HTML values; section names observed to
+    # vary by company, so this is read as a plain dict and all values are concatenated rather
+    # than assuming specific keys exist.
+    description: dict[str, str] = {}
+    workLocations: list[str] = []
+    department: RipplingDepartment | None = None
+    employmentType: RipplingEmploymentType | None = None
+    createdOn: str | None = None
+    url: str | None = None

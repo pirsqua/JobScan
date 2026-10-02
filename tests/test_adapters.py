@@ -5,11 +5,15 @@ import pytest
 import respx
 
 from jobscan.adapters.ashby import AshbyAdapter
+from jobscan.adapters.avature import AvatureAdapter
 from jobscan.adapters.base import AdapterError
 from jobscan.adapters.esri import EsriAdapter
 from jobscan.adapters.greenhouse import GreenhouseAdapter
+from jobscan.adapters.jazzhr import JazzHRAdapter
 from jobscan.adapters.jobvite import JobviteAdapter
 from jobscan.adapters.lever import LeverAdapter
+from jobscan.adapters.rippling import RipplingAdapter
+from jobscan.adapters.smartrecruiters import SmartRecruitersAdapter
 from jobscan.adapters.workday import WorkdayAdapter
 from jobscan.models import SalarySource
 
@@ -679,6 +683,123 @@ class TestJobviteAdapter:
         assert postings[0].location_raw == "Stockholm, Sweden"
 
 
+class TestJazzHRAdapter:
+    LIST_URL = "https://acme.applytojob.com/apply/jobs/"
+    DETAIL_URL = "https://acme.applytojob.com/apply/jobs/details/abc123"
+
+    LIST_HTML = """
+    <html><body>
+        <table id="jobs_table">
+            <tbody>
+                <tr class="resumator_department_heading"><td colspan="3">Engineering</td></tr>
+                <tr id="row_job_1">
+                    <td><a class="job_title_link" href="/apply/jobs/details/abc123?&amp;">Senior Backend Engineer</a></td>
+                    <td>Remote - US</td>
+                </tr>
+                <tr class="resumator_department_heading"><td colspan="3">Sales</td></tr>
+                <tr id="row_job_2">
+                    <td><a class="job_title_link" href="/apply/jobs/details/xyz789?&amp;">Account Executive</a></td>
+                    <td>Chicago, IL</td>
+                </tr>
+            </tbody>
+        </table>
+    </body></html>
+    """
+
+    @staticmethod
+    def detail_html(json_ld: str) -> str:
+        return f"""
+        <html><head>
+        <script type="application/ld+json">{{"@type": "Organization", "name": "Acme"}}</script>
+        <script type="application/ld+json">{json_ld}</script>
+        </head><body>Detail page</body></html>
+        """
+
+    @respx.mock
+    def test_fetches_detail_only_for_engineering_titles(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
+        detail_route = respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text=self.detail_html(
+                    """{
+                        "@type": "JobPosting",
+                        "title": "Senior Backend Engineer",
+                        "description": "<p>Build our platform.</p>",
+                        "datePosted": "2026-08-01",
+                        "employmentType": "FULL_TIME",
+                        "baseSalary": {
+                            "@type": "MonetaryAmount",
+                            "currency": "USD",
+                            "value": {"@type": "QuantitativeValue", "minValue": 180000, "maxValue": 220000, "unitText": "YEAR"}
+                        }
+                    }"""
+                ),
+            )
+        )
+
+        adapter = JazzHRAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+
+        assert detail_route.call_count == 1
+        assert len(postings) == 1
+        posting = postings[0]
+        assert posting.source_job_id == "abc123"
+        assert posting.title == "Senior Backend Engineer"
+        assert posting.location_raw == "Remote - US"
+        assert posting.employment_type_raw == "FULL_TIME"
+        assert "Build our platform" in posting.description_html
+        assert posting.salary_min == 180000
+        assert posting.salary_max == 220000
+        assert posting.salary_currency == "USD"
+        assert posting.salary_period == "year"
+        assert posting.salary_source == SalarySource.STRUCTURED
+
+    @respx.mock
+    def test_job_id_strips_trailing_query_string(self, http_client):
+        # Observed live (iManage): JazzHR list-page hrefs carry a trailing "?&" with no real
+        # query params — the job id must come from the path, not a naive last-segment split.
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text=self.detail_html(
+                    """{"@type": "JobPosting", "title": "Senior Backend Engineer", "description": "<p>Role.</p>"}"""
+                ),
+            )
+        )
+        adapter = JazzHRAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert postings[0].source_job_id == "abc123"
+
+    @respx.mock
+    def test_detail_missing_json_ld_is_skipped_not_fatal(self, http_client):
+        # Observed live (iManage): some postings' detail pages only carry the Organization
+        # ld+json block, with no JobPosting block at all — skip, don't fail the whole board.
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200, text='<html><head><script type="application/ld+json">{"@type": "Organization"}</script></head></html>'
+            )
+        )
+        adapter = JazzHRAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert postings == []
+
+    @respx.mock
+    def test_list_http_error_raises_adapter_error(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(500))
+        adapter = JazzHRAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme"))
+
+    @respx.mock
+    def test_no_jobs_table_returns_empty(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text="<html><body>No board here.</body></html>"))
+        adapter = JazzHRAdapter(http_client)
+        assert list(adapter.fetch_postings("acme")) == []
+
+
 class FakeRenderer:
     """Stands in for the real Playwright-backed renderer in tests — see EsriAdapter.__init__."""
 
@@ -830,3 +951,483 @@ class TestEsriAdapter:
         adapter = EsriAdapter(http_client)  # no renderer injected -> adapter creates + owns one
         list(adapter.fetch_postings("esri"))
         assert created["instance"].closed is True
+
+
+class TestSmartRecruitersAdapter:
+    LIST_URL = "https://api.smartrecruiters.com/v1/companies/acme/postings"
+    DETAIL_URL = "https://api.smartrecruiters.com/v1/companies/acme/postings/sr-1"
+
+    @respx.mock
+    def test_fetches_detail_only_for_engineering_titles_with_compensation(self, http_client):
+        respx.get(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "totalFound": 2,
+                    "content": [
+                        {"id": "sr-1", "name": "Senior Backend Engineer"},
+                        {"id": "sr-2", "name": "Account Executive"},
+                    ],
+                },
+            )
+        )
+        detail_route = respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": "sr-1",
+                    "name": "Senior Backend Engineer",
+                    "location": {"fullLocation": "Remote, US", "remote": True},
+                    "department": {"label": "Engineering"},
+                    "typeOfEmployment": {"label": "Full-time"},
+                    "releasedDate": "2026-08-01T00:00:00.000Z",
+                    "postingUrl": "https://jobs.smartrecruiters.com/acme/sr-1",
+                    "applyUrl": "https://jobs.smartrecruiters.com/acme/sr-1/apply",
+                    "jobAd": {
+                        "sections": {
+                            "jobDescription": {"title": "Job Description", "text": "<p>Build our platform.</p>"},
+                            "qualifications": {"title": "Qualifications", "text": "<p>5+ years backend.</p>"},
+                        }
+                    },
+                    "compensation": {"min": 160000, "max": 200000, "currency": "USD", "period": "YEARLY"},
+                },
+            )
+        )
+
+        adapter = SmartRecruitersAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+
+        assert detail_route.call_count == 1
+        assert len(postings) == 1
+        posting = postings[0]
+        assert posting.source_job_id == "sr-1"
+        assert posting.title == "Senior Backend Engineer"
+        assert posting.location_raw == "Remote, US"
+        assert posting.remote_flag is True
+        assert posting.department == "Engineering"
+        assert posting.employment_type_raw == "Full-time"
+        assert "Build our platform" in posting.description_html
+        assert "5+ years backend" in posting.description_html
+        assert posting.posting_url == "https://jobs.smartrecruiters.com/acme/sr-1"
+        assert posting.apply_url == "https://jobs.smartrecruiters.com/acme/sr-1/apply"
+        assert posting.salary_min == 160000
+        assert posting.salary_max == 200000
+        assert posting.salary_currency == "USD"
+        assert posting.salary_period == "year"
+        assert posting.salary_source == SalarySource.STRUCTURED
+
+    @respx.mock
+    def test_hourly_compensation_maps_to_hour_period(self, http_client):
+        respx.get(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200, json={"totalFound": 1, "content": [{"id": "sr-1", "name": "Backend Engineer"}]}
+            )
+        )
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": "sr-1",
+                    "name": "Backend Engineer (Hybrid)",
+                    "compensation": {"min": 45.0, "max": 60.0, "currency": "USD", "period": "HOURLY"},
+                },
+            )
+        )
+        adapter = SmartRecruitersAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert postings[0].salary_period == "hour"
+
+    @respx.mock
+    def test_missing_compensation_leaves_salary_source_none(self, http_client):
+        respx.get(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200, json={"totalFound": 1, "content": [{"id": "sr-1", "name": "Backend Engineer"}]}
+            )
+        )
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(200, json={"id": "sr-1", "name": "Backend Engineer"})
+        )
+        adapter = SmartRecruitersAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert postings[0].salary_source == SalarySource.NONE
+        assert postings[0].salary_min is None
+
+    @respx.mock
+    def test_pagination_follows_offset_until_short_page(self, http_client, monkeypatch):
+        import jobscan.adapters.smartrecruiters as smartrecruiters_module
+
+        monkeypatch.setattr(smartrecruiters_module, "PAGE_SIZE", 2)
+
+        def make_brief(n: int) -> dict:
+            return {"id": f"sr-{n}", "name": f"Software Engineer {n}"}
+
+        list_route = respx.get(self.LIST_URL)
+        list_route.side_effect = [
+            httpx.Response(200, json={"totalFound": 3, "content": [make_brief(1), make_brief(2)]}),
+            httpx.Response(200, json={"totalFound": 3, "content": [make_brief(3)]}),
+        ]
+        respx.get(url__regex=r".*/postings/sr-\d$").mock(
+            return_value=httpx.Response(200, json={"id": "sr-x", "name": "Software Engineer"})
+        )
+
+        adapter = SmartRecruitersAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+
+        assert list_route.call_count == 2
+        assert len(postings) == 3
+
+    @respx.mock
+    def test_detail_fetch_failure_is_skipped_not_fatal(self, http_client):
+        respx.get(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200, json={"totalFound": 1, "content": [{"id": "sr-1", "name": "Senior Backend Engineer"}]}
+            )
+        )
+        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(404))
+
+        adapter = SmartRecruitersAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert postings == []
+
+    @respx.mock
+    def test_unexpected_list_shape_raises_adapter_error(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, json={"content": "not-a-list"}))
+        adapter = SmartRecruitersAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme"))
+
+    @respx.mock
+    def test_list_http_error_raises_adapter_error(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(500))
+        adapter = SmartRecruitersAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme"))
+
+    @respx.mock
+    def test_network_error_raises_adapter_error(self, http_client):
+        respx.get(self.LIST_URL).mock(side_effect=httpx.ConnectTimeout("timed out"))
+        adapter = SmartRecruitersAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme"))
+
+
+def avature_detail_html(job_id: str, job_type: str = "Full-time", field_of_work: str = "Software") -> str:
+    return f"""
+    <article class="article article--details">
+      <div class="article__content__view">
+        <div class="article__content__view__field">
+          <div class="article__content__view__field__label">Job ID</div>
+          <div class="article__content__view__field__value">{job_id}</div>
+        </div>
+        <div class="article__content__view__field">
+          <div class="article__content__view__field__label">Job type</div>
+          <div class="article__content__view__field__value">{job_type}</div>
+        </div>
+        <div class="article__content__view__field">
+          <div class="article__content__view__field__label">Field of work</div>
+          <div class="article__content__view__field__value">{field_of_work}</div>
+        </div>
+        <div class="article__content__view__field">
+          <div class="article__content__view__field__label">Posted since</div>
+          <div class="article__content__view__field__value">01-Oct-2026</div>
+        </div>
+        <div class="article__content__view__field">
+          <div class="article__content__view__field__label">Location(s)</div>
+          <div class="article__content__view__field__value">
+            <ul class="list--locations"><li>Seattle, WA, USA</li><li>Remote, USA</li></ul>
+          </div>
+        </div>
+      </div>
+    </article>
+    <article class="article article--details">
+      <div class="article__content__view"><p>Build great backend systems.</p></div>
+    </article>
+    """
+
+
+class TestAvatureAdapter:
+    BOARD_ID = "jobs.example.com/en_US/externaljobs"
+    LIST_URL = "https://jobs.example.com/en_US/externaljobs/SearchJobs/"
+    DETAIL_URL = "https://jobs.example.com/en_US/externaljobs/JobDetail/1001"
+
+    @respx.mock
+    def test_fetches_detail_only_for_engineering_titles(self, http_client):
+        respx.get(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text="""
+                <article class="article article--result">
+                  <div class="article__header__text__title"><a href="https://jobs.example.com/en_US/externaljobs/JobDetail/1001">Senior Backend Engineer</a></div>
+                  <span class="list-item-location">Remote - US</span>
+                </article>
+                <article class="article article--result">
+                  <div class="article__header__text__title"><a href="https://jobs.example.com/en_US/externaljobs/JobDetail/1002">Account Executive</a></div>
+                  <span class="list-item-location">New York</span>
+                </article>
+                """,
+            )
+        )
+        detail_route = respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(200, text=avature_detail_html("1001"))
+        )
+
+        adapter = AvatureAdapter(http_client)
+        postings = list(adapter.fetch_postings(self.BOARD_ID))
+
+        assert detail_route.call_count == 1
+        assert len(postings) == 1
+        posting = postings[0]
+        assert posting.source_job_id == "1001"
+        assert posting.title == "Senior Backend Engineer"
+        assert posting.location_raw == "Seattle, WA, USA; Remote, USA"
+        assert posting.employment_type_raw == "Full-time"
+        assert posting.department == "Software"
+        assert posting.published_at == "2026-10-01"
+        assert "Build great backend systems" in posting.description_html
+        assert posting.apply_url == "https://jobs.example.com/en_US/externaljobs/ApplicationMethods?folderId=1001"
+        assert posting.salary_source == SalarySource.NONE
+
+    @respx.mock
+    def test_pagination_stops_within_first_concurrent_batch(self, http_client, monkeypatch):
+        # List pages are fetched CONCURRENCY-at-a-time (this tenant's hard-coded page size of 6
+        # means a real board needs hundreds of sequential round trips otherwise — see the module
+        # docstring). The mock is offset-aware (keyed by the real `folderOffset` query param)
+        # rather than a fixed-order list, since a batch fires several requests at once and their
+        # completion order isn't guaranteed. Real items exist only at offsets 0 and 2 (3 items
+        # total, PAGE_SIZE=2) — every other offset in the first batch comes back empty, exactly
+        # like the real board past its real end — so the whole board resolves within one batch.
+        import jobscan.adapters.avature as avature_module
+
+        monkeypatch.setattr(avature_module, "PAGE_SIZE", 2)
+
+        def make_article(job_id: str) -> str:
+            return f"""
+            <article class="article article--result">
+              <div class="article__header__text__title"><a href="https://jobs.example.com/en_US/externaljobs/JobDetail/{job_id}">Software Engineer {job_id}</a></div>
+              <span class="list-item-location">Remote</span>
+            </article>
+            """
+
+        pages_by_offset = {0: make_article("1") + make_article("2"), 2: make_article("3")}
+
+        def list_handler(request: httpx.Request) -> httpx.Response:
+            offset = int(request.url.params.get("folderOffset", "0"))
+            return httpx.Response(200, text=pages_by_offset.get(offset, ""))
+
+        list_route = respx.get(self.LIST_URL).mock(side_effect=list_handler)
+        respx.get(url__regex=r".*/JobDetail/\d$").mock(return_value=httpx.Response(200, text=avature_detail_html("x")))
+
+        adapter = AvatureAdapter(http_client)
+        postings = list(adapter.fetch_postings(self.BOARD_ID))
+
+        assert list_route.call_count == avature_module.CONCURRENCY
+        assert len(postings) == 3
+
+    @respx.mock
+    def test_pagination_advances_past_a_full_batch(self, http_client, monkeypatch):
+        # The real end lies beyond the first batch's span (CONCURRENCY * PAGE_SIZE), so a second
+        # round of concurrent requests must be issued starting at the next offset.
+        import jobscan.adapters.avature as avature_module
+
+        monkeypatch.setattr(avature_module, "PAGE_SIZE", 2)
+        monkeypatch.setattr(avature_module, "CONCURRENCY", 2)
+
+        def make_article(job_id: str) -> str:
+            return f"""
+            <article class="article article--result">
+              <div class="article__header__text__title"><a href="https://jobs.example.com/en_US/externaljobs/JobDetail/{job_id}">Software Engineer {job_id}</a></div>
+              <span class="list-item-location">Remote</span>
+            </article>
+            """
+
+        # Batch 1 covers offsets 0, 2 (both full pages); batch 2 covers offsets 4, 6 (the real
+        # end — a short page — is at offset 6).
+        pages_by_offset = {
+            0: make_article("1") + make_article("2"),
+            2: make_article("3") + make_article("4"),
+            4: make_article("5") + make_article("6"),
+            6: make_article("7"),
+        }
+
+        def list_handler(request: httpx.Request) -> httpx.Response:
+            offset = int(request.url.params.get("folderOffset", "0"))
+            return httpx.Response(200, text=pages_by_offset.get(offset, ""))
+
+        list_route = respx.get(self.LIST_URL).mock(side_effect=list_handler)
+        respx.get(url__regex=r".*/JobDetail/\d$").mock(return_value=httpx.Response(200, text=avature_detail_html("x")))
+
+        adapter = AvatureAdapter(http_client)
+        postings = list(adapter.fetch_postings(self.BOARD_ID))
+
+        assert list_route.call_count == 4  # two full batches of CONCURRENCY=2
+        assert len(postings) == 7
+
+    @respx.mock
+    def test_detail_fetch_failure_is_skipped_not_fatal(self, http_client):
+        respx.get(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text="""
+                <article class="article article--result">
+                  <div class="article__header__text__title"><a href="https://jobs.example.com/en_US/externaljobs/JobDetail/1001">Senior Backend Engineer</a></div>
+                  <span class="list-item-location">Remote - US</span>
+                </article>
+                """,
+            )
+        )
+        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(404))
+
+        adapter = AvatureAdapter(http_client)
+        postings = list(adapter.fetch_postings(self.BOARD_ID))
+        assert postings == []
+
+    @respx.mock
+    def test_list_http_error_raises_adapter_error(self, http_client):
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(500))
+        adapter = AvatureAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings(self.BOARD_ID))
+
+    @respx.mock
+    def test_network_error_raises_adapter_error(self, http_client):
+        respx.get(self.LIST_URL).mock(side_effect=httpx.ConnectTimeout("timed out"))
+        adapter = AvatureAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings(self.BOARD_ID))
+
+
+def rippling_next_data_html(build_id: str) -> str:
+    import json as _json
+
+    return f'<html><body><script id="__NEXT_DATA__" type="application/json">{_json.dumps({"buildId": build_id})}</script></body></html>'
+
+
+def rippling_jobs_page(items: list[dict], page: int = 0, total_pages: int = 1) -> dict:
+    return {
+        "pageProps": {
+            "dehydratedState": {
+                "queries": [
+                    {
+                        "queryKey": ["board", "acme", "job-posts", False, {"page": page}],
+                        "state": {"data": {"items": items, "page": page, "totalPages": total_pages}},
+                    }
+                ]
+            }
+        }
+    }
+
+
+def rippling_job_detail(job_post: dict) -> dict:
+    return {"pageProps": {"apiData": {"jobPost": job_post}}}
+
+
+class TestRipplingAdapter:
+    BOARD_URL = "https://ats.rippling.com/acme/jobs"
+    DATA_URL = "https://ats.rippling.com/_next/data/BUILD123/en-GB/acme/jobs.json"
+    DETAIL_URL = "https://ats.rippling.com/_next/data/BUILD123/en-GB/acme/jobs/job-1.json"
+
+    @respx.mock
+    def test_fetches_detail_only_for_engineering_titles(self, http_client):
+        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.DATA_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json=rippling_jobs_page(
+                    [{"id": "job-1", "name": "Senior Backend Engineer"}, {"id": "job-2", "name": "Account Executive"}]
+                ),
+            )
+        )
+        detail_route = respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json=rippling_job_detail(
+                    {
+                        "uuid": "job-1",
+                        "name": "Senior Backend Engineer",
+                        "description": {"company": "<p>About us.</p>", "role": "<p>Build things.</p>"},
+                        "workLocations": ["Remote - US"],
+                        "department": {"name": "Engineering"},
+                        "employmentType": {"id": "Salaried, full-time", "label": "SALARIED_FT"},
+                        "createdOn": "2026-09-01T00:00:00-07:00",
+                        "url": "https://ats.rippling.com/acme/jobs/job-1",
+                    }
+                ),
+            )
+        )
+
+        adapter = RipplingAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+
+        assert detail_route.call_count == 1
+        assert len(postings) == 1
+        posting = postings[0]
+        assert posting.source_job_id == "job-1"
+        assert posting.title == "Senior Backend Engineer"
+        assert posting.location_raw == "Remote - US"
+        assert posting.employment_type_raw == "Salaried, full-time"
+        assert posting.department == "Engineering"
+        assert "About us" in posting.description_html
+        assert "Build things" in posting.description_html
+        assert posting.posting_url == "https://ats.rippling.com/acme/jobs/job-1"
+        assert posting.published_at == "2026-09-01T00:00:00-07:00"
+        assert posting.salary_source == SalarySource.NONE
+
+    @respx.mock
+    def test_pagination_follows_page_until_total_pages(self, http_client):
+        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        data_route = respx.get(self.DATA_URL)
+        data_route.side_effect = [
+            httpx.Response(
+                200, json=rippling_jobs_page([{"id": "job-1", "name": "Account Executive"}], page=0, total_pages=2)
+            ),
+            httpx.Response(
+                200, json=rippling_jobs_page([{"id": "job-2", "name": "Account Manager"}], page=1, total_pages=2)
+            ),
+        ]
+
+        adapter = RipplingAdapter(http_client)
+        list(adapter.fetch_postings("acme"))
+
+        assert data_route.call_count == 2
+
+    @respx.mock
+    def test_missing_build_id_raises_adapter_error(self, http_client):
+        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text="<html><body>no next data here</body></html>"))
+        adapter = RipplingAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme"))
+
+    @respx.mock
+    def test_missing_job_posts_query_raises_adapter_error(self, http_client):
+        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.DATA_URL).mock(return_value=httpx.Response(200, json={"pageProps": {"dehydratedState": {"queries": []}}}))
+        adapter = RipplingAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme"))
+
+    @respx.mock
+    def test_detail_fetch_failure_is_skipped_not_fatal(self, http_client):
+        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.DATA_URL).mock(
+            return_value=httpx.Response(200, json=rippling_jobs_page([{"id": "job-1", "name": "Backend Engineer"}]))
+        )
+        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(404))
+
+        adapter = RipplingAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert postings == []
+
+    @respx.mock
+    def test_board_page_http_error_raises_adapter_error(self, http_client):
+        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(500))
+        adapter = RipplingAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme"))
+
+    @respx.mock
+    def test_data_endpoint_network_error_raises_adapter_error(self, http_client):
+        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.DATA_URL).mock(side_effect=httpx.ConnectTimeout("timed out"))
+        adapter = RipplingAdapter(http_client)
+        with pytest.raises(AdapterError):
+            list(adapter.fetch_postings("acme"))

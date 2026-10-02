@@ -40,4 +40,4 @@ log_level: INFO
 
 # HTTP behavior for source adapters.
 http_timeout_seconds: 30
-http_user_agent: "JobScan/0.1 (+personal job search tool)"
+http_user_agent: "JobScan/0.5 (+personal job search tool)"

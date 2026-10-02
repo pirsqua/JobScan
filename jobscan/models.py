@@ -15,18 +15,40 @@ if TYPE_CHECKING:
 
 
 class AtsType(str, Enum):
-    """Greenhouse/Ashby/Lever/Workday/Jobvite have real adapters (see jobscan.adapters.ADAPTERS).
-    The rest are recorded-but-not-yet-crawlable — a registry curator can note that a company uses
-    e.g. SmartRecruiters without the import failing, and jobscan.crawl already skips any company
-    whose ats_type has no entry in ADAPTERS (reported as "no adapter registered" rather than
-    attempted). Keep such companies active=false until a real adapter exists. Workday's board_id
-    encodes "{tenant}/{cluster}/{site}" (see jobscan.adapters.workday) rather than a single token.
+    """Greenhouse/Ashby/Lever/Workday/Jobvite/Esri/SmartRecruiters/Avature/Rippling/JazzHR have
+    real adapters (see jobscan.adapters.ADAPTERS). The rest are recorded-but-not-yet-crawlable — a
+    registry curator can note that a company uses e.g. Taleo without the import failing, and
+    jobscan.crawl already skips any company whose ats_type has no entry in ADAPTERS (reported as
+    "no adapter registered" rather than attempted). Keep such companies active=false until a real
+    adapter exists. Workday's board_id encodes "{tenant}/{cluster}/{site}" (see
+    jobscan.adapters.workday) rather than a single token.
 
     ESRI is a one-off: a bespoke, single-company careers platform (not a multi-tenant ATS other
     registry companies could ever share) that still turned out to be crawlable — its own real
     search API. Deliberately NOT folded into CUSTOM, since CUSTOM has no adapter and ADAPTERS is
     keyed by ats_type; doing so would wrongly route every other "custom" company through Esri's
-    API. A future one-off bespoke platform worth crawling gets its own value the same way."""
+    API. A future one-off bespoke platform worth crawling gets its own value the same way.
+
+    AVATURE is a multi-tenant enterprise ATS whose gating is tenant-specific, not platform-wide:
+    some companies' boards 403/reCAPTCHA-gate their job search (confirmed live), others (e.g.
+    Siemens Digital Industries Software) serve the same pages as plain unauthenticated HTML with
+    no captcha anywhere in the flow. jobscan.adapters.avature handles the latter; a gated tenant
+    simply fails that adapter's requests and surfaces as a failed board, not a silent bad result.
+
+    RIPPLING is Rippling's built-in ATS/job-board product (ats.rippling.com/{slug}/jobs) — a
+    Next.js app whose job list/detail data is fetched from its own `_next/data/{buildId}/...`
+    JSON endpoints (see jobscan.adapters.rippling); confirmed live with no bot-gating.
+
+    JAZZHR is JazzHR's white-labeled public job board, hosted at {company}.applytojob.com — a
+    plain server-rendered HTML list page plus a schema.org JobPosting JSON-LD block on each
+    detail page (the same de facto standard Jobvite's adapter already reads, just from a
+    different host); confirmed live with no bot-gating and real structured salary data.
+
+    Recurring enterprise ATS platforms below have no adapter yet and are recorded specifically
+    (not folded into CUSTOM) so future adapter work has a real target and a curator's finding
+    isn't lost: iCIMS/Eightfold's own search/listing APIs 403/reCAPTCHA-gate automated access —
+    their marketing/landing career pages render fine, the block is on the actual job-search API;
+    Taleo/Phenom/SuccessFactors simply haven't been investigated for a crawlable API yet."""
 
     GREENHOUSE = "greenhouse"
     ASHBY = "ashby"
@@ -35,16 +57,14 @@ class AtsType(str, Enum):
     JOBVITE = "jobvite"
     ESRI = "esri"
     SMARTRECRUITERS = "smartrecruiters"
-    # Recurring enterprise ATS platforms observed live across multiple registry companies —
-    # recorded specifically (not folded into CUSTOM) so future adapter work has a real target,
-    # and so a curator's finding isn't lost. None have an adapter yet: iCIMS/Eightfold sites
-    # 403/reCAPTCHA-gate headless browsers (see jobscan.adapters' Playwright investigation
-    # notes); Taleo/Avature/Phenom simply haven't been investigated for a crawlable API yet.
+    RIPPLING = "rippling"
+    JAZZHR = "jazzhr"
+    AVATURE = "avature"
     ICIMS = "icims"
     TALEO = "taleo"
-    AVATURE = "avature"
     PHENOM = "phenom"
     EIGHTFOLD = "eightfold"
+    SUCCESSFACTORS = "successfactors"
     CUSTOM = "custom"
 
 
@@ -157,6 +177,10 @@ class Company:
     last_crawled_at: datetime | None = None
     discovery_source: str | None = None
     notes: str | None = None
+    # True when the candidate has personally applied to this employer, independent of any
+    # automated scoring — always keep a company the candidate has applied to, regardless of
+    # what the registry's own fit/culture heuristics say about it.
+    applied: bool = False
 
 
 @dataclass

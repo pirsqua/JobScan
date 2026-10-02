@@ -1,7 +1,8 @@
 # JobScan
 
 A personal pipeline that crawls company career sites directly (Greenhouse, Ashby, Lever, Workday,
-Jobvite, and Esri's bespoke API), stores every posting in SQLite, applies a small set of safe
+Jobvite, Esri's bespoke API, SmartRecruiters, Avature, Rippling, and JazzHR), stores every
+posting in SQLite, applies a small set of safe
 factual filters, and uses Claude for the judgment-sensitive screening (product-vs-consulting,
 required-vs-preferred fit, compensation credibility, whether a role is actually attainable rather
 than a hidden staff-level stretch). A cheap first-pass Claude screen and prompt caching keep LLM
@@ -59,10 +60,8 @@ If PowerShell blocks the activation script, run once (as your normal user, not a
 ## Quick start (PowerShell)
 
 ```powershell
-# 1. Load one or more curated employer registry files (additive by default)
-python -m jobscan companies import data/jobscan_remote_wlb_company_seeds_2026-09-14.yaml
-python -m jobscan companies import data/jobscan_dotnet_azure_employers_2026-09-17.yaml
-# ...import any other registry files under data/ the same way
+# 1. Load a curated employer registry file (additive by default)
+python -m jobscan companies import data/jobscan_companies_2026-09-29.yaml
 
 # 2. Crawl every active company's board
 python -m jobscan crawl
@@ -229,11 +228,14 @@ responses and a stub Anthropic client, so the suite never makes a real network o
 
 - The employer registry is a curated list you control, not a claim of market coverage. The tool
   will always report the exact number it actually crawled, not an implied "comprehensive" number.
-- Six ATS platforms are actually crawled: Greenhouse, Ashby, Lever, Workday, Jobvite, and Esri's
-  own bespoke API. A registry can record that a company uses SmartRecruiters, iCIMS, Taleo,
-  Avature, Phenom, or Eightfold so the finding isn't lost, but none of those have an adapter yet —
-  some (iCIMS, Eightfold) actively 403/reCAPTCHA-gate automated access, which this tool doesn't
-  attempt to defeat. Add a new adapter by implementing `jobscan.adapters.base.SourceAdapter`.
+- Ten ATS platforms are actually crawled: Greenhouse, Ashby, Lever, Workday, Jobvite, Esri's own
+  bespoke API, SmartRecruiters, Avature, Rippling, and JazzHR. Avature's gating is tenant-specific
+  — some companies' boards actively 403/reCAPTCHA-gate automated access and stay unsupported,
+  while others serve the same pages as plain, non-gated HTML and are crawled normally. A registry
+  can record that a company uses iCIMS, Taleo, Phenom, SuccessFactors, or a gated Avature/Eightfold
+  tenant so the finding isn't lost, but none of those have (or will get) an adapter — this tool
+  never attempts to defeat a deliberate anti-bot measure. Add a new adapter by implementing
+  `jobscan.adapters.base.SourceAdapter`.
 - The job-family and location/salary parsers are regex-based heuristics tuned against real data
   from several live boards during development; they will occasionally miss an edge case (an
   unusually worded title, a novel salary format). That's what `python -m jobscan audit` and the
