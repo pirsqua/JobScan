@@ -53,7 +53,7 @@ Qualification-language interpretation rules:
 {_bullets(profile.get('qualification_interpretation_rules', []))}
 
 Compensation rule: {profile.get('compensation_rule', '').strip()}
-Minimum acceptable base salary: ${profile.get('min_base_salary', 160000):,}
+Minimum acceptable base salary: ${profile.get('min_base_salary', 170000):,}
 
 Hard employment filters (already partially checked by code, verify from the text):
 {_bullets(profile.get('hard_filters', []))}
