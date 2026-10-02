@@ -769,7 +769,7 @@
   compensation_signal: uncertain
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Superb .NET/deployment-product and culture fit, but current U.S. engineering openings are sparse and the $170K/$160K base path is not yet established. [Verified 2026-09-29 via Playwright render: Greenhouse board confirmed live, 4 jobs — small board, let per-posting salary filtering do the real gating.]"
+  notes: "Superb .NET/deployment-product and culture fit, but current U.S. engineering openings are sparse and the $170K base path is not yet established. [Verified 2026-09-29 via Playwright render: Greenhouse board confirmed live, 4 jobs — small board, let per-posting salary filtering do the real gating.]"
 
 - name: PagerDuty
   domain: pagerduty.com

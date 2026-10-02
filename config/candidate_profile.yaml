@@ -120,15 +120,15 @@ qualification_interpretation_rules:
   - "Several years of formal people management is outside current fit."
   - "General distributed-systems experience may be compatible; deep high-scale platform architecture may not be."
 
-min_base_salary: 160000
+min_base_salary: 170000
 compensation_rule: >
-  The published range does not need to start at $160,000. Reject when the published maximum is
-  below $160,000. Pass when the midpoint is at least $160,000. A lower midpoint may still pass
-  when the candidate's experience makes a $160,000+ offer reasonably attainable. Reject or
-  heavily deprioritize ranges where $160,000 is only the extreme ceiling. Use the
+  The published range does not need to start at $170,000. Reject when the published maximum is
+  below $170,000. Pass when the midpoint is at least $170,000. A lower midpoint may still pass
+  when the candidate's experience makes a $170,000+ offer reasonably attainable. Reject or
+  heavily deprioritize ranges where $170,000 is only the extreme ceiling. Use the
   Washington/Seattle range when geographic pay bands differ. Explicitly distinguish base salary
   from total compensation when a posting blends them. Compensation is primarily a gate, not an
-  unlimited positive score: once a role clears a credible path to $160,000+, a materially higher
+  unlimited positive score: once a role clears a credible path to $170,000+, a materially higher
   salary must not be used to justify recommending it over a role with better scope fit — extra
   compensation may only break a tie between similarly credible roles.
 
@@ -138,4 +138,4 @@ hard_filters:
   - Employer principally builds and operates its own product or platform (not a consulting,
     staffing or outsourcing firm; not client-delivery/billable work)
   - Current official posting that still accepts applications
-  - Published base-salary range with a credible path to at least $160,000
+  - Published base-salary range with a credible path to at least $170,000
