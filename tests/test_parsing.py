@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from jobscan.models import EmploymentType, RemoteScope, SalarySource
+from jobscan.models import EmploymentType, RemoteScope, SalarySource, WorkplaceType
 from jobscan.parsing import (
     annualize,
     normalize_employment_type,
     normalize_location,
     parse_salary_from_text,
+    parse_workplace_type,
     resolve_salary,
 )
 
@@ -29,6 +30,25 @@ class TestSalaryParsing:
     def test_em_dash_and_to_variants(self):
         assert parse_salary_from_text("Salary range: $150,000 to $190,000").salary_min == 150000
         assert parse_salary_from_text("Pay range $150,000—$190,000").salary_max == 190000
+
+    def test_between_and_range(self):
+        # Observed live (Yelp): only the low end was read, so a $112K-$269K band looked like a
+        # flat $112K offer and was wrongly rejected as below the salary floor.
+        result = parse_salary_from_text(
+            "we expect the compensation range for this role to be between $112,000 and $269,000."
+        )
+        assert (result.salary_min, result.salary_max) == (112000, 269000)
+
+    def test_and_without_between_is_not_a_range(self):
+        result = parse_salary_from_text("Base salary is $120,000 and a $40,000 signing bonus.")
+        assert (result.salary_min, result.salary_max) == (120000, 120000)
+
+    def test_currency_code_before_each_bound(self):
+        # Observed live (RealPage): "USD" between the dash and the second "$" hid the maximum.
+        result = parse_salary_from_text("Pay Range USD $125,700.00 - USD $213,900.00 /Yr.")
+        assert (result.salary_min, result.salary_max) == (125700, 213900)
+        assert result.salary_currency == "USD"
+        assert result.salary_period == "year"
 
     def test_hourly_range_detected(self):
         result = parse_salary_from_text("This contract role pays $85/hr - $100/hr")
@@ -128,8 +148,15 @@ class TestLocationParsing:
         scope, note = normalize_location("Remote - United States", None, None)
         assert scope == RemoteScope.REMOTE_US
 
-    def test_remote_flag_true_with_bare_remote_location(self):
-        scope, _ = normalize_location("Remote", None, True)
+    @pytest.mark.parametrize("location", ["Remote (U.S.)", "U.S. Remote", "Remote, U.S", "Remote - North America"])
+    def test_us_spellings_with_periods_and_north_america_are_remote_us(self, location):
+        # "Remote (U.S.)" used to fall through to UNKNOWN: a trailing \b after "U.S." never
+        # matches before ")" or end-of-string.
+        scope, _ = normalize_location(location, None, None)
+        assert scope == RemoteScope.REMOTE_US
+
+    def test_structured_remote_with_bare_remote_location(self):
+        scope, _ = normalize_location("Remote", None, WorkplaceType.REMOTE)
         assert scope == RemoteScope.REMOTE_US
 
     def test_hybrid_explicit(self):
@@ -137,9 +164,38 @@ class TestLocationParsing:
         assert scope == RemoteScope.HYBRID
         assert note is not None
 
-    def test_onsite_specific_city_not_remote(self):
-        scope, _ = normalize_location("San Francisco, CA", None, False)
+    def test_structured_hybrid_wins_over_office_location_and_remote_text(self):
+        # Observed live (Plaid on Ashby): workplaceType "Hybrid", location "San Francisco HQ" —
+        # the location string alone looks like an ambiguous hub city, the text may mention remote
+        # in passing, but the source's own field settles it.
+        scope, _ = normalize_location("San Francisco HQ", "Flexible, remote-friendly culture.", WorkplaceType.HYBRID)
+        assert scope == RemoteScope.HYBRID
+
+    def test_structured_onsite(self):
+        scope, _ = normalize_location("San Francisco, CA", "We love remote tools.", WorkplaceType.ONSITE)
         assert scope == RemoteScope.ONSITE
+
+    def test_no_remote_mention_anywhere_is_onsite(self):
+        # Observed live (Fivetran, Greenhouse): a city location and a full description that never
+        # mentions remote work — not a remote posting, so it shouldn't reach the LLM at all.
+        scope, note = normalize_location(
+            "Oakland, California, United States", "Build metadata services in Java and Python.", None
+        )
+        assert scope == RemoteScope.ONSITE
+        assert "never mentions remote" in note
+
+    def test_empty_posting_with_no_remote_signal_is_onsite(self):
+        scope, _ = normalize_location("", None, None)
+        assert scope == RemoteScope.ONSITE
+
+    def test_city_location_with_remote_option_in_text_is_deferred(self):
+        # Observed live (SeatGeek): "New York, New York" location, but the text offers "as many
+        # days a week in the office as you'd like or 100% remotely" — genuine remote eligibility
+        # only the LLM can confirm, so it must NOT be classified on-site from the city alone.
+        scope, _ = normalize_location(
+            "New York, New York", "Work as many days in the office as you'd like or 100% remotely.", None
+        )
+        assert scope == RemoteScope.UNKNOWN
 
     def test_state_explicitly_excluded(self):
         scope, note = normalize_location(
@@ -151,22 +207,33 @@ class TestLocationParsing:
     def test_remote_tied_to_ambiguous_us_hub_city_is_deferred_not_rejected(self):
         # A remote posting naming a specific U.S. hub city (common when a company lists its HQ
         # alongside nationwide remote eligibility) is a judgment call, not a safe rejection.
-        scope, note = normalize_location("Remote - San Francisco Bay Area", None, True)
+        scope, note = normalize_location("Remote - San Francisco Bay Area", None, WorkplaceType.REMOTE)
         assert scope == RemoteScope.UNKNOWN
         assert "ambiguous" in note
 
     def test_remote_tied_to_non_us_location_is_restricted(self):
-        scope, note = normalize_location("Remote - Canada", None, True)
+        scope, note = normalize_location("Remote - Canada", None, WorkplaceType.REMOTE)
         assert scope == RemoteScope.REMOTE_US_RESTRICTED
         assert "non-U.S." in note
 
     def test_remote_tied_to_uk_city_is_restricted(self):
-        scope, _ = normalize_location("London, UK (Remote)", None, True)
+        scope, _ = normalize_location("London, UK (Remote)", None, WorkplaceType.REMOTE)
         assert scope == RemoteScope.REMOTE_US_RESTRICTED
 
-    def test_unknown_when_no_signal(self):
-        scope, note = normalize_location("", None, None)
-        assert scope == RemoteScope.UNKNOWN
+
+class TestWorkplaceTypeParsing:
+    @pytest.mark.parametrize("label, expected", [
+        # Every vocabulary observed live across the registry's ATSs.
+        ("Remote", WorkplaceType.REMOTE), ("Hybrid", WorkplaceType.HYBRID), ("OnSite", WorkplaceType.ONSITE),  # Ashby
+        ("remote", WorkplaceType.REMOTE), ("onsite", WorkplaceType.ONSITE), ("unspecified", None),  # Lever
+        ("REMOTE", WorkplaceType.REMOTE), ("ON_SITE", WorkplaceType.ONSITE), ("HYBRID", WorkplaceType.HYBRID),  # Rippling
+        ("Remote only", WorkplaceType.REMOTE), ("Hybrid (Remote/Office)", WorkplaceType.HYBRID),  # Avature
+        ("Office/Site only", WorkplaceType.ONSITE),
+        ("TELECOMMUTE", WorkplaceType.REMOTE),  # schema.org JSON-LD
+        (None, None), ("", None),
+    ])
+    def test_labels(self, label, expected):
+        assert parse_workplace_type(label) == expected
 
 
 class TestEmploymentTypeParsing:

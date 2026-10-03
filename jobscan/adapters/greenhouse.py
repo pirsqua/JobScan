@@ -78,5 +78,4 @@ class GreenhouseAdapter(SourceAdapter):
             department=department,
             published_at=job.first_published or job.updated_at,
             salary_source=SalarySource.NONE,
-            remote_flag=None,
         )

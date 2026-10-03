@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from jobscan.adapters.base import AdapterError, SourceAdapter
 from jobscan.adapters.schemas import LeverCategories, LeverPosting, LeverPostingsAdapter
 from jobscan.models import AtsType, RawPosting, SalarySource
+from jobscan.parsing import parse_workplace_type
 
 BASE_URL = "https://api.lever.co/v0/postings/{company}"
 PAGE_SIZE = 100
@@ -76,8 +77,6 @@ class LeverAdapter(SourceAdapter):
             interval = job.salaryRange.interval or ""
             salary_period = "hour" if "hour" in interval else "year"
 
-        remote_flag = workplace_type.lower() == "remote" if workplace_type else None
-
         published_at = None
         if job.createdAt is not None:
             published_at = datetime.fromtimestamp(job.createdAt / 1000, tz=timezone.utc).isoformat()
@@ -98,5 +97,5 @@ class LeverAdapter(SourceAdapter):
             salary_currency=salary_currency,
             salary_period=salary_period,
             salary_source=SalarySource.STRUCTURED if (salary_min or salary_max) else SalarySource.NONE,
-            remote_flag=remote_flag,
+            workplace_type=parse_workplace_type(workplace_type),
         )

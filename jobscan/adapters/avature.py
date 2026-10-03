@@ -54,6 +54,7 @@ from jobscan.adapters.base import AdapterError, SourceAdapter
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
 from jobscan.models import AtsType, RawPosting, SalarySource
+from jobscan.parsing import parse_workplace_type
 
 PAGE_SIZE = 6
 # Confirmed live (Siemens DISW): the real end of the board is a page with 0 results, not a
@@ -155,6 +156,7 @@ class AvatureAdapter(SourceAdapter):
             department=fields.get("field of work"),
             published_at=_parse_posted_since(fields.get("posted since")),
             salary_source=SalarySource.NONE,
+            workplace_type=parse_workplace_type(fields.get("work mode")),
         )
 
 

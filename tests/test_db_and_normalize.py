@@ -13,11 +13,13 @@ from jobscan.models import (
     JobStatus,
     ManualOverride,
     RawPosting,
+    RemoteScope,
     SalarySource,
     ScopeFit,
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkplaceType,
 )
 from jobscan.normalize import compute_description_hash, normalize_posting
 
@@ -106,6 +108,21 @@ class TestUpsertCompany:
 
 
 class TestUpsertJob:
+    def test_workplace_type_round_trips_and_reaches_the_llm_prompt(self, db: Database, settings: Settings, sample_company: Company):
+        # A remote role that lists a city stays UNKNOWN (ambiguous region) and goes to the LLM,
+        # which must see the ATS's "remote" field — otherwise "affirmative remote evidence" is
+        # invisible to it and a genuinely remote role whose text never says so gets rejected.
+        from jobscan.llm.prompts import build_job_eval_user_message, build_triage_user_message
+
+        sample_company.id = db.upsert_company(sample_company)
+        raw = make_raw(location_raw="Seattle", workplace_type=WorkplaceType.REMOTE)
+        job_id, _, _ = db.upsert_job(normalize_posting(raw, sample_company, settings))
+        stored = db.get_job(job_id)
+        assert stored.workplace_type == WorkplaceType.REMOTE
+        assert stored.remote_scope == RemoteScope.UNKNOWN
+        for message in (build_job_eval_user_message(sample_company, stored), build_triage_user_message(sample_company, stored)):
+            assert "Workplace type (the ATS's own structured field): remote" in message
+
     def test_new_job_is_new(self, db: Database, settings: Settings, sample_company: Company):
         sample_company.id = db.upsert_company(sample_company)
         job = normalize_posting(make_raw(), sample_company, settings)

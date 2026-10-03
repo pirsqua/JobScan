@@ -71,7 +71,11 @@ class AshbyJob(BaseModel):
     id: str
     title: str = ""
     location: str | None = None
+    # Observed live (Plaid): isRemote is True on 111 of 119 postings, including every Hybrid one —
+    # it means "some remote allowed", not "remote role". workplaceType ("Remote"/"Hybrid"/"OnSite")
+    # is the field that actually says which.
     isRemote: bool | None = None
+    workplaceType: str | None = None
     employmentType: str | None = None
     descriptionHtml: str | None = None
     descriptionPlain: str | None = None
@@ -220,9 +224,9 @@ class EsriSearchResponse(BaseModel):
 
 
 class JobPostingJsonLd(BaseModel):
-    """schema.org JobPosting structured data embedded on each Jobvite detail page for SEO/
-    Google-for-Jobs indexing — a de facto standard, not Jobvite-specific, but this is the only
-    adapter that currently relies on it."""
+    """schema.org JobPosting structured data embedded on detail pages for SEO/Google-for-Jobs
+    indexing — a de facto standard read by the Jobvite, JazzHR and iCIMS adapters (via
+    jobscan.adapters.jsonld)."""
 
     model_config = ConfigDict(extra="ignore")
     title: str = ""
@@ -230,6 +234,7 @@ class JobPostingJsonLd(BaseModel):
     datePosted: str | None = None
     employmentType: str | None = None
     baseSalary: JsonLdBaseSalary | None = None
+    jobLocationType: str | None = None  # schema.org: "TELECOMMUTE" marks a remote role
 
 
 # ---------------------------------------------------------------------------
@@ -242,6 +247,7 @@ class SmartRecruitersLocation(BaseModel):
     model_config = ConfigDict(extra="ignore")
     fullLocation: str | None = None
     remote: bool | None = None
+    hybrid: bool | None = None
 
 
 class SmartRecruitersLabeled(BaseModel):
@@ -316,10 +322,16 @@ class SmartRecruitersPostingDetail(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class RipplingBriefLocation(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    workplaceType: str | None = None  # observed live: "REMOTE" / "HYBRID" / "ON_SITE"
+
+
 class RipplingJobBrief(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str
     name: str = ""
+    locations: list[RipplingBriefLocation] = []
 
 
 class RipplingJobPostsPage(BaseModel):
