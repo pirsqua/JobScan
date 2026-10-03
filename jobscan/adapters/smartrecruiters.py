@@ -7,11 +7,17 @@ data (``compensation: {min, max, currency, period}``) used directly where presen
 
 Like Workday, the list endpoint only returns a title — full detail (and compensation) costs one
 extra request per posting — so the job-family title gate runs here, before the detail fetch,
-rather than only afterward in the crawl orchestrator.
+rather than only afterward in the crawl orchestrator, and the remaining detail fetches run through
+a small thread pool.
+
+board_id may carry the list endpoint's own filter parameters as a query string, forwarded on every
+list request — e.g. "Experian?country=us" (confirmed live: 400 global postings -> 35, all US).
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Iterable
+from urllib.parse import parse_qsl
 
 import httpx
 from pydantic import ValidationError
@@ -28,6 +34,7 @@ from jobscan.models import AtsType, RawPosting, SalarySource
 
 BASE_URL = "https://api.smartrecruiters.com/v1/companies/{company}/postings"
 PAGE_SIZE = 100
+DETAIL_CONCURRENCY = 8
 
 logger = get_logger("adapters.smartrecruiters")
 
@@ -36,13 +43,16 @@ class SmartRecruitersAdapter(SourceAdapter):
     ats_type = AtsType.SMARTRECRUITERS
 
     def fetch_postings(self, board_id: str) -> Iterable[RawPosting]:
-        list_url = BASE_URL.format(company=board_id)
+        company, _, query = board_id.partition("?")
+        list_url = BASE_URL.format(company=company)
+        list_filters = parse_qsl(query)
         briefs: list[SmartRecruitersPostingBrief] = []
         offset = 0
 
         while True:
             try:
-                response = self.client.get(list_url, params={"limit": PAGE_SIZE, "offset": offset})
+                params = [("limit", str(PAGE_SIZE)), ("offset", str(offset))] + list_filters
+                response = self.client.get(list_url, params=params)
                 response.raise_for_status()
                 payload = response.json()
             except httpx.HTTPError as exc:
@@ -60,14 +70,10 @@ class SmartRecruitersAdapter(SourceAdapter):
                 break
             offset += PAGE_SIZE
 
-        postings = []
-        for brief in briefs:
-            if not is_engineering_title(brief.name):
-                continue
-            posting = self._fetch_detail(list_url, brief, board_id)
-            if posting is not None:
-                postings.append(posting)
-        return postings
+        matched = [b for b in briefs if is_engineering_title(b.name)]
+        with ThreadPoolExecutor(max_workers=DETAIL_CONCURRENCY) as pool:
+            results = pool.map(lambda brief: self._fetch_detail(list_url, brief, board_id), matched)
+            return [posting for posting in results if posting is not None]
 
     def _fetch_detail(
         self, list_url: str, brief: SmartRecruitersPostingBrief, board_id: str

@@ -215,8 +215,9 @@ outright — a hard disqualifying requirement stated as a genuine central expect
 mention: a completely different primary technology stack/language than the candidate's (e.g. the \
 role centers on Rust/Go/Java with no .NET/Python/C# presence), formal people-management \
 responsibility, a specialized domain or production scale far beyond general backend/data-pipeline \
-work, a hard employment-type/location mismatch not already caught by factual filters, or an \
-explicit title/seniority far above Senior (Staff/Principal/Director) with no dual-track ambiguity.
+work, a hard employment-type/location mismatch not already caught by factual filters, an employer \
+in an industry the candidate's hard filters explicitly exclude, or an explicit title/seniority far \
+above Senior (Staff/Principal/Director) with no dual-track ambiguity.
 
 When you're genuinely unsure, or the posting has real overlap alongside some gaps, do NOT skip — \
 that's exactly the judgment call the full evaluation exists for. Skipping a posting that deserved a \
