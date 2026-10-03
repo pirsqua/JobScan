@@ -51,7 +51,7 @@ def normalize_posting(
     remote_scope, _note = normalize_location(
         raw.location_raw,
         description_text,
-        raw.remote_flag,
+        raw.workplace_type,
         settings.candidate_state,
         settings.candidate_state_name,
     )
@@ -69,6 +69,7 @@ def normalize_posting(
         title=raw.title.strip(),
         location_raw=raw.location_raw,
         remote_scope=remote_scope,
+        workplace_type=raw.workplace_type,
         employment_type_raw=raw.employment_type_raw,
         employment_type=employment_type,
         description_text=description_text,

@@ -25,10 +25,11 @@ import httpx
 from pydantic import ValidationError
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
-from jobscan.adapters.schemas import RipplingJobPost, RipplingJobPostsPage
+from jobscan.adapters.schemas import RipplingJobBrief, RipplingJobPost, RipplingJobPostsPage
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
-from jobscan.models import AtsType, RawPosting, SalarySource
+from jobscan.models import AtsType, RawPosting, SalarySource, WorkplaceType
+from jobscan.parsing import parse_workplace_type
 
 BASE_URL = "https://ats.rippling.com"
 _NEXT_DATA_RE = re.compile(
@@ -82,7 +83,7 @@ class RipplingAdapter(SourceAdapter):
         for brief in briefs:
             if not is_engineering_title(brief.name):
                 continue
-            posting = self._fetch_detail(data_base, brief.id, brief.name, board_id)
+            posting = self._fetch_detail(data_base, brief, board_id)
             if posting is not None:
                 postings.append(posting)
         return postings
@@ -107,7 +108,8 @@ class RipplingAdapter(SourceAdapter):
             raise AdapterError(f"rippling board '{board_id}': __NEXT_DATA__ has no buildId")
         return build_id
 
-    def _fetch_detail(self, data_base: str, job_id: str, brief_name: str, board_id: str) -> RawPosting | None:
+    def _fetch_detail(self, data_base: str, brief: RipplingJobBrief, board_id: str) -> RawPosting | None:
+        job_id = brief.id
         try:
             response = self.client.get(
                 f"{data_base}/jobs/{job_id}.json", params={"jobBoardSlug": board_id, "jobId": job_id}
@@ -135,7 +137,7 @@ class RipplingAdapter(SourceAdapter):
 
         return RawPosting(
             source_job_id=post.uuid or job_id,
-            title=(post.name or brief_name).strip(),
+            title=(post.name or brief.name).strip(),
             location_raw="; ".join(post.workLocations) or None,
             employment_type_raw=(post.employmentType.id if post.employmentType else None),
             description_html="".join(post.description.values()) or None,
@@ -145,7 +147,18 @@ class RipplingAdapter(SourceAdapter):
             department=post.department.name if post.department else None,
             published_at=post.createdOn,
             salary_source=SalarySource.NONE,
+            workplace_type=_workplace_type(brief),
         )
+
+
+def _workplace_type(brief: RipplingJobBrief) -> WorkplaceType | None:
+    """A posting can list several locations with different arrangements; any remote option makes
+    the role remote-eligible (the location string then decides which country)."""
+    types = {parse_workplace_type(loc.workplaceType) for loc in brief.locations} - {None}
+    for candidate in (WorkplaceType.REMOTE, WorkplaceType.HYBRID, WorkplaceType.ONSITE):
+        if candidate in types:
+            return candidate
+    return None
 
 
 def _find_job_posts_data(payload: Any) -> dict | None:

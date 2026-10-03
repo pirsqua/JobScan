@@ -137,12 +137,11 @@ class TestRegistryImport:
     def test_recorded_unsupported_ats_types_do_not_raise(self, tmp_path: Path, db: Database):
         # These have no crawl adapter yet, but a registry curator should be able to record that a
         # company uses one (typically active=false) without the import failing — see AtsType's
-        # docstring. (Greenhouse/Ashby/Lever/Workday/Jobvite/Esri/SmartRecruiters/Avature are the
-        # supported ones and are exercised elsewhere, not here.)
+        # docstring. (Greenhouse/Ashby/Lever/Workday/Jobvite/Esri/SmartRecruiters/Avature/Rippling/
+        # JazzHR/iCIMS are the supported ones and are exercised elsewhere, not here.)
         path = tmp_path / "unsupported.csv"
         path.write_text(
             "name,ats_type,board_id,active\n"
-            "iCIMS Co,icims,icimsco,false\n"
             "Taleo Co,taleo,taleoco,false\n"
             "Phenom Co,phenom,phenomco,false\n"
             "Eightfold Co,eightfold,eightfoldco,false\n"
@@ -151,10 +150,9 @@ class TestRegistryImport:
             encoding="utf-8",
         )
         processed, total, _ = import_registry(db, path)
-        assert processed == 6
-        assert total == 6
+        assert processed == 5
+        assert total == 5
         boards = {c.board_id: c for c in db.list_companies(active_only=False)}
-        assert boards["icimsco"].ats_type == AtsType.ICIMS
         assert boards["taleoco"].ats_type == AtsType.TALEO
         assert boards["phenomco"].ats_type == AtsType.PHENOM
         assert boards["eightfoldco"].ats_type == AtsType.EIGHTFOLD

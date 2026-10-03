@@ -139,7 +139,12 @@ specialization, scale, or organizational influence not demonstrated — OR the r
 attractive but two_plus_steps_up. A borderline role can be a genuine aspirational target, but must \
 never be framed as an immediate strong recommendation.
    - reject: a hard employment requirement fails, or a central mandatory requirement makes an \
-interview professionally implausible.
+interview professionally implausible. Remote eligibility needs affirmative evidence — the location \
+field, the text, or a structured workplace type of "remote". If the posting does not clearly offer \
+remote work, or it excludes Washington (including by limiting remote work to states or regions that \
+leave it out), the remote hard filter has failed: reject; never downgrade that to a borderline "risk", \
+however good the technical fit. A remote offer that simply doesn't list eligible states is not a \
+failure — e.g. a role listed at a city whose text offers working "100% remotely" passes.
 
 Also determine whether the employer is a product company or a consulting/client-delivery shop \
 from this posting's own language, whether frontend/deep-AWS-or-GCP/AI-agent/distributed-systems \
@@ -192,6 +197,7 @@ Known classification: {company.classification.value} (source: {company.classific
 
 Title: {job.title}
 Location (raw): {job.location_raw or 'unknown'}
+Workplace type (the ATS's own structured field): {job.workplace_type.value if job.workplace_type else 'not provided'}
 Employment type (raw): {job.employment_type_raw or 'unknown'}
 Published salary: {salary_line}
 Posting URL: {job.posting_url or 'unknown'}
@@ -215,9 +221,11 @@ outright — a hard disqualifying requirement stated as a genuine central expect
 mention: a completely different primary technology stack/language than the candidate's (e.g. the \
 role centers on Rust/Go/Java with no .NET/Python/C# presence), formal people-management \
 responsibility, a specialized domain or production scale far beyond general backend/data-pipeline \
-work, a hard employment-type/location mismatch not already caught by factual filters, an employer \
-in an industry the candidate's hard filters explicitly exclude, or an explicit title/seniority far \
-above Senior (Staff/Principal/Director) with no dual-track ambiguity.
+work, a hard employment-type/location mismatch not already caught by factual filters (including a \
+role tied to an office or city whose text never offers remote work — text that does offer remote \
+work, even without naming eligible states, is not a mismatch), an employer in an industry the \
+candidate's hard filters explicitly exclude, or an explicit title/seniority far above Senior \
+(Staff/Principal/Director) with no dual-track ambiguity.
 
 When you're genuinely unsure, or the posting has real overlap alongside some gaps, do NOT skip — \
 that's exactly the judgment call the full evaluation exists for. Skipping a posting that deserved a \
@@ -244,6 +252,7 @@ Domain: {company.domain or 'unknown'}
 
 Title: {job.title}
 Location (raw): {job.location_raw or 'unknown'}
+Workplace type (the ATS's own structured field): {job.workplace_type.value if job.workplace_type else 'not provided'}
 Employment type (raw): {job.employment_type_raw or 'unknown'}
 Published salary: {salary_line}
 

@@ -11,13 +11,14 @@ from jobscan.adapters.avature import AvatureAdapter
 from jobscan.adapters.base import AdapterError
 from jobscan.adapters.esri import EsriAdapter
 from jobscan.adapters.greenhouse import GreenhouseAdapter
+from jobscan.adapters.icims import ICIMSAdapter
 from jobscan.adapters.jazzhr import JazzHRAdapter
 from jobscan.adapters.jobvite import JobviteAdapter
 from jobscan.adapters.lever import LeverAdapter
 from jobscan.adapters.rippling import RipplingAdapter
 from jobscan.adapters.smartrecruiters import SmartRecruitersAdapter
 from jobscan.adapters.workday import WorkdayAdapter
-from jobscan.models import SalarySource
+from jobscan.models import SalarySource, WorkplaceType
 
 
 @pytest.fixture()
@@ -142,6 +143,7 @@ class TestAshbyAdapter:
                             "title": "Staff Software Engineer",
                             "location": "Remote - US",
                             "isRemote": True,
+                            "workplaceType": "Remote",
                             "employmentType": "FullTime",
                             "descriptionPlain": "Build our platform.",
                             "jobUrl": "https://jobs.ashbyhq.com/acme/abc-123",
@@ -158,7 +160,7 @@ class TestAshbyAdapter:
         postings = list(adapter.fetch_postings("acme"))
         assert len(postings) == 1
         posting = postings[0]
-        assert posting.remote_flag is True
+        assert posting.workplace_type == WorkplaceType.REMOTE
         assert "180K" in posting.description_text
 
     @respx.mock
@@ -169,6 +171,25 @@ class TestAshbyAdapter:
         adapter = AshbyAdapter(http_client)
         with pytest.raises(AdapterError):
             list(adapter.fetch_postings("broken"))
+
+    @respx.mock
+    def test_workplace_type_wins_over_misleading_is_remote(self, http_client):
+        # Observed live (Plaid): isRemote=True on Hybrid postings located at "San Francisco HQ".
+        # Trusting isRemote let them through as ambiguous-remote; workplaceType says Hybrid.
+        def job(job_id, **fields):
+            return {"id": job_id, "title": "Senior Software Engineer", "location": "San Francisco HQ", **fields}
+
+        respx.get("https://api.ashbyhq.com/posting-api/job-board/acme").mock(
+            return_value=httpx.Response(200, json={"jobs": [
+                job("hybrid", isRemote=True, workplaceType="Hybrid"),
+                job("no-type-remote", isRemote=True),
+                job("no-type-onsite", isRemote=False),
+            ]})
+        )
+        postings = {p.source_job_id: p for p in AshbyAdapter(http_client).fetch_postings("acme")}
+        assert postings["hybrid"].workplace_type == WorkplaceType.HYBRID
+        assert postings["no-type-remote"].workplace_type is None  # isRemote=True alone proves nothing
+        assert postings["no-type-onsite"].workplace_type == WorkplaceType.ONSITE
 
 
 class TestLeverAdapter:
@@ -199,7 +220,7 @@ class TestLeverAdapter:
         assert posting.salary_min == 160000
         assert posting.salary_max == 200000
         assert posting.salary_source == SalarySource.STRUCTURED
-        assert posting.remote_flag is True
+        assert posting.workplace_type == WorkplaceType.REMOTE
         assert posting.published_at is not None
 
     @respx.mock
@@ -802,9 +823,29 @@ class TestJazzHRAdapter:
         assert postings[0].source_job_id == "abc123"
 
     @respx.mock
-    def test_detail_missing_json_ld_is_skipped_not_fatal(self, http_client):
+    def test_detail_missing_json_ld_falls_back_to_the_page_html(self, http_client):
         # Observed live (iManage): some postings' detail pages only carry the Organization
-        # ld+json block, with no JobPosting block at all — skip, don't fail the whole board.
+        # ld+json block, with no JobPosting block at all — the rendered page still has the full
+        # description, so the posting must not be silently dropped.
+        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text='<html><head><script type="application/ld+json">{"@type": "Organization"}</script></head>'
+                '<body><h1 class="job_title">Senior Backend Engineer</h1>'
+                '<div class="job_description"><p>Build our platform. $180,000 - $220,000.</p></div></body></html>',
+            )
+        )
+        adapter = JazzHRAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme"))
+        assert len(postings) == 1
+        assert postings[0].source_job_id == "abc123"
+        assert postings[0].title == "Senior Backend Engineer"
+        assert postings[0].location_raw == "Remote - US"
+        assert "Build our platform" in postings[0].description_html
+
+    @respx.mock
+    def test_detail_with_neither_json_ld_nor_description_is_skipped_not_fatal(self, http_client):
         respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
         respx.get(self.DETAIL_URL).mock(
             return_value=httpx.Response(
@@ -812,8 +853,7 @@ class TestJazzHRAdapter:
             )
         )
         adapter = JazzHRAdapter(http_client)
-        postings = list(adapter.fetch_postings("acme"))
-        assert postings == []
+        assert list(adapter.fetch_postings("acme")) == []
 
     @respx.mock
     def test_list_http_error_raises_adapter_error(self, http_client):
@@ -827,6 +867,118 @@ class TestJazzHRAdapter:
         respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text="<html><body>No board here.</body></html>"))
         adapter = JazzHRAdapter(http_client)
         assert list(adapter.fetch_postings("acme")) == []
+
+
+class TestICIMSAdapter:
+    SEARCH_URL = "https://uscareers-acme.icims.com/jobs/search"
+    DETAIL_URL = "https://uscareers-acme.icims.com/jobs/101/senior-backend-engineer/job"
+
+    @staticmethod
+    def row(job_id: str, title: str, location: str) -> str:
+        slug = title.lower().replace(" ", "-")
+        return f"""
+        <div class="row">
+            <div class="col-xs-6 header left">
+                <span class="sr-only field-label">Location</span>
+                <span>{location}</span>
+            </div>
+            <div class="col-xs-12 title">
+                <a class="iCIMS_Anchor" href="https://uscareers-acme.icims.com/jobs/{job_id}/{slug}/job?in_iframe=1"
+                   title="{job_id} - {title}"><span class="sr-only field-label">Title</span><h3>{title}</h3></a>
+            </div>
+        </div>
+        """
+
+    @classmethod
+    def list_page(cls, rows: list[str], page: int, of: int) -> str:
+        return f"""<html><body><div class="container-fluid iCIMS_JobsTable">{''.join(rows)}</div>
+        <div class="iCIMS_Paging">Page {page} of {of}</div></body></html>"""
+
+    @staticmethod
+    def detail_page(title: str, extra: str = "") -> str:
+        return f"""<html><head><script type="application/ld+json">{{
+            "@type": "JobPosting", "title": "{title}",
+            "description": "<p>Build our platform.</p>", "datePosted": "2026-09-01T04:00:00.000Z",
+            "employmentType": "FULL_TIME", "jobLocationType": "TELECOMMUTE"{extra}
+        }}</script></head><body></body></html>"""
+
+    @respx.mock
+    def test_fetches_detail_only_for_engineering_titles(self, http_client):
+        respx.get(self.SEARCH_URL).mock(
+            return_value=httpx.Response(
+                200,
+                text=self.list_page(
+                    [
+                        self.row("101", "Senior Backend Engineer", "US-Remote-Remote | US-CA-San Francisco"),
+                        self.row("102", "Account Executive", "US-IL-Chicago"),
+                    ],
+                    1, 1,
+                ),
+            )
+        )
+        salary = ', "baseSalary": {"currency": "USD", "value": {"minValue": 180000, "maxValue": 220000, "unitText": "YEAR"}}'
+        detail_route = respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(200, text=self.detail_page("Senior Backend Engineer", salary))
+        )
+
+        postings = list(ICIMSAdapter(http_client).fetch_postings("uscareers-acme"))
+
+        assert detail_route.call_count == 1
+        assert len(postings) == 1
+        posting = postings[0]
+        assert posting.source_job_id == "101"
+        assert posting.title == "Senior Backend Engineer"
+        assert posting.location_raw == "US-Remote-Remote | US-CA-San Francisco"
+        assert posting.posting_url == self.DETAIL_URL
+        assert posting.employment_type_raw == "FULL_TIME"
+        assert posting.workplace_type == WorkplaceType.REMOTE
+        assert "Build our platform" in posting.description_html
+        assert (posting.salary_min, posting.salary_max, posting.salary_source) == (180000, 220000, SalarySource.STRUCTURED)
+
+    @respx.mock
+    def test_pages_through_until_the_reported_page_count(self, http_client):
+        pages = {
+            "0": self.list_page([self.row("101", "Senior Backend Engineer", "US-Remote-Remote")], 1, 2),
+            "1": self.list_page([self.row("202", "Senior Data Engineer", "US-TX-Remote")], 2, 2),
+        }
+        requested = []
+
+        def list_handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.params.get("in_iframe") == "1"
+            requested.append(request.url.params.get("pr"))
+            return httpx.Response(200, text=pages[request.url.params.get("pr")])
+
+        respx.get(self.SEARCH_URL).mock(side_effect=list_handler)
+        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, text=self.detail_page("Senior Backend Engineer")))
+        respx.get("https://uscareers-acme.icims.com/jobs/202/senior-data-engineer/job").mock(
+            return_value=httpx.Response(200, text=self.detail_page("Senior Data Engineer"))
+        )
+
+        postings = list(ICIMSAdapter(http_client).fetch_postings("uscareers-acme"))
+
+        assert requested == ["0", "1"]
+        assert [p.source_job_id for p in postings] == ["101", "202"]
+
+    @respx.mock
+    def test_detail_without_json_ld_is_skipped_not_fatal(self, http_client):
+        respx.get(self.SEARCH_URL).mock(
+            return_value=httpx.Response(
+                200, text=self.list_page([self.row("101", "Senior Backend Engineer", "US-Remote-Remote")], 1, 1)
+            )
+        )
+        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, text="<html><body>Gone.</body></html>"))
+        assert list(ICIMSAdapter(http_client).fetch_postings("uscareers-acme")) == []
+
+    @respx.mock
+    def test_list_http_error_raises_adapter_error(self, http_client):
+        respx.get(self.SEARCH_URL).mock(return_value=httpx.Response(500))
+        with pytest.raises(AdapterError):
+            list(ICIMSAdapter(http_client).fetch_postings("uscareers-acme"))
+
+    @respx.mock
+    def test_portal_with_no_listings_returns_empty(self, http_client):
+        respx.get(self.SEARCH_URL).mock(return_value=httpx.Response(200, text="<html><body>Search jobs</body></html>"))
+        assert list(ICIMSAdapter(http_client).fetch_postings("uscareers-acme")) == []
 
 
 class FakeRenderer:
@@ -1032,7 +1184,7 @@ class TestSmartRecruitersAdapter:
         assert posting.source_job_id == "sr-1"
         assert posting.title == "Senior Backend Engineer"
         assert posting.location_raw == "Remote, US"
-        assert posting.remote_flag is True
+        assert posting.workplace_type == WorkplaceType.REMOTE
         assert posting.department == "Engineering"
         assert posting.employment_type_raw == "Full-time"
         assert "Build our platform" in posting.description_html

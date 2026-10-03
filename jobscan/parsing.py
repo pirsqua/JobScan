@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from jobscan.models import EmploymentType, RemoteScope, SalarySource
+from jobscan.models import EmploymentType, RemoteScope, SalarySource, WorkplaceType
 
 HOURS_PER_YEAR = 2080
 
@@ -20,11 +20,13 @@ _K_SUFFIX = r"\s?[kK]\b"
 _UNIT_SUFFIX = r"(?:\s?/\s?(?:hr|hour|yr|year))?"
 
 # "$170,000 - $210,000", "$170,000—$210,000 USD", "170,000 to 210,000", "$170K-$210K",
-# "$85/hr - $100/hr"
+# "$85/hr - $100/hr", "USD $129,500.00 - USD $220,500.00 /Yr", "between $112,000 and $269,000".
+# "and" only separates a range after "between" — "$120,000 and a $40,000 bonus" is not a range.
 _RANGE_RE = re.compile(
-    rf"\$?\s?(?P<low>{_NUMBER})(?P<low_k>{_K_SUFFIX})?{_UNIT_SUFFIX}"
-    rf"\s?(?:-|to|–|—|~)\s?"
-    rf"\$?\s?(?P<high>{_NUMBER})(?P<high_k>{_K_SUFFIX})?{_UNIT_SUFFIX}"
+    rf"(?P<between>\bbetween\s+)?"
+    rf"(?:(?P<pre_currency>USD|CAD)\s?)?\$?\s?(?P<low>{_NUMBER})(?P<low_k>{_K_SUFFIX})?{_UNIT_SUFFIX}"
+    rf"\s?(?:-|to|–|—|~|(?(between)and|(?!)))\s?"
+    rf"(?:(?:USD|CAD)\s?)?\$?\s?(?P<high>{_NUMBER})(?P<high_k>{_K_SUFFIX})?{_UNIT_SUFFIX}"
     rf"(?:\s?(?P<currency>USD|CAD))?",
     re.IGNORECASE,
 )
@@ -103,7 +105,7 @@ def parse_salary_from_text(text: str | None) -> ParsedSalary:
         window_start = max(0, match.start() - 60)
         context = text[window_start : match.start()]
         score = 1 if _SALARY_CONTEXT_RE.search(context) else 0
-        candidates.append((score, low, high, match.group("currency"), period))
+        candidates.append((score, low, high, match.group("currency") or match.group("pre_currency"), period))
 
     if candidates:
         candidates.sort(key=lambda c: c[0], reverse=True)
@@ -169,7 +171,11 @@ def resolve_salary(
 # ---------------------------------------------------------------------------
 
 _REMOTE_RE = re.compile(r"\bremote\b", re.IGNORECASE)
-_US_RE = re.compile(r"\b(us|u\.s\.|usa|united states)\b", re.IGNORECASE)
+# "U.S." needs its own branch: a trailing \b after the final "." never matches before ")" or
+# end-of-string, which made "Remote (U.S.)" fall through to UNKNOWN.
+_US_RE = re.compile(r"\b(?:us|usa|united states|north america)\b|\bu\.s\.?(?!\w)", re.IGNORECASE)
+# Any sign the posting offers remote work at all, anywhere in the location field or the text.
+_REMOTE_MENTION_RE = re.compile(r"\bremote(ly)?\b|\bwork(ing)? from (home|anywhere)\b|\btelecommut", re.IGNORECASE)
 _HYBRID_RE = re.compile(r"\bhybrid\b", re.IGNORECASE)
 # Deliberately excludes generic "on-site" mentions inside benefits blurbs by requiring the word
 # to appear where a location would (raw location field, or immediately near "only"/"required").
@@ -230,23 +236,48 @@ _NON_US_LOCATION_RE = re.compile(
 )
 
 
+def parse_workplace_type(label: str | None) -> WorkplaceType | None:
+    """Map an ATS's own workplace label — "Remote", "Hybrid (Remote/Office)", "OnSite", "ON_SITE",
+    "Office/Site only", "TELECOMMUTE", ... — onto WorkplaceType. Unrecognized/"unspecified" -> None."""
+    norm = re.sub(r"[^a-z]", "", (label or "").lower())
+    if not norm:
+        return None
+    if "hybrid" in norm or ("remote" in norm and ("office" in norm or "site" in norm)):
+        return WorkplaceType.HYBRID
+    if "remote" in norm or "telecommute" in norm:
+        return WorkplaceType.REMOTE
+    if "onsite" in norm or "office" in norm or "site" in norm:
+        return WorkplaceType.ONSITE
+    return None
+
+
 def normalize_location(
     location_raw: str | None,
     description_text: str | None,
-    remote_flag: bool | None,
+    workplace_type: WorkplaceType | None,
     candidate_state_abbr: str = "WA",
     candidate_state_name: str = "Washington",
 ) -> tuple[RemoteScope, str | None]:
-    """Returns (scope, note). ``note`` explains ambiguous/restricted determinations."""
+    """Returns (scope, note). ``note`` explains ambiguous/restricted determinations.
+
+    Precedence: the ATS's own structured workplace field, then explicit words in the location
+    field, then — only when nothing anywhere offers remote work — onsite. A posting that never
+    mentions remote work in its location or its text is not a remote posting, whatever city it
+    names; one that does mention it but ties it to a city stays UNKNOWN for the LLM, since text
+    like "work in the office as many days as you'd like or 100% remotely" is real remote
+    eligibility that no location-string heuristic can see."""
     location = location_raw or ""
     text_blob = f"{location}\n{description_text or ''}"
 
     if _state_excluded(text_blob, candidate_state_abbr, candidate_state_name):
         return RemoteScope.REMOTE_US_RESTRICTED, f"{candidate_state_name} explicitly excluded from remote eligibility"
 
-    is_remote = bool(remote_flag) or bool(_REMOTE_RE.search(location))
-    if _HYBRID_RE.search(location):
-        return RemoteScope.HYBRID, "location field says hybrid"
+    if workplace_type == WorkplaceType.HYBRID or _HYBRID_RE.search(location):
+        return RemoteScope.HYBRID, "source marks it hybrid"
+    if workplace_type == WorkplaceType.ONSITE:
+        return RemoteScope.ONSITE, "source marks it on-site"
+
+    is_remote = workplace_type == WorkplaceType.REMOTE or bool(_REMOTE_RE.search(location))
 
     if is_remote:
         if _US_RE.search(location) or "remote" == location.strip().lower():
@@ -270,10 +301,10 @@ def normalize_location(
     if _ONSITE_LOCATION_RE.search(location):
         return RemoteScope.ONSITE, "location field says on-site"
 
-    if location.strip() and remote_flag is False:
-        return RemoteScope.ONSITE, f"specific office location '{location.strip()}', not marked remote"
+    if not _REMOTE_MENTION_RE.search(text_blob):
+        return RemoteScope.ONSITE, "posting never mentions remote work in its location or text"
 
-    return RemoteScope.UNKNOWN, "could not determine remote scope from available fields"
+    return RemoteScope.UNKNOWN, "remote work mentioned in the text but not in the location field — deferred to LLM"
 
 
 # ---------------------------------------------------------------------------

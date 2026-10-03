@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from jobscan.config import Settings
 from jobscan.db import Database
+from jobscan.filters import apply_factual_filters
 from jobscan.models import (
     Company,
     CrawlRunStats,
@@ -64,6 +65,16 @@ def _ranking_group(evaluation: Evaluation) -> int:
         return _RANKING_GROUPS.index((evaluation.verdict, evaluation.scope_fit)) + 1
     except ValueError:
         return 6
+
+
+def _still_passes_factual_filters(row: JobReportRow, settings: Settings) -> bool:
+    """Evaluations are cached by description text, so a verdict can outlive the facts it was made
+    under (a posting reclassified as hybrid, a salary edited below the minimum, a company later
+    confirmed as consulting). Re-check those facts at report time rather than trust the verdict —
+    except for the candidate's own manual verdict overrides, which deliberately bypass them."""
+    if row.evaluation is not None and row.evaluation.model_name == "manual_override":
+        return True
+    return apply_factual_filters(row.job, row.company, settings.min_base_salary).passed
 
 
 def _report_section(evaluation: Evaluation | None) -> str:
@@ -153,7 +164,7 @@ def assemble_report_data(
     sections: dict[str, list[JobReportRow]] = {"best_bets": [], "growth_bets": [], "attractive_stretches": []}
     for row in rows:
         section = _report_section(row.evaluation)
-        if section in sections:
+        if section in sections and _still_passes_factual_filters(row, settings):
             sections[section].append(row)
 
     for key in sections:

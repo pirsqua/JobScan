@@ -24,13 +24,14 @@ from pydantic import ValidationError
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
 from jobscan.adapters.schemas import (
+    SmartRecruitersLocation,
     SmartRecruitersPostingBrief,
     SmartRecruitersPostingDetail,
     SmartRecruitersPostingsListResponse,
 )
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
-from jobscan.models import AtsType, RawPosting, SalarySource
+from jobscan.models import AtsType, RawPosting, SalarySource, WorkplaceType
 
 BASE_URL = "https://api.smartrecruiters.com/v1/companies/{company}/postings"
 PAGE_SIZE = 100
@@ -129,5 +130,13 @@ class SmartRecruitersAdapter(SourceAdapter):
             salary_currency=salary_currency,
             salary_period=salary_period,
             salary_source=SalarySource.STRUCTURED if (salary_min or salary_max) else SalarySource.NONE,
-            remote_flag=location.remote if location else None,
+            workplace_type=_workplace_type(location),
         )
+
+
+def _workplace_type(location: SmartRecruitersLocation | None) -> WorkplaceType | None:
+    if location is None or (location.remote is None and location.hybrid is None):
+        return None
+    if location.hybrid:
+        return WorkplaceType.HYBRID
+    return WorkplaceType.REMOTE if location.remote else WorkplaceType.ONSITE

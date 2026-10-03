@@ -137,8 +137,8 @@ judged on, only how much of that judgment has to be paid for on each run.
 
 ```powershell
 # CSV columns: name, domain, careers_url, ats_type, board_id, classification, discovery_source, notes
-# ats_type: greenhouse, ashby, lever, workday, jobvite, esri, smartrecruiters, avature, rippling and
-# jazzhr are actually crawled. icims, taleo, phenom, eightfold, successfactors and custom are also
+# ats_type: greenhouse, ashby, lever, workday, jobvite, esri, smartrecruiters, avature, rippling,
+# jazzhr and icims are actually crawled. taleo, phenom, eightfold, successfactors and custom are also
 # accepted (so a registry can record "this company uses X" for later), but have no adapter — keep
 # those rows active=false, or they'll show up as a failed board with "no adapter registered".
 # board_id is the token in that ATS's public API URL, e.g. boards-api.greenhouse.io/v1/boards/<board_id>
@@ -232,11 +232,12 @@ responses and a stub Anthropic client, so the suite never makes a real network o
 
 - The employer registry is a curated list you control, not a claim of market coverage. The tool
   will always report the exact number it actually crawled, not an implied "comprehensive" number.
-- Ten ATS platforms are actually crawled: Greenhouse, Ashby, Lever, Workday, Jobvite, Esri's own
-  bespoke API, SmartRecruiters, Avature, Rippling, and JazzHR. Avature's gating is tenant-specific
+- Eleven ATS platforms are actually crawled: Greenhouse, Ashby, Lever, Workday, Jobvite, Esri's
+  own bespoke API, SmartRecruiters, Avature, Rippling, JazzHR, and iCIMS's classic job portal
+  (board_id = the portal subdomain, e.g. `uscareers-yelp`). Avature's gating is tenant-specific
   — some companies' boards actively 403/reCAPTCHA-gate automated access and stay unsupported,
   while others serve the same pages as plain, non-gated HTML and are crawled normally. A registry
-  can record that a company uses iCIMS, Taleo, Phenom, SuccessFactors, or a gated Avature/Eightfold
+  can record that a company uses Taleo, Phenom, SuccessFactors, or a gated Avature/Eightfold
   tenant so the finding isn't lost, but none of those have (or will get) an adapter — this tool
   never attempts to defeat a deliberate anti-bot measure. Add a new adapter by implementing
   `jobscan.adapters.base.SourceAdapter`.

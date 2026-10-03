@@ -21,10 +21,11 @@ import httpx
 from bs4 import BeautifulSoup
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
-from jobscan.adapters.jsonld import extract_job_posting_json_ld, to_float
+from jobscan.adapters.jsonld import extract_job_posting_json_ld, salary_fields
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
-from jobscan.models import AtsType, RawPosting, SalarySource
+from jobscan.models import AtsType, RawPosting
+from jobscan.parsing import parse_workplace_type
 
 BASE_URL = "https://jobs.jobvite.com/{company}"
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -75,17 +76,6 @@ class JobviteAdapter(SourceAdapter):
             )
             return None
 
-        salary_min = salary_max = salary_currency = salary_period = None
-        salary_source = SalarySource.NONE
-        if detail.baseSalary and detail.baseSalary.value:
-            salary_min = to_float(detail.baseSalary.value.minValue)
-            salary_max = to_float(detail.baseSalary.value.maxValue)
-            if salary_min or salary_max:
-                salary_currency = detail.baseSalary.currency or None
-                unit = (detail.baseSalary.value.unitText or "").upper()
-                salary_period = "hour" if "HOUR" in unit else "year"
-                salary_source = SalarySource.STRUCTURED
-
         source_job_id = path.rstrip("/").rsplit("/", 1)[-1]
         return RawPosting(
             source_job_id=source_job_id,
@@ -97,11 +87,8 @@ class JobviteAdapter(SourceAdapter):
             posting_url=url,
             apply_url=f"{url}/apply",
             published_at=detail.datePosted,
-            salary_min=salary_min,
-            salary_max=salary_max,
-            salary_currency=salary_currency,
-            salary_period=salary_period,
-            salary_source=salary_source,
+            workplace_type=parse_workplace_type(detail.jobLocationType),
+            **salary_fields(detail),
         )
 
 

@@ -24,10 +24,11 @@ import httpx
 from bs4 import BeautifulSoup
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
-from jobscan.adapters.jsonld import extract_job_posting_json_ld, to_float
+from jobscan.adapters.jsonld import extract_job_posting_json_ld, salary_fields
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
-from jobscan.models import AtsType, RawPosting, SalarySource
+from jobscan.models import AtsType, RawPosting
+from jobscan.parsing import parse_workplace_type
 
 BASE_URL = "https://{company}.applytojob.com"
 
@@ -72,25 +73,13 @@ class JazzHRAdapter(SourceAdapter):
 
         detail = extract_job_posting_json_ld(response.text)
         if detail is None:
-            logger.warning(
-                "jazzhr job detail missing a JobPosting JSON-LD block",
-                extra=log_extra(board_id=board_id, detail_url=detail_url),
-            )
-            return None
-
-        salary_min = salary_max = salary_currency = salary_period = None
-        salary_source = SalarySource.NONE
-        if detail.baseSalary and detail.baseSalary.value:
-            salary_min = to_float(detail.baseSalary.value.minValue)
-            salary_max = to_float(detail.baseSalary.value.maxValue)
-            if salary_min or salary_max:
-                salary_currency = detail.baseSalary.currency or None
-                unit = (detail.baseSalary.value.unitText or "").upper()
-                salary_period = "hour" if "HOUR" in unit else "year"
-                salary_source = SalarySource.STRUCTURED
+            # Observed live (iManage): some detail pages carry only an Organization ld+json block.
+            # The same page still renders the full description, so read it from the HTML rather
+            # than silently dropping the posting.
+            return _posting_from_html(response.text, detail_url, brief_title, location_text, board_id)
 
         return RawPosting(
-            source_job_id=urlsplit(detail_url).path.rstrip("/").rsplit("/", 1)[-1],
+            source_job_id=_job_id(detail_url),
             title=(detail.title or brief_title).strip(),
             location_raw=location_text,
             employment_type_raw=detail.employmentType,
@@ -99,12 +88,37 @@ class JazzHRAdapter(SourceAdapter):
             posting_url=detail_url,
             apply_url=detail_url,
             published_at=detail.datePosted,
-            salary_min=salary_min,
-            salary_max=salary_max,
-            salary_currency=salary_currency,
-            salary_period=salary_period,
-            salary_source=salary_source,
+            workplace_type=parse_workplace_type(detail.jobLocationType),
+            **salary_fields(detail),
         )
+
+
+def _job_id(detail_url: str) -> str:
+    return urlsplit(detail_url).path.rstrip("/").rsplit("/", 1)[-1]
+
+
+def _posting_from_html(
+    html: str, detail_url: str, brief_title: str, location_text: str | None, board_id: str
+) -> RawPosting | None:
+    soup = BeautifulSoup(html, "html.parser")
+    description = soup.select_one("div.job_description")
+    if description is None:
+        logger.warning(
+            "jazzhr job detail has neither a JobPosting JSON-LD block nor a description",
+            extra=log_extra(board_id=board_id, detail_url=detail_url),
+        )
+        return None
+    heading = soup.select_one("h1.job_title")
+    return RawPosting(
+        source_job_id=_job_id(detail_url),
+        title=(heading.get_text(strip=True) if heading else "") or brief_title.strip(),
+        location_raw=location_text,
+        employment_type_raw=None,
+        description_html=description.decode_contents(),
+        description_text=None,
+        posting_url=detail_url,
+        apply_url=detail_url,
+    )
 
 
 def _parse_list_page(html: str, base_url: str) -> list[tuple[str, str, str | None]]:

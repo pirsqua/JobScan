@@ -3,6 +3,7 @@ from jobscan.adapters.ashby import AshbyAdapter
 from jobscan.adapters.avature import AvatureAdapter
 from jobscan.adapters.esri import EsriAdapter
 from jobscan.adapters.greenhouse import GreenhouseAdapter
+from jobscan.adapters.icims import ICIMSAdapter
 from jobscan.adapters.jazzhr import JazzHRAdapter
 from jobscan.adapters.jobvite import JobviteAdapter
 from jobscan.adapters.lever import LeverAdapter
@@ -22,10 +23,11 @@ ADAPTERS: dict[AtsType, type[SourceAdapter]] = {
     AtsType.AVATURE: AvatureAdapter,
     AtsType.RIPPLING: RipplingAdapter,
     AtsType.JAZZHR: JazzHRAdapter,
+    AtsType.ICIMS: ICIMSAdapter,
 }
 
 __all__ = [
     "SourceAdapter", "GreenhouseAdapter", "AshbyAdapter", "LeverAdapter", "WorkdayAdapter",
     "JobviteAdapter", "EsriAdapter", "SmartRecruitersAdapter", "AvatureAdapter", "RipplingAdapter",
-    "JazzHRAdapter", "ADAPTERS",
+    "JazzHRAdapter", "ICIMSAdapter", "ADAPTERS",
 ]

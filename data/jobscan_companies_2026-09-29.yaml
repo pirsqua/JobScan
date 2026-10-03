@@ -789,7 +789,8 @@
   compensation_signal: verified_170k_path
   evidence_level: current_board_verified
   discovery_source: diamond_hunt_2026-10-02
-  notes: "Bookkeeping/finance SaaS; 'Pilot's backend is written in fully typed modern Python'. [Verified 2026-10-02: Greenhouse board live; Sr. Software Engineer, Infrastructure ($133-267K), Sr. Software Engineer, Takeoff ($133-192K), Staff Software Engineer, Takeoff — all Remote, postings explicitly list WA among the eligible remote states, 'Experience with Python in production', no web-framework requirement. Glassdoor 3.6 / 3.8 WLB / 71% recommend; caveat: heavy AI-agent pivot raising job-security worries in 2026 reviews.]"
+  applied: true
+  notes: "Bookkeeping/finance SaaS; 'Pilot's backend is written in fully typed modern Python'. [Verified 2026-10-02: Greenhouse board live; Sr. Software Engineer, Infrastructure ($133-267K), Sr. Software Engineer, Takeoff ($133-192K), Staff Software Engineer, Takeoff — all Remote, postings explicitly list WA among the eligible remote states, 'Experience with Python in production', no web-framework requirement. Glassdoor 3.6 / 3.8 WLB / 71% recommend; caveat: heavy AI-agent pivot raising job-security worries in 2026 reviews.] [Applied 2026-10-03: Sr. Software Engineer, Takeoff. Candidate's own read of Glassdoor: reviews are polarized (great vs. meh) and no software-engineer-specific review is newer than 2023, so the 3.6/3.8 aggregate says little about current engineering culture — validate it in interviews. Reviews also cite 'constant layoffs'; no announced layoff found; ~420 employees in 2026.]"
 
 - name: Plaid
   domain: plaid.com
@@ -855,16 +856,16 @@
   domain: realpage.com
   careers_url: https://www.realpage.com/careers/
   ats_type: icims
-  board_id: ""
+  board_id: careers-realpagepms
   classification: product
-  active: false
+  active: true
   priority: B
   fit_lanes: [dotnet, csharp, sql_server, azure, apis]
   remote_signal: team_specific
   compensation_signal: uncertain
   evidence_level: monitor_only
   discovery_source: curated_dotnet_local_vertical_2026
-  notes: "Property-management software vendor (Dallas-based, private-equity owned), Microsoft-stack heritage across many acquired product lines. [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.] [Verified 2026-09-30: decent — 3.9-4.2 SWE range, genuinely remote-friendly, unlimited PTO, 63% recommend and rising. Python fit unconfirmed.]"
+  notes: "Property-management software vendor (Dallas-based, private-equity owned), Microsoft-stack heritage across many acquired product lines. [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.] [Verified 2026-09-30: decent — 3.9-4.2 SWE range, genuinely remote-friendly, unlimited PTO, 63% recommend and rising. Python fit unconfirmed.] [Verified 2026-10-03: iCIMS classic portal 'careers-realpagepms' is crawlable (adapter added) — 49 open postings, 9 engineering-titled, nearly all on-site Richardson TX or Boston; one 'US-TX-Remote'; no structured salary data.]"
 
 - name: Reddit
   domain: redditinc.com
@@ -1163,6 +1164,21 @@
   evidence_level: current_board_verified
   discovery_source: curated_latest_leads_2026-09-28
   notes: "Compliance/reporting SaaS (Ames, IA-based, remote-friendly history). [Verified 2026-09-28: real ATS is Workday, tenant confirmed live, total=99 — previously recorded as custom/unverified.]"
+
+- name: Yelp
+  domain: yelp.com
+  careers_url: https://www.yelp.careers/us/en
+  ats_type: icims
+  board_id: uscareers-yelp
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [python, saas_backend, apis, data_platform]
+  remote_signal: remote_first
+  compensation_signal: likely_170k_path
+  evidence_level: current_board_verified
+  discovery_source: candidate_suggested_2026-10-02
+  notes: "Long-time large Python shop (Python services monolith plus open-source Python tooling) and remote-first since 2021: one San Francisco office, under 1% of staff in it daily, engineers ~48% of headcount. Phenom career site in front of iCIMS; U.S. jobs on the 'uscareers-yelp' portal. [Verified 2026-10-03: only 20 U.S. postings company-wide and 1 in engineering (Senior ML Engineer, labelled 'Hybrid - United States' but its text says it 'does not require you to be located in any particular state' — Yelp's 'hybrid' means remote with an optional office; JSON-LD marks it TELECOMMUTE; $112K-$269K band). Not a fit today (ML-centric); kept active to catch backend/data roles when engineering hiring resumes.]"
 
 - name: Zapier
   domain: zapier.com

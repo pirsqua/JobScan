@@ -133,7 +133,13 @@ compensation_rule: >
   compensation may only break a tie between similarly credible roles.
 
 hard_filters:
-  - U.S. remote, available to an employee living in Washington State
+  - U.S. remote, available to an employee living in Washington State. The posting must
+    affirmatively offer remote work (its location field, its text, or the ATS's own structured
+    workplace type). A role tied to an office, HQ or city with no remote option stated fails this
+    filter — "not confirmed remote" is a fail, not an open question — and so does a hybrid
+    arrangement. Once remote work is offered, Washington is presumed eligible unless the posting
+    excludes it or limits remote work to specific states or regions that leave it out; a remote
+    offer that doesn't name eligible states is not a failure by itself
   - Full-time employee position
   - Employer principally builds and operates its own product or platform (not a consulting,
     staffing or outsourcing firm; not client-delivery/billable work)

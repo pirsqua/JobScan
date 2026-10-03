@@ -136,10 +136,10 @@ class TestCrawlOrchestration:
 
     @respx.mock
     def test_company_with_unsupported_ats_is_reported_not_crashed(self, db: Database, settings):
-        # A registry can record a company on an ATS with no adapter yet (iCIMS, Taleo, a custom
+        # A registry can record a company on an ATS with no adapter yet (Taleo, Phenom, a custom
         # site) — the run should report it as a failed board and continue, not raise.
         good = make_company("Good Co", "goodco")
-        unsupported = make_company("iCIMS Co", "icimsco", ats_type=AtsType.ICIMS)
+        unsupported = make_company("Taleo Co", "taleoco", ats_type=AtsType.TALEO)
         db.upsert_company(good)
         db.upsert_company(unsupported)
 
@@ -162,5 +162,5 @@ class TestCrawlOrchestration:
         assert stats.companies_attempted == 2
         assert stats.companies_succeeded == 1
         assert len(stats.boards_failed) == 1
-        assert "iCIMS Co" in stats.boards_failed[0]
+        assert "Taleo Co" in stats.boards_failed[0]
         assert "no adapter registered" in stats.boards_failed[0]

@@ -15,7 +15,8 @@ from pydantic import ValidationError
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
 from jobscan.adapters.schemas import AshbyJob, AshbyJobBoardResponse
-from jobscan.models import AtsType, RawPosting, SalarySource
+from jobscan.models import AtsType, RawPosting, SalarySource, WorkplaceType
+from jobscan.parsing import parse_workplace_type
 
 BASE_URL = "https://api.ashbyhq.com/posting-api/job-board/{board}"
 
@@ -70,5 +71,12 @@ class AshbyAdapter(SourceAdapter):
             department=job.department or job.team,
             published_at=job.publishedAt,
             salary_source=SalarySource.NONE,
-            remote_flag=job.isRemote,
+            workplace_type=_workplace_type(job),
         )
+
+
+def _workplace_type(job: AshbyJob) -> WorkplaceType | None:
+    if job.workplaceType:
+        return parse_workplace_type(job.workplaceType)
+    # isRemote=True is unreliable (it's set on hybrid roles too); only its False is a usable fact.
+    return WorkplaceType.ONSITE if job.isRemote is False else None

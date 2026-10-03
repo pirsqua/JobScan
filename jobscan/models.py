@@ -46,9 +46,14 @@ class AtsType(str, Enum):
 
     Recurring enterprise ATS platforms below have no adapter yet and are recorded specifically
     (not folded into CUSTOM) so future adapter work has a real target and a curator's finding
-    isn't lost: iCIMS/Eightfold's own search/listing APIs 403/reCAPTCHA-gate automated access —
-    their marketing/landing career pages render fine, the block is on the actual job-search API;
-    Taleo/Phenom/SuccessFactors simply haven't been investigated for a crawlable API yet."""
+    isn't lost: Eightfold's own search/listing API 403/reCAPTCHA-gates automated access — its
+    marketing/landing career pages render fine, the block is on the actual job-search API;
+    Taleo/Phenom/SuccessFactors simply haven't been investigated for a crawlable API yet.
+
+    ICIMS is iCIMS's classic server-rendered job portal ({portal}.icims.com) plus a JobPosting
+    JSON-LD block per detail page (see jobscan.adapters.icims); confirmed live with no bot-gating
+    on some customers' portals. Others list nothing there because their jobs are served through
+    iCIMS's newer career-site front end instead, which has no adapter."""
 
     GREENHOUSE = "greenhouse"
     ASHBY = "ashby"
@@ -86,6 +91,16 @@ class RemoteScope(str, Enum):
     HYBRID = "hybrid"
     ONSITE = "onsite"
     UNKNOWN = "unknown"
+
+
+class WorkplaceType(str, Enum):
+    """A source ATS's own structured remote/hybrid/onsite field (Ashby/Lever workplaceType,
+    SmartRecruiters location.remote/hybrid, Avature "Work mode", ...) — far more reliable than
+    inferring from a location string, so it takes precedence when present."""
+
+    REMOTE = "remote"
+    HYBRID = "hybrid"
+    ONSITE = "onsite"
 
 
 class EmploymentType(str, Enum):
@@ -202,7 +217,7 @@ class RawPosting:
     salary_currency: str | None = None
     salary_period: str | None = None
     salary_source: SalarySource = SalarySource.NONE
-    remote_flag: bool | None = None  # explicit is-remote signal from the source API, if any
+    workplace_type: WorkplaceType | None = None
 
 
 @dataclass
@@ -234,6 +249,9 @@ class JobPosting:
     salary_source: SalarySource = SalarySource.NONE
     closed_at: datetime | None = None
     status: JobStatus = JobStatus.ACTIVE
+    # Kept alongside remote_scope so the LLM can see it: "remote" on a posting that lists a city is
+    # affirmative remote evidence the location string and the text alone may never state.
+    workplace_type: WorkplaceType | None = None
 
 
 @dataclass

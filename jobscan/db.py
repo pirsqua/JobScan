@@ -35,6 +35,7 @@ from jobscan.models import (
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkplaceType,
 )
 
 SCHEMA = """
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     last_seen_at TEXT NOT NULL,
     closed_at TEXT,
     status TEXT NOT NULL DEFAULT 'active',
+    workplace_type TEXT,
     UNIQUE (source, source_job_id)
 );
 
@@ -229,6 +231,7 @@ class Database:
         self._add_column_if_missing("evaluation_runs", "triage_cache_read_input_tokens", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "triage_model", "TEXT")
         self._add_column_if_missing("companies", "applied", "INTEGER")
+        self._add_column_if_missing("jobs", "workplace_type", "TEXT")
 
     def _add_column_if_missing(self, table: str, column: str, sql_type: str) -> None:
         existing = {row["name"] for row in self.conn.execute(f"PRAGMA table_info({table})")}
@@ -460,6 +463,7 @@ class Database:
             last_seen_at=_parse_dt(row["last_seen_at"]),
             closed_at=_parse_dt(row["closed_at"]),
             status=JobStatus(row["status"]),
+            workplace_type=WorkplaceType(row["workplace_type"]) if row["workplace_type"] else None,
         )
 
     def upsert_job(self, job: JobPosting) -> tuple[int, bool, bool]:
@@ -479,8 +483,8 @@ class Database:
                     employment_type_raw, employment_type, description_text, description_html,
                     description_hash, salary_min, salary_max, salary_currency, salary_period,
                     salary_source, posting_url, apply_url, department, published_at,
-                    first_seen_at, last_seen_at, closed_at, status)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    first_seen_at, last_seen_at, closed_at, status, workplace_type)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     job.company_id, job.source.value, job.source_job_id, job.title,
                     job.location_raw, job.remote_scope.value, job.employment_type_raw,
@@ -489,6 +493,7 @@ class Database:
                     job.salary_period, job.salary_source.value, job.posting_url, job.apply_url,
                     job.department, _dt(job.published_at), _dt(job.first_seen_at),
                     _dt(job.last_seen_at), _dt(job.closed_at), job.status.value,
+                    job.workplace_type.value if job.workplace_type else None,
                 ),
             )
             return cur.lastrowid, True, False
@@ -512,14 +517,15 @@ class Database:
                employment_type=?, description_text=?, description_html=?, description_hash=?,
                salary_min=?, salary_max=?, salary_currency=?, salary_period=?, salary_source=?,
                posting_url=?, apply_url=?, department=?, published_at=?, last_seen_at=?,
-               closed_at=NULL, status='active'
+               closed_at=NULL, status='active', workplace_type=?
                WHERE id=?""",
             (
                 job.title, job.location_raw, job.remote_scope.value, job.employment_type_raw,
                 job.employment_type.value, job.description_text, job.description_html,
                 job.description_hash, job.salary_min, job.salary_max, job.salary_currency,
                 job.salary_period, job.salary_source.value, job.posting_url, job.apply_url,
-                job.department, _dt(job.published_at), _dt(now), existing.id,
+                job.department, _dt(job.published_at), _dt(now),
+                job.workplace_type.value if job.workplace_type else None, existing.id,
             ),
         )
         return existing.id, False, changed
