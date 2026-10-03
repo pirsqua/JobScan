@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 import respx
@@ -485,6 +487,33 @@ class TestWorkdayAdapter:
     def test_board_id_with_blank_segment_raises_adapter_error(self, http_client):
         with pytest.raises(AdapterError):
             list(WorkdayAdapter(http_client).fetch_postings("acme//Acme"))
+
+    @respx.mock
+    def test_board_id_query_string_becomes_applied_facets(self, http_client):
+        # A tenant's own search facets ride along in board_id and must reach the server as the
+        # list request's appliedFacets (repeated names collected into one list), while the
+        # list/detail URLs are built from only the tenant/cluster/site part.
+        bodies = []
+
+        def list_handler(request: httpx.Request) -> httpx.Response:
+            bodies.append(json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={"total": 1, "jobPostings": [{"title": "Senior Backend Engineer",
+                                                   "externalPath": "/job/US-Remote/Senior-Backend-Engineer_JR1"}]},
+            )
+
+        respx.post(self.LIST_URL).mock(side_effect=list_handler)
+        detail_route = respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(200, json={"jobPostingInfo": {"title": "Senior Backend Engineer", "jobReqId": "JR1"}})
+        )
+
+        adapter = WorkdayAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme/wd1/Acme?locationCountry=US1&locationCountry=CA2&jobFamilyGroup=ENG"))
+
+        assert bodies[0]["appliedFacets"] == {"locationCountry": ["US1", "CA2"], "jobFamilyGroup": ["ENG"]}
+        assert detail_route.call_count == 1
+        assert postings[0].source_job_id == "JR1"
 
 
 class TestJobviteAdapter:
@@ -1053,6 +1082,26 @@ class TestSmartRecruitersAdapter:
         assert postings[0].salary_min is None
 
     @respx.mock
+    def test_board_id_query_string_is_forwarded_as_list_filters(self, http_client):
+        seen = []
+
+        def list_handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request.url.params.get("country"))
+            return httpx.Response(200, json={"totalFound": 1, "content": [{"id": "sr-1", "name": "Backend Engineer"}]})
+
+        respx.get(self.LIST_URL).mock(side_effect=list_handler)
+        detail_route = respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(200, json={"id": "sr-1", "name": "Backend Engineer"})
+        )
+
+        adapter = SmartRecruitersAdapter(http_client)
+        postings = list(adapter.fetch_postings("acme?country=us"))
+
+        assert seen == ["us"]
+        assert detail_route.call_count == 1
+        assert postings[0].source_job_id == "sr-1"
+
+    @respx.mock
     def test_pagination_follows_offset_until_short_page(self, http_client, monkeypatch):
         import jobscan.adapters.smartrecruiters as smartrecruiters_module
 
@@ -1280,6 +1329,34 @@ class TestAvatureAdapter:
         adapter = AvatureAdapter(http_client)
         postings = list(adapter.fetch_postings(self.BOARD_ID))
         assert postings == []
+
+    @respx.mock
+    def test_board_id_query_string_is_forwarded_as_search_filters(self, http_client):
+        # A tenant's own search-form filters (opaque field/option ids) ride along in board_id and
+        # must reach the server on every list request, repeated keys included — while every URL
+        # the adapter builds itself uses only the portal part before the "?".
+        seen = []
+
+        def list_handler(request: httpx.Request) -> httpx.Response:
+            seen.append((request.url.params.get_list("42386[]"), request.url.params.get_list("42389[]")))
+            return httpx.Response(
+                200,
+                text="""
+                <article class="article article--result">
+                  <div class="article__header__text__title"><a href="https://jobs.example.com/en_US/externaljobs/JobDetail/1001">Senior Backend Engineer</a></div>
+                  <span class="list-item-location">Remote - US</span>
+                </article>
+                """,
+            )
+
+        respx.get(self.LIST_URL).mock(side_effect=list_handler)
+        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, text=avature_detail_html("1001")))
+
+        adapter = AvatureAdapter(http_client)
+        postings = list(adapter.fetch_postings(f"{self.BOARD_ID}?42386[]=812209&42389[]=102127&42389[]=102122"))
+
+        assert seen and all(s == (["812209"], ["102127", "102122"]) for s in seen)
+        assert postings[0].apply_url == "https://jobs.example.com/en_US/externaljobs/ApplicationMethods?folderId=1001"
 
     @respx.mock
     def test_list_http_error_raises_adapter_error(self, http_client):

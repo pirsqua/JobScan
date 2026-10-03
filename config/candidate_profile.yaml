@@ -137,5 +137,9 @@ hard_filters:
   - Full-time employee position
   - Employer principally builds and operates its own product or platform (not a consulting,
     staffing or outsourcing firm; not client-delivery/billable work)
+  - Employer is not a healthcare or health-tech company — no healthcare providers, health
+    insurers/payers, digital-health, telehealth or mental-health platforms, health-data companies,
+    pharmacy or pharmacy-benefit companies, pharma/biotech, or medical-device makers, including
+    software companies whose product primarily serves the healthcare industry
   - Current official posting that still accepts applications
   - Published base-salary range with a credible path to at least $170,000

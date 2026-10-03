@@ -103,21 +103,11 @@
   discovery_source: curated_dotnet_local_vertical_2026
   notes: "Seattle HQ airline with a real internal technology organization (reservations, loyalty, operations systems). [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.] [Verified 2026-09-30: genuinely strong — 80% recommend, 3.8 WLB/4.2 culture, real fully-remote engineering positions. Worth priority if an iCIMS adapter ever exists.]"
 
-- name: Aledade
-  domain: aledade.com
-  careers_url: https://jobs.lever.co/aledade
-  ats_type: lever
-  board_id: aledade
-  classification: product
-  active: true
-  discovery_source: curated_remote_wlb_2026
-  notes: "Priority A for gettability and fit. Current Remote-US senior/staff roles cover web apps, APIs, SQL and data ingestion and accept Python, C# or equivalent cloud experience. Glassdoor WLB about 3.9. Reject or hold postings without a published base range."
-
 - name: Allstate
   domain: allstate.com
   careers_url: https://www.allstate.jobs/
   ats_type: workday
-  board_id: allstate/wd5/allstate_careers
+  board_id: "allstate/wd5/allstate_careers?Country=bc33aa3152ec42d4995f4791a106ed09"
   classification: product
   active: true
   priority: B+
@@ -126,7 +116,7 @@
   compensation_signal: likely_170k_path
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Large internal product/platform organization with recurring Microsoft, API, and data demand. [Verified 2026-09-29 via Playwright render: Workday tenant confirmed live, total=451.] [Verified 2026-09-30: genuinely strong remote program — 75% of employees home-based, no mandatory office attendance, 4.0 WLB/3.6-3.9 culture.] Reject insurer roles that are actually vendor management, low-code, or domain-specialist positions."
+  notes: "Large internal product/platform organization with recurring Microsoft, API, and data demand. [Verified 2026-09-29 via Playwright render: Workday tenant confirmed live, total=451.] [Verified 2026-09-30: genuinely strong remote program — 75% of employees home-based, no mandatory office attendance, 4.0 WLB/3.6-3.9 culture.] Reject insurer roles that are actually vendor management, low-code, or domain-specialist positions. [2026-10-02: US-only Workday facet ('Country' on this tenant): 441 -> 327 postings.]"
 
 - name: Asana
   domain: asana.com
@@ -324,6 +314,21 @@
   discovery_source: curated_remote_wlb_2026
   notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
 
+- name: Discord
+  domain: discord.com
+  careers_url: https://discord.com/careers
+  ats_type: greenhouse
+  board_id: discord
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [python, data_platform, saas_backend]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: diamond_hunt_2026-10-02
+  notes: "Python-heavy backend (Python/Elixir/Rust). [Verified 2026-10-02: Greenhouse board live, 33 eng postings. In-lane remote roles: Software Engineer, Safety Processing ('backend services in Python (or similar)', SF Bay Area or Remote US, $160-220K) and Senior Data Engineer, Ads (expert SQL + Python, Remote US, $220-245K). Glassdoor: SWEs rate 4.8 overall / 4.7 WLB (24 reviews), but Senior SWEs report 2.5 WLB; company-wide 3.7, 62% recommend — mixed by level/team.]"
+
 - name: Docker
   domain: docker.com
   careers_url: https://job-boards.greenhouse.io/docker
@@ -348,16 +353,6 @@
   evidence_level: recurring_stack
   discovery_source: curated_dotnet_azure_demand_2026
   notes: "High-paying product engineering with strong API/integration relevance and some C#/.NET teams. [Verified 2026-09-29: real ATS is iCIMS — no adapter, stays inactive.] [Verified 2026-09-30: decent SWE-specific numbers (4.0 WLB, 3.5-3.9 culture range), real remote/hybrid/in-office role categorization exists. Python fit unconfirmed. Worth revisiting if an iCIMS adapter ever exists.]"
-
-- name: Doximity
-  domain: doximity.com
-  careers_url: https://job-boards.greenhouse.io/doximity
-  ats_type: greenhouse
-  board_id: doximity
-  classification: product
-  active: true
-  discovery_source: curated_remote_wlb_2026
-  notes: "Priority A for fit. Current Remote-US Senior Software Engineer, Data role asks for expert Python, SQL and end-to-end data pipelines. It publishes $165K-$221K TOTAL compensation, not a base range, so preserve as compensation-unverified under the strict rule."
 
 - name: Dropbox
   domain: dropbox.com
@@ -418,7 +413,7 @@
   domain: experian.com
   careers_url: https://jobs.experian.com/jobs
   ats_type: smartrecruiters
-  board_id: Experian
+  board_id: "Experian?country=us"
   classification: product
   active: true
   priority: B+
@@ -427,7 +422,7 @@
   compensation_signal: verified_170k_path
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "High volume of product/data engineering and occasional remote .NET roles. AWS is frequently mandatory, so transferable Azure knowledge must not be counted as an exact match. [Verified 2026-09-30: excellent culture — 'World's Best Workplaces 2024' (Fortune), Great Place to Work in 24 countries, 81% recommend, genuine hybrid flexibility with no RTO mandate. [Verified 2026-09-30: built a real SmartRecruitersAdapter — 398 total postings on the board, confirmed structured compensation data (min/max/currency/period) on US postings. Now active and crawlable.]"
+  notes: "High volume of product/data engineering and occasional remote .NET roles. AWS is frequently mandatory, so transferable Azure knowledge must not be counted as an exact match. [Verified 2026-09-30: excellent culture — 'World's Best Workplaces 2024' (Fortune), Great Place to Work in 24 countries, 81% recommend, genuine hybrid flexibility with no RTO mandate. [Verified 2026-09-30: built a real SmartRecruitersAdapter — 398 total postings on the board, confirmed structured compensation data (min/max/currency/period) on US postings. Now active and crawlable.] [2026-10-02: US-only SmartRecruiters list filter: 400 -> 35 postings.]"
 
 - name: Fivetran
   domain: fivetran.com
@@ -443,7 +438,7 @@
   domain: genesys.com
   careers_url: https://genesys.wd1.myworkdayjobs.com/Genesys
   ats_type: workday
-  board_id: genesys/wd1/Genesys
+  board_id: "genesys/wd1/Genesys?locationCountry=bc33aa3152ec42d4995f4791a106ed09"
   classification: product
   active: true
   priority: A-
@@ -452,7 +447,7 @@
   compensation_signal: likely_170k_path
   evidence_level: recurring_stack
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Contact-center platform creates strong API, integration, event-driven, and Microsoft-stack opportunities. [Verified 2026-09-30: genuinely remote-first (most of the company works remotely), 4.2 overall, 83% recommend.] Reject AWS-specialist, Kubernetes-platform, or mandatory AI-product roles."
+  notes: "Contact-center platform creates strong API, integration, event-driven, and Microsoft-stack opportunities. [Verified 2026-09-30: genuinely remote-first (most of the company works remotely), 4.2 overall, 83% recommend.] Reject AWS-specialist, Kubernetes-platform, or mandatory AI-product roles. [2026-10-02: US-only Workday facet: 201 -> 41 postings.]"
 
 - name: GitHub
   domain: github.com
@@ -695,7 +690,7 @@
   domain: motorolasolutions.com
   careers_url: https://motorolasolutions.wd5.myworkdayjobs.com/Careers
   ats_type: workday
-  board_id: motorolasolutions/wd5/Careers
+  board_id: "motorolasolutions/wd5/Careers?locationCountry=bc33aa3152ec42d4995f4791a106ed09"
   classification: product
   active: true
   priority: A-
@@ -704,7 +699,7 @@
   compensation_signal: likely_170k_path
   evidence_level: recurring_stack
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Own-product engineering includes substantial C#/.NET and Azure work. [Verified 2026-09-30: genuinely strong — 4.2 overall, 86% recommend, 4.3 WLB/culture, real hybrid-to-remote flexibility for engineers.] Exclude public-safety roles requiring clearance, on-site presence, or specialized radio/embedded experience."
+  notes: "Own-product engineering includes substantial C#/.NET and Azure work. [Verified 2026-09-30: genuinely strong — 4.2 overall, 86% recommend, 4.3 WLB/culture, real hybrid-to-remote flexibility for engineers.] Exclude public-safety roles requiring clearance, on-site presence, or specialized radio/embedded experience. [2026-10-02: US-only Workday facet: 894 -> 415 postings (was the slowest non-Siemens board, ~99s).]"
 
 - name: Nationwide
   domain: nationwide.com
@@ -780,6 +775,21 @@
   active: true
   discovery_source: curated_remote_wlb_2026
   notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+
+- name: Pilot
+  domain: pilot.com
+  careers_url: https://pilot.com/careers
+  ats_type: greenhouse
+  board_id: pilothq
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [python, saas_backend, apis]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: diamond_hunt_2026-10-02
+  notes: "Bookkeeping/finance SaaS; 'Pilot's backend is written in fully typed modern Python'. [Verified 2026-10-02: Greenhouse board live; Sr. Software Engineer, Infrastructure ($133-267K), Sr. Software Engineer, Takeoff ($133-192K), Staff Software Engineer, Takeoff — all Remote, postings explicitly list WA among the eligible remote states, 'Experience with Python in production', no web-framework requirement. Glassdoor 3.6 / 3.8 WLB / 71% recommend; caveat: heavy AI-agent pivot raising job-security worries in 2026 reviews.]"
 
 - name: Plaid
   domain: plaid.com
@@ -872,6 +882,21 @@
   applied: true
   notes: "Real U.S.-remote engineering roles and credible senior pay, but real evaluation history this session shows many postings center on Go/Scala/Kafka/Kubernetes high-scale ad/ingestion systems outside the candidate's demonstrated stack — screen hard per team rather than assuming company-wide fit. Candidate has applied here."
 
+- name: Render
+  domain: render.com
+  careers_url: https://render.com/careers
+  ats_type: ashby
+  board_id: render
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, sql, data_platform, databricks]
+  remote_signal: team_specific
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: diamond_hunt_2026-10-02
+  notes: "Cloud application platform. [Verified 2026-10-02: Ashby board live (18 eng postings); Senior/Staff Data Engineer (SF or Remote US/Canada, $195-268K) asks for 'strong Python and SQL skills, with hands-on experience building reliable ingestion and ELT pipelines', with Databricks/Airflow — a direct match to the Databricks/PySpark pipeline work. Glassdoor 4.2 / 4.4 WLB / 77% recommend — small sample (12 reviews).]"
+
 - name: RevenueCat
   domain: revenuecat.com
   careers_url: https://jobs.ashbyhq.com/revenuecat
@@ -938,6 +963,21 @@
   applied: true
   notes: "AI-assisted documentation/screen-recording SaaS. [Verified 2026-09-28: Ashby board confirmed live, 39 jobs.] [Verified 2026-09-30: Glassdoor 3.7 WLB / 3.4 culture, 62% recommend — decent but remote policy applied unevenly by level/office.] Candidate has applied here."
 
+- name: SeatGeek
+  domain: seatgeek.com
+  careers_url: https://seatgeek.com/jobs
+  ats_type: greenhouse
+  board_id: seatgeek
+  classification: product
+  active: true
+  priority: A-
+  fit_lanes: [python, csharp, saas_backend, platform]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: diamond_hunt_2026-10-02
+  notes: "Ticketing marketplace with a Python-heavy backend. [Verified 2026-10-02: Greenhouse board live; Senior Software Engineer, Platform (Remote US, $144-209K) lists 'Languages: Go, C#, Python, Bash' — C# explicitly — and Senior Software Engineer, Fullstack (TypeScript + Python, same band). Glassdoor: SWEs rate it 4.6 (25 reviews), 3.9 WLB; mid-2026 reviews cite '100% remote, good WLB', caveat 'priorities tend to shift very often'.]"
+
 - name: ServiceTitan
   domain: servicetitan.com
   careers_url: https://servicetitan.wd1.myworkdayjobs.com/ServiceTitan
@@ -957,7 +997,7 @@
   domain: siemens.com
   careers_url: https://jobs.siemens.com/careers
   ats_type: avature
-  board_id: jobs.siemens.com/en_US/externaljobs
+  board_id: "jobs.siemens.com/en_US/externaljobs?42386[]=812209&42389[]=102127&42389[]=102122&42389[]=39106405"
   classification: product
   active: true
   priority: B
@@ -966,17 +1006,7 @@
   compensation_signal: likely_170k_path
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Large software portfolio with Microsoft-stack and data opportunities; many openings are domain-heavy or outside the U.S. [Verified 2026-09-30: 85% recommend, 4.3 WLB/4.2 culture, genuine remote/hybrid choice with no pressure either way.] [Verified 2026-09-30: real ATS is Avature, not bot-gated on this tenant (unlike other registry companies' Avature boards) — confirmed live with no captcha anywhere in the search/apply flow. This is Siemens' global board, not DISW-specific, so it includes many non-software roles; the job-family title filter narrows it down. Built a new AvatureAdapter; confirmed live, 165 real engineering postings including a Pune 'Senior Software Engineer – .NET C# Mandatory' role.]"
-
-- name: SmithRx
-  domain: smithrx.com
-  careers_url: https://job-boards.greenhouse.io/smithrx
-  ats_type: greenhouse
-  board_id: smithrx
-  classification: product
-  active: true
-  discovery_source: curated_remote_wlb_2026
-  notes: "Priority A-. Ranked #46 on Comparably's 2025 large-company WLB list and appears on FlexJobs' happy remote-employer list. Health-tech software and data roles can clear $170K; verify team and posting-specific remote policy."
+  notes: "Large software portfolio with Microsoft-stack and data opportunities; many openings are domain-heavy or outside the U.S. [Verified 2026-09-30: 85% recommend, 4.3 WLB/4.2 culture, genuine remote/hybrid choice with no pressure either way.] [Verified 2026-09-30: real ATS is Avature, not bot-gated on this tenant (unlike other registry companies' Avature boards) — confirmed live with no captcha anywhere in the search/apply flow. This is Siemens' global board, not DISW-specific, so it includes many non-software roles; the job-family title filter narrows it down. Built a new AvatureAdapter; confirmed live, 165 real engineering postings including a Pune 'Senior Software Engineer – .NET C# Mandatory' role.] [2026-10-02: board_id now carries the portal's own server-side search filters — Country = United States (42386=812209) and Field of work = Research & Development (102127), Information Technology (102122), Cybersecurity (39106405). Measured live: ~2,000 global postings -> ~88, i.e. ~334 list requests -> ~15. 'Engineering' (102117) deliberately excluded: it adds ~271 US postings that are mostly mechanical/electrical/industrial, and the software-ish titles filed there globally were PLC, railway train-supervision C++ and building-automation programmers — outside the target lane. Every US software title that reached the LLM in the prior full crawl was filed under R&D.]"
 
 - name: Standard Metrics
   domain: standardmetrics.io
@@ -1034,6 +1064,21 @@
   discovery_source: curated_remote_wlb_2026
   notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
 
+- name: Thumbtack
+  domain: thumbtack.com
+  careers_url: https://www.thumbtack.com/careers
+  ats_type: ashby
+  board_id: thumbtack
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [python, go, saas_backend]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: diamond_hunt_2026-10-02
+  notes: "Home-services marketplace, virtual-first. [Verified 2026-10-02: Ashby board live; Senior Software Engineer, Developer Experience (Go + Python, $211-273K) and Full-Stack Engineer, AI Platform (Go/PHP/Python — 'we expect strong engineers to pick up a new language', $178-230K) — Remote US, Washington explicitly named in the pay bands. Glassdoor 3.7 / 4.0 WLB / 65% recommend, 'when you're home you're home'.]"
+
 - name: Todoist
   domain: todoist.com
   careers_url: https://www.todoist.com/careers
@@ -1053,7 +1098,7 @@
   domain: travelers.com
   careers_url: https://careers.travelers.com/
   ats_type: workday
-  board_id: travelers/wd5/External
+  board_id: "travelers/wd5/External?locationCountry=bc33aa3152ec42d4995f4791a106ed09"
   classification: product
   active: true
   priority: A-
@@ -1062,13 +1107,13 @@
   compensation_signal: uncertain
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Strong enterprise Microsoft-stack demand. [Verified 2026-09-29 via Playwright render: Workday tenant confirmed live, total=366.] [Verified 2026-09-30: genuinely strong for software engineers specifically — 4.1 SWE rating, 4.7 WLB, 4.3 culture (21% above insurance-industry average), real remote options.] Base compensation still needs per-posting verification."
+  notes: "Strong enterprise Microsoft-stack demand. [Verified 2026-09-29 via Playwright render: Workday tenant confirmed live, total=366.] [Verified 2026-09-30: genuinely strong for software engineers specifically — 4.1 SWE rating, 4.7 WLB, 4.3 culture (21% above insurance-industry average), real remote options.] Base compensation still needs per-posting verification. [2026-10-02: US-only Workday facet: 377 -> 352 postings.]"
 
 - name: Trimble
   domain: trimble.com
   careers_url: https://careers.trimble.com/
   ats_type: workday
-  board_id: trimble/wd1/TrimbleCareers
+  board_id: "trimble/wd1/TrimbleCareers?locationCountry=bc33aa3152ec42d4995f4791a106ed09"
   classification: product
   active: true
   priority: B+
@@ -1077,7 +1122,7 @@
   compensation_signal: uncertain
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Excellent GIS/data/product adjacency with Microsoft and Python teams. [Verified 2026-09-30: good — 3.9 SWE rating, 4.4 WLB/4.2 culture, real flexible/remote arrangements (culture rating 8% above IT industry average).] [Corrected 2026-10-01: real ATS is Workday — missed in the earlier 'custom' probe, confirmed live with total=222.]"
+  notes: "Excellent GIS/data/product adjacency with Microsoft and Python teams. [Verified 2026-09-30: good — 3.9 SWE rating, 4.4 WLB/4.2 culture, real flexible/remote arrangements (culture rating 8% above IT industry average).] [Corrected 2026-10-01: real ATS is Workday — missed in the earlier 'custom' probe, confirmed live with total=222.] [2026-10-02: US-only Workday facet: 211 -> 112 postings.]"
 
 - name: Twilio
   domain: twilio.com

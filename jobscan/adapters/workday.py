@@ -13,11 +13,21 @@ returns only a title and a path — full detail costs one extra request per post
 Workday boards typically span every department, so the job-family title gate is applied here,
 before the detail fetch, rather than only afterward in the crawl orchestrator — otherwise a board
 with a handful of engineering roles among hundreds of postings would cost hundreds of unnecessary
-detail requests.
+detail requests. The remaining detail fetches are independent of each other and run through a
+small thread pool.
+
+board_id may also carry the tenant's own search facets as a query string, sent as the list
+request's ``appliedFacets`` so the server does the narrowing — e.g.
+"motorolasolutions/wd5/Careers?locationCountry=bc33aa3152ec42d4995f4791a106ed09". The facet
+*name* varies by tenant ("locationCountry", "Country", ...; each list response's ``facets`` array
+shows which exist), but the United States value id above is Workday-global — confirmed identical
+across six registry tenants.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Iterable
+from urllib.parse import parse_qsl
 
 import httpx
 from pydantic import ValidationError
@@ -35,6 +45,7 @@ PAGE_SIZE = 20
 # that. MAX_PAGES is a hard backstop in case `total` itself is ever wrong for some board — chosen
 # well above any registry company's actual board size (the largest observed so far is ~900).
 MAX_PAGES = 300
+DETAIL_CONCURRENCY = 8
 
 logger = get_logger("adapters.workday")
 
@@ -43,7 +54,7 @@ class WorkdayAdapter(SourceAdapter):
     ats_type = AtsType.WORKDAY
 
     def fetch_postings(self, board_id: str) -> Iterable[RawPosting]:
-        tenant, cluster, site = _parse_board_id(board_id)
+        tenant, cluster, site, facets = _parse_board_id(board_id)
         list_url = f"https://{tenant}.{cluster}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs"
         detail_base = f"https://{tenant}.{cluster}.myworkdayjobs.com/wday/cxs/{tenant}/{site}"
 
@@ -54,7 +65,7 @@ class WorkdayAdapter(SourceAdapter):
             try:
                 response = self.client.post(
                     list_url,
-                    json={"appliedFacets": {}, "limit": PAGE_SIZE, "offset": offset, "searchText": ""},
+                    json={"appliedFacets": facets, "limit": PAGE_SIZE, "offset": offset, "searchText": ""},
                 )
                 response.raise_for_status()
                 payload = response.json()
@@ -85,14 +96,10 @@ class WorkdayAdapter(SourceAdapter):
                 extra=log_extra(board_id=board_id, fetched=len(briefs), reported_total=total),
             )
 
-        postings = []
-        for brief in briefs:
-            if not brief.externalPath or not is_engineering_title(brief.title):
-                continue
-            posting = self._fetch_detail(detail_base, brief, board_id)
-            if posting is not None:
-                postings.append(posting)
-        return postings
+        matched = [b for b in briefs if b.externalPath and is_engineering_title(b.title)]
+        with ThreadPoolExecutor(max_workers=DETAIL_CONCURRENCY) as pool:
+            results = pool.map(lambda brief: self._fetch_detail(detail_base, brief, board_id), matched)
+            return [posting for posting in results if posting is not None]
 
     def _fetch_detail(self, detail_base: str, brief: WorkdayJobBrief, board_id: str) -> RawPosting | None:
         url = f"{detail_base}{brief.externalPath}"
@@ -123,10 +130,14 @@ class WorkdayAdapter(SourceAdapter):
         )
 
 
-def _parse_board_id(board_id: str) -> tuple[str, str, str]:
-    parts = board_id.split("/")
+def _parse_board_id(board_id: str) -> tuple[str, str, str, dict[str, list[str]]]:
+    path, _, query = board_id.partition("?")
+    parts = path.split("/")
     if len(parts) != 3 or not all(parts):
         raise AdapterError(
             f"workday board_id '{board_id}' must be '<tenant>/<cluster>/<site>' (e.g. 'acme/wd1/Acme')"
         )
-    return parts[0], parts[1], parts[2]
+    facets: dict[str, list[str]] = {}
+    for name, value in parse_qsl(query):
+        facets.setdefault(name, []).append(value)
+    return parts[0], parts[1], parts[2], facets

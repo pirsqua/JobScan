@@ -137,12 +137,16 @@ judged on, only how much of that judgment has to be paid for on each run.
 
 ```powershell
 # CSV columns: name, domain, careers_url, ats_type, board_id, classification, discovery_source, notes
-# ats_type: greenhouse, ashby, lever, workday, jobvite and esri are actually crawled. smartrecruiters,
-# icims, taleo, avature, phenom, eightfold and custom are also accepted (so a registry can record
-# "this company uses X" for later), but have no adapter yet — keep those rows active=false, or
-# they'll just show up as a failed board with "no adapter registered" on every crawl.
+# ats_type: greenhouse, ashby, lever, workday, jobvite, esri, smartrecruiters, avature, rippling and
+# jazzhr are actually crawled. icims, taleo, phenom, eightfold, successfactors and custom are also
+# accepted (so a registry can record "this company uses X" for later), but have no adapter — keep
+# those rows active=false, or they'll show up as a failed board with "no adapter registered".
 # board_id is the token in that ATS's public API URL, e.g. boards-api.greenhouse.io/v1/boards/<board_id>
 # (Workday encodes "{tenant}/{cluster}/{site}" instead of a single token — see jobscan.adapters.workday)
+# For big multinational boards, workday, smartrecruiters and avature board_ids can append the ATS's
+# own server-side filters as a query string, so only matching postings are ever fetched — e.g.
+# "acme/wd5/Careers?locationCountry=bc33aa3152ec42d4995f4791a106ed09" (Workday's US facet id) or
+# "Acme?country=us" (SmartRecruiters). See each adapter's docstring for how to find the ids.
 python -m jobscan companies import my_companies.csv
 ```
 

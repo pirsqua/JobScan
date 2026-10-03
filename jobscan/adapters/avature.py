@@ -23,6 +23,15 @@ portal-specific) and one or more rich-text sections making up the actual descrip
 ``board_id`` encodes "{host}/{locale}/{portal path}" (e.g. "jobs.siemens.com/en_US/externaljobs")
 — unlike Workday, a single host+path prefix is enough to build every URL this adapter needs.
 
+``board_id`` may also carry a query string of the portal's own search filters, forwarded verbatim
+on every list request so the server does the narrowing (e.g.
+"jobs.siemens.com/en_US/externaljobs?42386[]=812209&42389[]=102127"). Field and option ids are
+opaque, tenant-specific values read from that portal's search form (its autocomplete options come
+from ``POST {portal}/_wizardPortalDatasetSingleColumnOptionsSearchApi``), so they live in the
+registry, not here. Confirmed live (Siemens): these filters work as plain stateless GET parameters,
+multiple values for one field are OR'd, and country + field-of-work filters cut the list from
+~2,000 postings to ~88.
+
 Siemens' global board alone has thousands of postings, and this tenant's server hard-codes
 ``PAGE_SIZE`` at 6 regardless of what's requested (confirmed live) — sequential one-at-a-time
 pagination means hundreds of round trips. Both the list pagination and the per-posting detail
@@ -36,6 +45,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Iterable
+from urllib.parse import parse_qsl
 
 import httpx
 from bs4 import BeautifulSoup
@@ -63,11 +73,13 @@ class AvatureAdapter(SourceAdapter):
     ats_type = AtsType.AVATURE
 
     def fetch_postings(self, board_id: str) -> Iterable[RawPosting]:
-        base_url = f"https://{board_id}"
+        portal, _, query = board_id.partition("?")
+        base_url = f"https://{portal}"
         list_url = f"{base_url}/SearchJobs/"
+        search_filters = parse_qsl(query)
 
         with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
-            briefs = self._fetch_all_briefs(pool, list_url, board_id)
+            briefs = self._fetch_all_briefs(pool, list_url, search_filters, board_id)
 
             matched = [b for b in briefs if is_engineering_title(b[0])]
             results = pool.map(
@@ -76,13 +88,13 @@ class AvatureAdapter(SourceAdapter):
             return [posting for posting in results if posting is not None]
 
     def _fetch_all_briefs(
-        self, pool: ThreadPoolExecutor, list_url: str, board_id: str
+        self, pool: ThreadPoolExecutor, list_url: str, search_filters: list[tuple[str, str]], board_id: str
     ) -> list[tuple[str, str, str | None]]:
         briefs: list[tuple[str, str, str | None]] = []
         offset = 0
         for _ in range(0, MAX_PAGES, CONCURRENCY):
             batch_offsets = [offset + i * PAGE_SIZE for i in range(CONCURRENCY)]
-            pages = list(pool.map(lambda o: self._fetch_list_page(list_url, o, board_id), batch_offsets))
+            pages = list(pool.map(lambda o: self._fetch_list_page(list_url, o, search_filters, board_id), batch_offsets))
 
             reached_end = False
             for page in pages:
@@ -103,12 +115,12 @@ class AvatureAdapter(SourceAdapter):
             )
         return briefs
 
-    def _fetch_list_page(self, list_url: str, offset: int, board_id: str) -> list[tuple[str, str, str | None]]:
+    def _fetch_list_page(
+        self, list_url: str, offset: int, search_filters: list[tuple[str, str]], board_id: str
+    ) -> list[tuple[str, str, str | None]]:
+        params = [("listFilterMode", "1"), ("folderRecordsPerPage", str(PAGE_SIZE)), ("folderOffset", str(offset))]
         try:
-            response = self.client.get(
-                list_url,
-                params={"listFilterMode": "1", "folderRecordsPerPage": PAGE_SIZE, "folderOffset": offset},
-            )
+            response = self.client.get(list_url, params=params + search_filters)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             raise AdapterError(f"avature board '{board_id}': request failed: {exc}") from exc
