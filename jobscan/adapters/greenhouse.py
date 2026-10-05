@@ -7,9 +7,16 @@ board token in a single response — Greenhouse does not paginate this endpoint.
 Salary is rarely a first-class field; state pay-transparency laws mean it is usually embedded in
 the metadata (as a custom field) or in the description body itself, so both are surfaced to the
 downstream text-based salary parser.
+
+``content`` arrives entity-escaped (``&lt;div&gt;...``), so it is unescaped back into markup here.
+Left escaped, HTML-to-text decodes the entities but keeps every tag as literal text — which, among
+other things, splits Greenhouse's standard pay-range block
+(``<span>$141,800</span><span class="divider">&mdash;</span><span>$187,110 USD</span>``) so the
+salary parser reads only the minimum.
 """
 from __future__ import annotations
 
+import html
 import re
 from typing import Iterable
 
@@ -62,7 +69,7 @@ class GreenhouseAdapter(SourceAdapter):
         location = job.location.name if job.location else None
         department = job.departments[0].name if job.departments else None
 
-        content = job.content or ""
+        content = html.unescape(job.content or "")
         if salary_hint:
             content = f"{content}\n<p>{salary_hint}</p>"
 
