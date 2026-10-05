@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import json
 
 import httpx
@@ -19,6 +20,7 @@ from jobscan.adapters.rippling import RipplingAdapter
 from jobscan.adapters.smartrecruiters import SmartRecruitersAdapter
 from jobscan.adapters.workday import WorkdayAdapter
 from jobscan.models import SalarySource, WorkplaceType
+from jobscan.normalize import normalize_posting
 
 
 @pytest.fixture()
@@ -57,6 +59,29 @@ class TestGreenhouseAdapter:
         assert posting.source_job_id == "1001"
         assert posting.title == "Senior Backend Engineer"
         assert "170,000" in posting.description_html
+
+    @respx.mock
+    def test_entity_escaped_content_is_unescaped_so_the_pay_range_parses(self, http_client, settings, sample_company):
+        # Observed live (Posit, and ~460 other open Greenhouse postings): content arrives
+        # entity-escaped, and left that way the tags survived HTML-to-text as literal text,
+        # splitting the standard pay-range block so only the minimum was read — a $141.8K-$187.1K
+        # band became a flat $141.8K and failed the salary floor.
+        escaped = html.escape(
+            '<div class="content-pay-transparency"><div class="pay-range">'
+            '<span>$141,800</span><span class="divider">&mdash;</span><span>$187,110 USD</span>'
+            "</div></div>"
+        )
+        respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+            return_value=httpx.Response(200, json={"jobs": [{
+                "id": 7, "title": "Senior Software Engineer", "location": {"name": "USA - Remote"},
+                "absolute_url": "https://acme.example.com/jobs/7", "content": escaped,
+            }]})
+        )
+        sample_company.id = 1
+        posting = list(GreenhouseAdapter(http_client).fetch_postings("acme"))[0]
+        job = normalize_posting(posting, sample_company, settings)
+        assert "<span" not in job.description_text
+        assert (job.salary_min, job.salary_max) == (141800, 187110)
 
     @respx.mock
     def test_missing_jobs_key_raises_adapter_error(self, http_client):
