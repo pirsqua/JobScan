@@ -30,6 +30,7 @@ from jobscan.models import (
     RemoteScope,
     RequirementEvidence,
     RequirementImportance,
+    RequirementStrength,
     SalarySource,
     ScopeFit,
     SpecialistTenureAssessment,
@@ -232,6 +233,7 @@ class Database:
         self._add_column_if_missing("evaluation_runs", "triage_model", "TEXT")
         self._add_column_if_missing("companies", "applied", "INTEGER")
         self._add_column_if_missing("jobs", "workplace_type", "TEXT")
+        self._add_column_if_missing("evaluations", "rubric_version", "TEXT")
 
     def _add_column_if_missing(self, table: str, column: str, sql_type: str) -> None:
         existing = {row["name"] for row in self.conn.execute(f"PRAGMA table_info({table})")}
@@ -595,11 +597,23 @@ class Database:
     # Evaluations
     # ------------------------------------------------------------------
 
-    def get_evaluation_by_hash(self, description_hash: str) -> Evaluation | None:
-        row = self.conn.execute(
-            "SELECT * FROM evaluations WHERE description_hash=? ORDER BY id DESC LIMIT 1",
-            (description_hash,),
-        ).fetchone()
+    def get_evaluation_by_hash(
+        self, description_hash: str, rubric_versions: tuple[str, ...] | None = None
+    ) -> Evaluation | None:
+        """The latest evaluation of this description; with ``rubric_versions``, the latest one made
+        under any of those rubrics (None if there isn't one)."""
+        if rubric_versions is None:
+            row = self.conn.execute(
+                "SELECT * FROM evaluations WHERE description_hash=? ORDER BY id DESC LIMIT 1",
+                (description_hash,),
+            ).fetchone()
+        else:
+            placeholders = ",".join("?" * len(rubric_versions))
+            row = self.conn.execute(
+                f"SELECT * FROM evaluations WHERE description_hash=? AND rubric_version IN ({placeholders}) "
+                "ORDER BY id DESC LIMIT 1",
+                (description_hash, *rubric_versions),
+            ).fetchone()
         return self._row_to_evaluation(row) if row else None
 
     def get_evaluation_for_job(self, job_id: int) -> Evaluation | None:
@@ -631,6 +645,7 @@ class Database:
                     evidence_classification=EvidenceClassification(item["evidence_classification"]),
                     candidate_evidence=item["candidate_evidence"],
                     posting_evidence=item["posting_evidence"],
+                    stated_as=RequirementStrength(item["stated_as"]) if item.get("stated_as") else None,
                 )
                 for item in requirement_evidence_raw
             ],
@@ -656,6 +671,7 @@ class Database:
             cache_creation_input_tokens=row["cache_creation_input_tokens"],
             cache_read_input_tokens=row["cache_read_input_tokens"],
             created_at=_parse_dt(row["created_at"]),
+            rubric_version=row["rubric_version"],
         )
 
     def save_evaluation(self, evaluation: Evaluation) -> int:
@@ -674,6 +690,7 @@ class Database:
                     "evidence_classification": item.evidence_classification.value,
                     "candidate_evidence": item.candidate_evidence,
                     "posting_evidence": item.posting_evidence,
+                    "stated_as": item.stated_as.value if item.stated_as else None,
                 }
                 for item in evaluation.requirement_evidence
             ]
@@ -686,8 +703,8 @@ class Database:
                 required_matches, required_gaps, preferred_only_gaps, minor_caveats, evidence,
                 credibility_assessment, why_this_is_or_is_not_gettable, is_product_company,
                 primary_rejection_reason, worth_applying, model_name, input_tokens, output_tokens,
-                cache_creation_input_tokens, cache_read_input_tokens, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                cache_creation_input_tokens, cache_read_input_tokens, created_at, rubric_version)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(job_id, description_hash) DO UPDATE SET
                  verdict=excluded.verdict, confidence=excluded.confidence,
                  scope_fit=excluded.scope_fit,
@@ -710,7 +727,7 @@ class Database:
                  output_tokens=excluded.output_tokens,
                  cache_creation_input_tokens=excluded.cache_creation_input_tokens,
                  cache_read_input_tokens=excluded.cache_read_input_tokens,
-                 created_at=excluded.created_at
+                 created_at=excluded.created_at, rubric_version=excluded.rubric_version
                """,
             (
                 evaluation.job_id, evaluation.description_hash, evaluation.verdict.value,
@@ -725,7 +742,7 @@ class Database:
                 evaluation.primary_rejection_reason, int(evaluation.worth_applying),
                 evaluation.model_name, evaluation.input_tokens, evaluation.output_tokens,
                 evaluation.cache_creation_input_tokens, evaluation.cache_read_input_tokens,
-                _dt(evaluation.created_at),
+                _dt(evaluation.created_at), evaluation.rubric_version,
             ),
         )
         return cur.lastrowid or self.get_evaluation_for_job(evaluation.job_id).id

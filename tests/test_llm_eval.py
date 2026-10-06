@@ -9,7 +9,12 @@ from jobscan.llm.client import AnthropicClient, LlmCallError
 from jobscan.llm.company_eval import classify_company
 from jobscan.llm.job_eval import evaluate_job
 from jobscan.llm.prompts import load_profile, render_profile_text
-from jobscan.llm.schemas import COMPANY_CLASSIFICATION_TOOL_NAME, JOB_EVALUATION_TOOL_NAME, TRIAGE_TOOL_NAME
+from jobscan.llm.schemas import (
+    COMPANY_CLASSIFICATION_TOOL_NAME,
+    JOB_EVALUATION_TOOL_NAME,
+    JOB_EVALUATION_TOOL_SCHEMA,
+    TRIAGE_TOOL_NAME,
+)
 from jobscan.llm.triage import triage_job
 from jobscan.models import (
     AtsType,
@@ -19,6 +24,7 @@ from jobscan.models import (
     JobPosting,
     RemoteScope,
     RequirementImportance,
+    RequirementStrength,
     SalarySource,
     ScopeFit,
     SpecialistTenureClassification,
@@ -102,6 +108,7 @@ VALID_EVAL_INPUT = {
     "requirement_evidence": [
         {
             "requirement": "5+ years backend engineering",
+            "stated_as": "required",
             "importance": "central",
             "evidence_classification": "directly_demonstrated",
             "candidate_evidence": "~15 years of backend engineering experience.",
@@ -389,6 +396,57 @@ class TestJobEvaluation:
         bad_input = dict(VALID_EVAL_INPUT)
         bad_input["specialist_tenure_assessment"] = dict(bad_input["specialist_tenure_assessment"], classification="mostly")
         sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, bad_input)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        with pytest.raises(LlmCallError):
+            evaluate_job(client, profile, make_company(), make_job())
+
+    def test_schema_puts_the_analysis_before_the_verdict(self):
+        # The forced tool call has no separate thinking step, so property order is reasoning order:
+        # with the verdict first, the model committed to "reject" for Pilot and only then found it
+        # had no reason to. Requirement wording must also precede its importance.
+        properties = list(JOB_EVALUATION_TOOL_SCHEMA["input_schema"]["properties"])
+        for analysis_field in ("requirement_evidence", "growth_dimensions", "hidden_staff_signals", "compensation_assessment", "scope_fit"):
+            assert properties.index(analysis_field) < properties.index("verdict")
+        item_properties = list(JOB_EVALUATION_TOOL_SCHEMA["input_schema"]["$defs"]["RequirementEvidenceItem"]["properties"])
+        assert item_properties.index("posting_evidence") < item_properties.index("stated_as") < item_properties.index("importance")
+
+    def test_answer_wrapped_in_one_extra_object_is_unwrapped(self, profile):
+        # Observed live (Lumos): {"evaluation": {...every field...}} failed validation outright.
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, {"evaluation": VALID_EVAL_INPUT})])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.verdict == Verdict.STRONG_MATCH
+
+    def test_preferred_item_tagged_central_is_demoted_to_secondary(self, profile):
+        # Observed live (Posit): "Proficiency in either Go or Typescript ... are helpful for this
+        # role" was scored as the role's central requirement, sinking an otherwise strong fit.
+        item = dict(
+            VALID_EVAL_INPUT["requirement_evidence"][0], requirement="Go or TypeScript",
+            posting_evidence="Proficiency in either Go or Typescript ... are helpful for this role.",
+            stated_as="preferred", importance="central", evidence_classification="not_demonstrated",
+        )
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, dict(VALID_EVAL_INPUT, requirement_evidence=[item]))])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.requirement_evidence[0].stated_as == RequirementStrength.PREFERRED
+        assert evaluation.requirement_evidence[0].importance == RequirementImportance.SECONDARY
+
+    def test_required_item_tagged_central_stays_central(self, profile):
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, VALID_EVAL_INPUT)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluation = evaluate_job(client, profile, make_company(), make_job())
+
+        assert evaluation.requirement_evidence[0].importance == RequirementImportance.CENTRAL
+
+    def test_requirement_missing_its_wording_classification_raises(self, profile):
+        item = {k: v for k, v in VALID_EVAL_INPUT["requirement_evidence"][0].items() if k != "stated_as"}
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, dict(VALID_EVAL_INPUT, requirement_evidence=[item]))])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         with pytest.raises(LlmCallError):

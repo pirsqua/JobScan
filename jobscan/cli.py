@@ -44,7 +44,7 @@ def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
 
 def cmd_evaluate(args: argparse.Namespace, settings: Settings) -> int:
     with _open_db(settings) as db:
-        stats = evaluate_all(db, settings, limit=args.limit)
+        stats = evaluate_all(db, settings, limit=args.limit, refresh_stale=args.refresh_stale)
     print(f"Jobs considered: {stats.jobs_considered}")
     print(f"Rejected by factual filters: {stats.factual_rejected}")
     print(f"Companies newly classified: {stats.companies_classified}")
@@ -87,7 +87,7 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
     with _open_db(settings) as db:
         companies = db.list_companies(active_only=True)
         crawl_stats = crawl_all(db, settings, companies=companies)
-        eval_stats = evaluate_all(db, settings, limit=args.limit)
+        eval_stats = evaluate_all(db, settings, limit=args.limit, refresh_stale=args.refresh_stale)
         data = assemble_report_data(db, settings, crawl_stats=crawl_stats, evaluate_stats=eval_stats)
 
     out_dir = Path(args.out) if args.out else settings.output_dir
@@ -172,6 +172,12 @@ def cmd_overrides_set(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+_REFRESH_STALE_HELP = (
+    "Re-screen postings whose cached verdict was made under an older rubric (prompts or candidate "
+    "profile changed since). Spends money — dry-run first; combine with --limit to cap it."
+)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m jobscan", description="Personal job-search discovery and evaluation pipeline.")
     parser.add_argument("--settings", default=None, help="Path to settings.yaml (default: config/settings.yaml)")
@@ -185,6 +191,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--limit", type=int, default=None,
         help="Cap the number of real LLM calls (job + company) made this run; unlimited if omitted.",
     )
+    p_eval.add_argument("--refresh-stale", action="store_true", help=_REFRESH_STALE_HELP)
     p_eval.set_defaults(func=cmd_evaluate)
 
     p_report = sub.add_parser("report", help="Generate Markdown/CSV/JSON reports from current database state.")
@@ -197,6 +204,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--limit", type=int, default=None,
         help="Cap the number of real LLM calls (job + company) made this run; unlimited if omitted.",
     )
+    p_run.add_argument("--refresh-stale", action="store_true", help=_REFRESH_STALE_HELP)
     p_run.set_defaults(func=cmd_run)
 
     p_audit = sub.add_parser("audit", help="Report every filtered posting and its reason.")

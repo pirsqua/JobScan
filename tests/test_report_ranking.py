@@ -292,6 +292,7 @@ DOXIMITY_EXPECTED_RESPONSE = {
     "requirement_evidence": [
         {
             "requirement": "5+ years as a data engineer or similar",
+            "stated_as": "required",
             "importance": "central",
             "evidence_classification": "credibly_transferable",
             "candidate_evidence": "~15 years general software engineering including one Databricks pipeline.",
@@ -299,6 +300,7 @@ DOXIMITY_EXPECTED_RESPONSE = {
         },
         {
             "requirement": "Designed several data pipelines from start to finish",
+            "stated_as": "required",
             "importance": "central",
             "evidence_classification": "weakly_inferred",
             "candidate_evidence": "One clearly demonstrated end-to-end pipeline, not several.",
@@ -366,6 +368,7 @@ REVENUECAT_EXPECTED_RESPONSE = {
     "requirement_evidence": [
         {
             "requirement": "8+ years building complex, fast-growing systems from scratch",
+            "stated_as": "required",
             "importance": "central",
             "evidence_classification": "weakly_inferred",
             "candidate_evidence": "~15 years general backend experience, not specifically repeated greenfield systems at this scale.",
@@ -429,6 +432,7 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
     "requirement_evidence": [
         {
             "requirement": "5+ years professional software engineering",
+            "stated_as": "required",
             "importance": "central",
             "evidence_classification": "directly_demonstrated",
             "candidate_evidence": "~15 years of general software-engineering experience.",
@@ -436,6 +440,7 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
         },
         {
             "requirement": "Python or C# and SQL",
+            "stated_as": "required",
             "importance": "central",
             "evidence_classification": "directly_demonstrated",
             "candidate_evidence": "Strong C#, Python and SQL Server experience.",
@@ -443,6 +448,7 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
         },
         {
             "requirement": "REST APIs and third-party integrations",
+            "stated_as": "required",
             "importance": "central",
             "evidence_classification": "directly_demonstrated",
             "candidate_evidence": "REST API design and third-party integration experience.",
@@ -450,6 +456,7 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
         },
         {
             "requirement": "Major cloud provider",
+            "stated_as": "required",
             "importance": "central",
             "evidence_classification": "directly_demonstrated",
             "candidate_evidence": "Strong Azure experience.",

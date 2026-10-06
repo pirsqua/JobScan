@@ -22,6 +22,22 @@ without `--limit` against the full registry:
    for demos/samples instead of burning through the whole registry.
 4. After a real run, report the *actual* cost from `EvaluateStats.estimated_cost_usd()`, not the
    pre-run estimate.
+5. A change to the prompts (`jobscan/llm/prompts.py`), the tool schemas or
+   `config/candidate_profile.yaml` changes the rubric version but does NOT re-judge cached
+   verdicts — only `evaluate --refresh-stale` does. Full evaluations and triage screen-outs carry
+   separate versions: a profile change re-screens everything, a `JOB_EVAL_SYSTEM`/schema change
+   only full evaluations, a `TRIAGE_SYSTEM` change only triage screen-outs. The per-posting
+   message templates (`build_*_user_message`) are NOT fingerprinted — a material change there
+   needs a deliberate refresh (e.g. a matching edit to the system prompt). Validate a rubric change on a handful of known postings first, then dry-run the refresh
+   (`evaluate_all(..., refresh_stale=True)` with no key) for the count.
+
+## LLM output schema — field order is reasoning order
+
+The evaluation tool call is forced with no separate thinking step, so the property order of
+`JobEvaluationResult` (`jobscan/llm/schemas.py`) is the order the model reasons in. Keep the
+evidence/analysis fields before `verdict`/`worth_applying`: with the verdict first, the model
+decided before analysing and then rationalized (it once rejected Pilot and then wrote that it had
+no reason to). A test pins this order.
 
 ## Architectural boundaries — keep these separate
 

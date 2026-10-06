@@ -1,10 +1,13 @@
 """Prompt construction for the two LLM calls, built from config/candidate_profile.yaml."""
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 import yaml
 
+from jobscan.llm.schemas import JOB_EVALUATION_TOOL_SCHEMA, TRIAGE_TOOL_SCHEMA
 from jobscan.models import Company, JobPosting
 
 
@@ -69,24 +72,48 @@ not convert one demonstrated project into "several" similar ones. Do not infer r
 experience, massive production scale, or organization-wide influence without direct evidence.
 
 The candidate is targeting properly scoped Senior Engineer roles — not mid-level roles, and not \
-roles that use a "Senior" title to disguise Staff-level or elite-startup scope. Your central job \
-is to catch that gap: a role can share every keyword with the candidate's background and still \
-expect specialized tenure, a repeated track record, production scale, or organizational ownership \
-the candidate has not demonstrated.
+roles that use a "Senior" title to disguise Staff-level or elite-startup scope. One job is to catch \
+that gap: a role can share every keyword with the candidate's background and still expect \
+specialized tenure, a repeated track record, production scale, or organizational ownership the \
+candidate has not demonstrated.
+
+The other job matters just as much: do not manufacture gaps. Good fits are rare, and a real fit \
+wrongly rejected is the costlier mistake — the candidate never sees it — while a generous \
+borderline costs one read. Hold the posting to what it actually asks for, not to a stricter \
+version of it: a nice-to-have is not a requirement, hoping for someone curious about a topic is \
+not requiring experience in it, and ordinary senior ownership is not staff scope. Where a \
+reasonable reading is genuinely uncertain, say so in the caveats rather than resolving it against \
+the candidate.
 
 Work through these steps, in order, before calling the tool:
 
-1. IDENTIFY REQUIRED QUALIFICATIONS. Separate explicitly required qualifications, strongly implied \
-requirements, preferred-only qualifications, and general promotional language. Never treat a \
-preferred qualification as required.
+1. IDENTIFY REQUIRED QUALIFICATIONS. Classify every qualification by the posting's own wording \
+(`stated_as`):
+   - required: "must", "required", "minimum qualifications", "N+ years of X", or listed plainly \
+under "Requirements" / "What you'll need" / "You have" with no softening qualifier;
+   - strongly_implied: never stated, but plainly unavoidable to do the described work;
+   - preferred: "helpful", "a plus", "bonus", "nice to have", "preferred", "ideally", "familiarity \
+with", "exposure to", "X or a willingness to learn it", anything under "Nice-to-haves" / "Bonus";
+   - trait_or_interest: personal qualities and interests — curiosity, high agency, eagerness or \
+boldness to learn, "interested in", "passion for".
+   Read qualifiers inside a sentence: in "Proficiency in Python, ideally including numpy", Python \
+is required and numpy is preferred. When a requirement accepts alternatives ("Go or a comparable \
+language such as Python", "Python or C#"), judge it against the alternative the candidate has — \
+that the team mostly works in the other one is at most a growth note. Read the posting's framing as a whole: when it says it doesn't \
+expect every item to be met, or that eagerness to learn is what's essential, the technologies it \
+lists are preferred unless one is individually marked as required. Never treat a preferred \
+qualification or a trait/interest as required.
 
-2. MAP EVIDENCE. For every important required or strongly implied qualification, classify the \
-candidate's evidence as exactly one of: directly_demonstrated, credibly_transferable, \
-weakly_inferred, or not_demonstrated. Cite both the posting's own language and the specific \
-candidate evidence (or lack of it) in `requirement_evidence`, tagging each entry's `importance` as \
-central or secondary. Technology adjacency alone is not direct evidence of equivalent scope — e.g. \
-knowing Python and Databricks does not itself prove several years architecting multiple data \
-platforms from scratch.
+2. MAP EVIDENCE. In `requirement_evidence`, list each required, strongly implied or notable \
+preferred qualification: quote the posting's language with its qualifiers, set `stated_as`, then \
+`importance` — central only for a required or strongly implied item the hiring bar actually rests \
+on; preferred items are always secondary — then the candidate's evidence and exactly one of \
+directly_demonstrated, credibly_transferable, weakly_inferred, or not_demonstrated. Leave traits \
+and interests out (if you do list one, mark it trait_or_interest): a profile can't demonstrate \
+curiosity, and its absence from one is not a gap. An unmet preferred item goes in \
+`preferred_only_gaps`, never `required_gaps`. Technology adjacency alone is not direct evidence of \
+equivalent scope — e.g. knowing Python and Databricks does not itself prove several years \
+architecting multiple data platforms from scratch.
 
 3. EVALUATE SPECIALIST TENURE. Decide whether the posting requires substantial tenure specifically \
 in a specialty — data engineering, distributed systems, infrastructure, security, machine \
@@ -95,13 +122,19 @@ Classify `specialist_tenure_assessment` as meets, adjacent, insufficient, or not
 General tenure may support "adjacent" but must never automatically satisfy a specialized-years \
 requirement.
 
-4. IDENTIFY GROWTH DIMENSIONS. A growth dimension is a central part of the role the candidate has \
-not already demonstrated at roughly the required level — e.g. an unfamiliar primary cloud \
-provider or language, substantially greater production scale, deep distributed-systems \
-architecture, specialized data-engineering tenure, designing several greenfield systems from \
-scratch, repeated zero-to-one ownership, organization-wide technical influence, owning strategy \
-across multiple teams, production AI/ML responsibility, deep frontend ownership, or formal people \
-management. List only material dimensions in `growth_dimensions`, not minor tool differences.
+4. IDENTIFY GROWTH DIMENSIONS. A growth dimension is a central, required part of the role the \
+candidate has not already demonstrated at roughly the required level — e.g. a required unfamiliar \
+primary cloud provider or language, substantially greater production scale, deep \
+distributed-systems architecture, specialized data-engineering tenure, designing several \
+greenfield systems from scratch, repeated zero-to-one ownership, organization-wide technical \
+influence, owning strategy across multiple teams, required production AI/ML responsibility, deep \
+frontend ownership, or formal people management. List only material dimensions in \
+`growth_dimensions`, not minor tool differences. These are NOT growth dimensions: a preferred or \
+learnable qualification; a new business or product domain (logistics, data-science tooling, \
+finance, identity, ...) unless the posting requires prior specialist experience in it; working \
+with ambiguity, prototyping, or taking initiative; interest in a topic. A primary language the \
+team works in that the posting calls helpful or learnable — especially alongside one of the \
+candidate's own languages — is at most one growth dimension.
 
 5. DETECT HIDDEN STAFF-LEVEL SCOPE. Look for clusters (never a single ambitious-sounding phrase \
 alone) among: establishing architecture/standards across teams, setting organizational technical \
@@ -109,10 +142,14 @@ direction, designing several major systems from scratch, acting as the principal
 authority, building foundational infrastructure with little existing structure, repeated \
 zero-to-one success, extraordinarily high scale or near-perfect reliability, influencing several \
 teams or the whole engineering org, combining architecture + product strategy + implementation + \
-long-term ownership, requiring exceptional autonomy at a small/highly-selective company, or an \
-exceptional salary paired with extremely broad ownership. Weigh the combination of \
-responsibilities, qualifications, company structure and compensation — not any one sentence. Put \
-relevant signals in `hidden_staff_signals`.
+long-term ownership across a whole product area, or an exceptional salary paired with extremely \
+broad ownership. Weigh the combination of responsibilities, qualifications, company structure and \
+compensation — not any one sentence. Ordinary senior expectations are NOT staff signals, alone or \
+together: owning features end to end, planning and driving one's own features, high agency or \
+self-direction, comfort with ambiguity, prototyping, shipping quickly, mentoring, cross-functional \
+collaboration, aspirational "build things we haven't imagined" language, or a mission-driven or \
+generalist culture. Staff scope is breadth of influence beyond one team, not initiative within it. \
+Put relevant signals in `hidden_staff_signals`.
 
 6. CLASSIFY SCOPE (`scope_fit`), exactly one of:
    - at_level: the candidate has already performed substantially similar work at comparable scope.
@@ -126,8 +163,9 @@ technologies match.
 
 7. CALCULATE EVIDENCE COVERAGE (`evidence_coverage_percent`, 0-100). Weight central required \
 qualifications more heavily than secondary ones. Count directly_demonstrated evidence fully, \
-credibly_transferable partially, weakly_inferred minimally, and not_demonstrated as zero. This is \
-a weighted judgment call, not a mechanical keyword-overlap count.
+credibly_transferable partially, weakly_inferred minimally, and not_demonstrated as zero. A met \
+preferred item may add a little; an unmet one subtracts nothing. This is a weighted judgment call, \
+not a mechanical keyword-overlap count.
 
 8. ASSIGN THE VERDICT:
    - strong_match: the role is at_level, at least 80% of important required qualifications are \
@@ -138,8 +176,8 @@ normally at least 70%, and there is no more than one material growth dimension.
 specialization, scale, or organizational influence not demonstrated — OR the role is otherwise \
 attractive but two_plus_steps_up. A borderline role can be a genuine aspirational target, but must \
 never be framed as an immediate strong recommendation.
-   - reject: a hard employment requirement fails, or a central mandatory requirement makes an \
-interview professionally implausible. Remote eligibility needs affirmative evidence — the location \
+   - reject: a hard employment requirement fails, or a required (not preferred) central \
+qualification makes an interview professionally implausible. Remote eligibility needs affirmative evidence — the location \
 field, the text, or a structured workplace type of "remote". If the posting does not clearly offer \
 remote work, or it excludes Washington (including by limiting remote work to states or regions that \
 leave it out), the remote hard filter has failed: reject; never downgrade that to a borderline "risk", \
@@ -149,25 +187,34 @@ failure — e.g. a role listed at a city whose text offers working "100% remotel
 Also determine whether the employer is a product company or a consulting/client-delivery shop \
 from this posting's own language, whether frontend/deep-AWS-or-GCP/AI-agent/distributed-systems \
 ownership is central, and whether a $170,000+ base offer is credible from the published range \
-(explicitly distinguish base salary from total compensation if the posting blends them).
+under the candidate's compensation rule (explicitly distinguish base salary from total \
+compensation if the posting blends them). Compensation is a pass/fail gate: once a range passes \
+it, a midpoint below $170,000 is not a gap and must not lower scope_fit, coverage, the verdict or \
+worth_applying — note it as a minor caveat at most.
 
 Write `why_this_is_or_is_not_gettable` as a concise, specific verdict on interview/offer \
 plausibility grounded in scope_fit and evidence_coverage_percent — not a restatement of the \
 verdict label. When the posting is ambiguous, say so in evidence/caveats rather than guessing.
 
 9. SET `worth_applying` (boolean) — a forced yes/no distillation of the gettability judgment \
-above, independent of the verdict label. False specifically when central requirements depend on \
-a technology, domain, or scale the candidate has never demonstrably touched — a new primary \
-language or datastore the role centers on (e.g. Rust, Kafka, Kubernetes as core systems, not a \
-minor mention), a security clearance, formal people management, production AI/ML ownership — such \
-that a real interview loop would almost certainly expose the mismatch, even when \
-evidence_coverage_percent looks moderate because of secondary-requirement overlap. True for \
-genuine aspirational stretches where the gap is depth/scale/tenure in already-familiar territory \
-(more years, larger scale, broader ownership of tools/domains the candidate already works in) \
-rather than unfamiliar core technology. Always True for strong_match and plausible_match — this \
-field exists to separate real stretches from roles that only look attractive on a keyword scan.
+above, independent of the verdict label. False specifically when the posting REQUIRES (stated_as \
+required) a technology, domain, or scale the candidate has never demonstrably touched — a new \
+primary language or datastore the role demands proficiency in (e.g. "5+ years of Rust", "expert \
+Kafka", Kubernetes as core systems, not a minor mention), a security clearance, formal people \
+management, production AI/ML ownership — such that a real interview loop would almost certainly \
+expose the mismatch, even when evidence_coverage_percent looks moderate because of \
+secondary-requirement overlap. An unfamiliar language or domain the posting calls helpful, \
+preferred or learnable, or lists as an alternative to one the candidate knows, is never on its own \
+a reason for False. True for genuine aspirational stretches where the gap is depth/scale/tenure in \
+already-familiar territory (more years, larger scale, broader ownership of tools/domains the \
+candidate already works in) or a learnable stack the posting invites. Always True for \
+strong_match and plausible_match — this field exists to separate real stretches from roles that \
+only look attractive on a keyword scan.
 
-Always call the submit_job_evaluation tool exactly once with your full structured evaluation."""
+The tool's fields follow these steps in order, with the verdict near the end: fill them in that \
+order and let the verdict follow from the analysis you've written — never settle it first and \
+justify it afterwards. Always call the submit_job_evaluation tool exactly once with your full \
+structured evaluation."""
 
 
 def build_candidate_profile_block(profile_text: str) -> str:
@@ -207,7 +254,7 @@ Full description:
 {job.description_text}
 ---
 
-Work through the 8-step procedure from your instructions and call submit_job_evaluation with the \
+Work through the 9-step procedure from your instructions and call submit_job_evaluation with the \
 complete structured result, including requirement_evidence for each important required or \
 strongly implied qualification."""
 
@@ -217,16 +264,32 @@ worth a full detailed evaluation against the candidate profile, or is it such a 
 a detailed review would just waste money confirming what's already obvious?
 
 Mark skip_full_evaluation=true ONLY when you're confident a careful reviewer would also reject it \
-outright — a hard disqualifying requirement stated as a genuine central expectation, not a passing \
-mention: a completely different primary technology stack/language than the candidate's (e.g. the \
-role centers on Rust/Go/Java with no .NET/Python/C# presence), formal people-management \
-responsibility, a specialized domain or production scale far beyond general backend/data-pipeline \
-work, a hard employment-type/location mismatch not already caught by factual filters (including a \
-role tied to an office or city whose text never offers remote work — text that does offer remote \
-work, even without naming eligible states, is not a mismatch), an employer in an industry the \
-candidate's hard filters explicitly exclude, or an explicit title/seniority far above Senior \
-(Staff/Principal/Director) with no dual-track ambiguity.
+outright — a hard disqualifying requirement the posting actually REQUIRES, as a genuine central \
+expectation, not a passing mention: a completely different primary technology stack/language than \
+the candidate's that the posting requires proficiency in (e.g. "5+ years of Go" or "expert Rust" \
+with no .NET/Python/C# presence), formal people-management responsibility, a required specialized \
+domain or production scale far beyond general backend/data-pipeline work, a hard \
+employment-type/location mismatch not already caught by factual filters (including a role tied to \
+an office or city whose text never offers remote work — text that does offer remote work, even \
+without naming eligible states, is not a mismatch), an employer in an industry the candidate's \
+hard filters explicitly exclude, a non-engineering job (sales, advocacy, support) under an \
+engineering-sounding title, or a title above Senior — Staff, Senior Staff, Principal, Director, \
+Distinguished; the candidate doesn't target Staff-level roles — unless the title also hires at \
+Senior ("Senior/Staff", "Senior or Staff").
 
+Never skip over:
+- something the posting only calls helpful, preferred, a plus, or learnable ("Go or TypeScript \
+are helpful", "Rails, or a willingness to learn it");
+- a language requirement that accepts one of the candidate's languages as an alternative ("C#, \
+C++, or Java", "Go or a comparable language such as Python") — that requirement is met;
+- an interest the posting hopes for ("interested in building AI tools"), or an unfamiliar \
+business domain it doesn't require prior experience in;
+- ordinary senior expectations within one team — owning the team's goals or delivery, leading or \
+tech-leading engineers on the team through a project, mentoring, ambiguity, high autonomy;
+- the role's level looking lower than the candidate's (a "Software Engineer" or "3+ years" title) \
+— whether it underuses the candidate is for the full evaluation to judge;
+- salary or compensation — code has already checked the published range against the minimum, and \
+anything finer is the full evaluation's call.
 When you're genuinely unsure, or the posting has real overlap alongside some gaps, do NOT skip — \
 that's exactly the judgment call the full evaluation exists for. Skipping a posting that deserved a \
 full look silently destroys a real opportunity; sending a clear reject through for full evaluation \
@@ -262,6 +325,23 @@ Full description:
 ---
 
 Call submit_triage with your skip_full_evaluation decision and a one-sentence reason."""
+
+
+def _fingerprint(*parts: str) -> str:
+    return hashlib.sha256("\x00".join(parts).encode("utf-8")).hexdigest()[:12]
+
+
+def evaluation_rubric_version(profile_text: str) -> str:
+    """Short fingerprint of everything that decides a full evaluation's verdict — its system
+    prompt, tool schema and the rendered candidate profile. Recorded on every evaluation so verdicts
+    made under an older rubric can be found and refreshed (``evaluate --refresh-stale``)."""
+    return _fingerprint(JOB_EVAL_SYSTEM, json.dumps(JOB_EVALUATION_TOOL_SCHEMA, sort_keys=True), profile_text)
+
+
+def triage_rubric_version(profile_text: str) -> str:
+    """The same for a triage screen-out. Kept separate so a fix to the cheap triage prompt only
+    re-screens triage screen-outs, not every full evaluation (which never sees that prompt)."""
+    return _fingerprint(TRIAGE_SYSTEM, json.dumps(TRIAGE_TOOL_SCHEMA, sort_keys=True), profile_text)
 
 
 COMPANY_EVAL_SYSTEM = """You classify companies as either a PRODUCT company (builds and operates its \

@@ -17,7 +17,12 @@ from jobscan.filters import FilterReason, apply_factual_filters
 from jobscan.llm.client import AnthropicClient, LlmCallError
 from jobscan.llm.company_eval import classify_company, fetch_homepage_text
 from jobscan.llm.job_eval import evaluate_job
-from jobscan.llm.prompts import load_profile, render_profile_text
+from jobscan.llm.prompts import (
+    evaluation_rubric_version,
+    load_profile,
+    render_profile_text,
+    triage_rubric_version,
+)
 from jobscan.llm.schemas import TriageResult
 from jobscan.llm.triage import triage_job
 from jobscan.logging_setup import get_logger, log_extra
@@ -49,7 +54,9 @@ def _now() -> datetime:
 _TRIAGE_SKIP_CONFIDENCE = 0.9
 
 
-def _build_triage_skip_evaluation(job: JobPosting, company: Company, triage: TriageResult, triage_model: str) -> Evaluation:
+def _build_triage_skip_evaluation(
+    job: JobPosting, company: Company, triage: TriageResult, triage_model: str, rubric: str
+) -> Evaluation:
     """A lightweight stand-in Evaluation for a posting the cheap triage screened out before the
     expensive full evaluation ran — cached the same way a real evaluation would be (by job_id +
     description_hash), so it isn't re-triaged every run, and clearly distinguishable via
@@ -86,6 +93,7 @@ def _build_triage_skip_evaluation(job: JobPosting, company: Company, triage: Tri
         worth_applying=False,
         model_name=f"triage:{triage_model}",
         created_at=_now(),
+        rubric_version=rubric,
     )
 
 
@@ -95,10 +103,17 @@ def evaluate_all(
     client: AnthropicClient | None = None,
     triage_client: AnthropicClient | None = None,
     limit: int | None = None,
+    refresh_stale: bool = False,
 ) -> EvaluateStats:
     """``limit``, if set, caps the number of real LLM calls (job evaluations + company
     classifications + triage screens) made in this run — factual filtering and cache hits are
     free and unaffected. Useful for bounding spend on a single invocation.
+
+    ``refresh_stale`` re-screens postings whose cached verdict was made under a different rubric
+    (the prompt, tool schema or candidate profile behind that kind of verdict — see
+    ``evaluation_rubric_version`` / ``triage_rubric_version``) instead of reusing it.
+    Off by default because it spends money: a rubric change otherwise only reaches new or changed
+    postings. Without an API key it just counts them, as unverified, for a cost estimate.
 
     ``triage_client``, if not overridden, is built from ``settings.triage_model`` when set — a
     cheap first-pass screen (jobscan.llm.triage) that runs before the expensive full evaluation.
@@ -107,6 +122,8 @@ def evaluate_all(
     run_id = db.start_evaluation_run(stats)
     profile = load_profile(settings.profile_path)
     profile_text = render_profile_text(profile)
+    full_rubric = evaluation_rubric_version(profile_text)
+    triage_rubric = triage_rubric_version(profile_text)
 
     if client is None and settings.anthropic_api_key:
         client = AnthropicClient(
@@ -227,7 +244,9 @@ def evaluate_all(
                 stats.factual_rejected += 1
                 continue
 
-            cached = db.get_evaluation_by_hash(job.description_hash)
+            cached = db.get_evaluation_by_hash(
+                job.description_hash, rubric_versions=(full_rubric, triage_rubric) if refresh_stale else None
+            )
             if cached is not None:
                 stats.cache_hits += 1
                 if cached.job_id != job.id:
@@ -260,13 +279,15 @@ def evaluate_all(
                     stats.triage_cache_read_input_tokens += t_cache_r
                     if triage_result.skip_full_evaluation:
                         stats.triage_skipped += 1
-                        skip_evaluation = _build_triage_skip_evaluation(job, company, triage_result, triage_client.model)
+                        skip_evaluation = _build_triage_skip_evaluation(
+                            job, company, triage_result, triage_client.model, triage_rubric
+                        )
                         db.save_evaluation(skip_evaluation)
                         stats._bump_verdict(skip_evaluation.verdict.value)
                         continue
 
             try:
-                evaluation = evaluate_job(client, profile, company, job)
+                evaluation = replace(evaluate_job(client, profile, company, job), rubric_version=full_rubric)
             except LlmCallError as exc:
                 logger.warning("job evaluation failed", extra=log_extra(job_id=job.id, title=job.title, error=str(exc)))
                 db.record_filter_log(FilterLogEntry(job.id, "llm_error", "llm_call_failed", str(exc), _now()))

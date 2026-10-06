@@ -91,9 +91,9 @@ including anything Claude judged not actually worth applying to regardless of it
 | `python -m jobscan companies import <file.csv\|.yaml> [--replace\|--delete]` | Add/update employers in the registry; optionally make the file the complete active set |
 | `python -m jobscan companies list [--all]` | List registered companies (active only by default) |
 | `python -m jobscan crawl` | Fetch current postings for every active company |
-| `python -m jobscan evaluate [--limit N]` | Apply factual filters, then LLM-screen new/changed postings. `--limit` caps the number of *real LLM calls* made this run (factual filtering and cache hits are free and unaffected) — useful for bounding spend, e.g. `--limit 15` |
+| `python -m jobscan evaluate [--limit N] [--refresh-stale]` | Apply factual filters, then LLM-screen new/changed postings. `--limit` caps the number of *real LLM calls* made this run (factual filtering and cache hits are free and unaffected) — useful for bounding spend, e.g. `--limit 15`. `--refresh-stale` also re-screens postings whose cached verdict predates the current rubric (see below) |
 | `python -m jobscan report [--out DIR]` | Generate Markdown/CSV/JSON reports from the current database state |
-| `python -m jobscan run [--out DIR] [--limit N]` | Crawl, evaluate, and report in sequence |
+| `python -m jobscan run [--out DIR] [--limit N] [--refresh-stale]` | Crawl, evaluate, and report in sequence |
 | `python -m jobscan audit [--out DIR]` | Report every filtered posting (factual or LLM) and why, so false negatives can be reviewed |
 | `python -m jobscan overrides set <job\|company> <id> <field> <value> [--reason TEXT]` | Manually force a verdict (`job ... verdict strong_match`) or a company classification (`company ... classification consulting`) |
 
@@ -103,6 +103,14 @@ Before running `evaluate` or `run` without `--limit` against the full registry, 
 free dry run first (build `Settings` with `anthropic_api_key=None` and call `evaluate_all()`) —
 this runs the real factual filters with zero LLM calls and reports exactly how many postings
 *would* be sent, so you can estimate cost from real counts instead of a guess.
+
+Verdicts are cached by description text, so editing `config/candidate_profile.yaml` or the
+prompts doesn't by itself change any posting already judged. Every verdict records the *rubric
+version* it was made under (a fingerprint of the prompt, tool schema and profile behind it — full
+evaluations and triage screen-outs are versioned separately, so a triage-only change re-checks
+only the triage screen-outs); `--refresh-stale` re-screens the ones made under an older rubric. It spends money in proportion to
+the whole cached set, so dry-run it the same way (`evaluate_all(..., refresh_stale=True)` without a
+key counts them) and cap it with `--limit` if needed.
 
 ## Configuration
 

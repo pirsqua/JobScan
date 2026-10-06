@@ -90,11 +90,13 @@ favored_work:
 # Not "do not target" — genuinely one-step-up categories. Recommend only when the specific
 # posting clearly describes ordinary hands-on senior scope rather than de facto staff scope.
 stretch_categories:
-  - Staff Software Engineer (only when scope reads as ordinary senior work, not org-wide ownership)
   - Lead Software Engineer (only when scope reads as ordinary senior work, not org-wide ownership)
 
 do_not_target:
-  - Principal Engineer roles
+  - Staff-level roles and above (Staff, Senior Staff, Principal, Distinguished) — the candidate
+    would be competing with applicants who have already demonstrated staff-level achievements. A
+    dual-level posting that also hires at Senior ("Senior/Staff", "Senior or Staff") is fine, at
+    the Senior level.
   - Engineering-management roles requiring substantial direct-report experience
   - Pure DevOps, platform-infrastructure or site-reliability roles
   - Kubernetes-heavy or container-platform roles
@@ -119,13 +121,21 @@ qualification_interpretation_rules:
   - "Technical leadership is a match."
   - "Several years of formal people management is outside current fit."
   - "General distributed-systems experience may be compatible; deep high-scale platform architecture may not be."
+  - "A language or framework the posting calls helpful, preferred, a plus, or learnable (Go, TypeScript, Ruby/Rails, Java, Django, ...) is a growth area, not a disqualifier — especially when the posting also accepts Python or C#. Only a required proficiency in an unfamiliar primary language is outside current fit."
+  - "Interest in AI, or building AI-powered features as part of the product, is compatible; only required hands-on production LLM/agent experience is outside current fit."
+  - "A new business or product domain (data-science tooling, logistics, finance, identity, ...) is not a gap unless the posting requires prior specialist experience in it."
+  - "Building features end to end, \"from frontend to backend\", is compatible full-stack work — only a role centered on deep frontend or SPA-framework ownership (a named React/Angular/TypeScript requirement, mostly UI work) is outside current fit. One line asking for end-to-end features is not that."
 
 min_base_salary: 170000
 compensation_rule: >
   The published range does not need to start at $170,000. Reject when the published maximum is
-  below $170,000. Pass when the midpoint is at least $170,000. A lower midpoint may still pass
-  when the candidate's experience makes a $170,000+ offer reasonably attainable. Reject or
-  heavily deprioritize ranges where $170,000 is only the extreme ceiling. Use the
+  below $170,000. Pass when the midpoint is at least $170,000. A lower midpoint also passes when
+  $170,000 sits no higher than about 80% of the way from the range's minimum to its maximum —
+  with ~15 years of experience the candidate can credibly negotiate into the upper part of a band
+  (e.g. $141,800-$187,110: $170,000 is 62% of the way up, so it passes). Reject or heavily
+  deprioritize ranges where $170,000 is only the extreme ceiling (above that ~80% point). A
+  passing range is a pass, full stop: a midpoint below $170,000 must never count against the
+  role's scope, coverage, verdict or worth-applying judgment. Use the
   Washington/Seattle range when geographic pay bands differ. Explicitly distinguish base salary
   from total compensation when a posting blends them. Compensation is primarily a gate, not an
   unlimited positive score: once a role clears a credible path to $170,000+, a materially higher
