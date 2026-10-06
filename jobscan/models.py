@@ -144,6 +144,17 @@ class RequirementImportance(str, Enum):
     SECONDARY = "secondary"
 
 
+class RequirementStrength(str, Enum):
+    """How the posting's own wording frames a qualification — recorded before ``importance`` so a
+    "helpful"/"ideally"/"a plus" item can't be scored as a central requirement (observed live: Posit's
+    "Go or TypeScript ... are helpful" was treated as the role's central requirement)."""
+
+    REQUIRED = "required"
+    STRONGLY_IMPLIED = "strongly_implied"
+    PREFERRED = "preferred"
+    TRAIT_OR_INTEREST = "trait_or_interest"
+
+
 class EvidenceClassification(str, Enum):
     DIRECTLY_DEMONSTRATED = "directly_demonstrated"
     CREDIBLY_TRANSFERABLE = "credibly_transferable"
@@ -165,6 +176,8 @@ class RequirementEvidence:
     evidence_classification: EvidenceClassification
     candidate_evidence: str
     posting_evidence: str
+    # None on evaluations cached before this field existed.
+    stated_as: RequirementStrength | None = None
 
 
 @dataclass
@@ -296,6 +309,12 @@ class Evaluation:
     # different rates — see EvaluateStats.estimated_cost_usd.
     cache_creation_input_tokens: int | None = None
     cache_read_input_tokens: int | None = None
+    # Fingerprint of the prompt, tool schema and candidate profile this verdict was made under
+    # (jobscan.llm.prompts.evaluation_rubric_version, or triage_rubric_version for a triage
+    # screen-out); None on evaluations from before it was recorded. The
+    # cache is keyed by description hash alone, so without this a rubric fix would never reach a
+    # posting already judged — see evaluate_all(refresh_stale=...).
+    rubric_version: str | None = None
 
 
 @dataclass

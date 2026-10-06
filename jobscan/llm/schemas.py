@@ -14,6 +14,7 @@ Verdict = Literal["strong_match", "plausible_match", "borderline", "reject"]
 CompanyClass = Literal["product", "consulting", "unknown"]
 ScopeFit = Literal["at_level", "one_step_up", "two_plus_steps_up", "below_level"]
 RequirementImportance = Literal["central", "secondary"]
+RequirementStrength = Literal["required", "strongly_implied", "preferred", "trait_or_interest"]
 EvidenceClassification = Literal["directly_demonstrated", "credibly_transferable", "weakly_inferred", "not_demonstrated"]
 SpecialistTenureClassification = Literal["meets", "adjacent", "insufficient", "not_applicable"]
 
@@ -41,13 +42,33 @@ def _first_point(value: object) -> str | None:
 
 
 class RequirementEvidenceItem(BaseModel):
+    # Field order is generation order: quote the posting, classify how it frames the item, and only
+    # then decide importance and evidence — so the wording is on the page before it's weighed.
     requirement: str
-    importance: RequirementImportance
-    evidence_classification: EvidenceClassification
+    posting_evidence: str = Field(description="The posting language this requirement is drawn from, quoted with its qualifiers (\"ideally\", \"helpful\", \"or a willingness to learn\", ...).")
+    stated_as: RequirementStrength = Field(
+        description="How the posting's own wording frames it: required (must/required/minimum/N+ "
+        "years/\"you have\" in a requirements list), strongly_implied (unstated but plainly "
+        "unavoidable to do the job), preferred (helpful, a plus, bonus, nice to have, preferred, "
+        "ideally, familiarity with, exposure to, \"or willingness to learn\"), or trait_or_interest "
+        "(curiosity, high agency, eagerness to learn, interest in a topic)."
+    )
+    importance: RequirementImportance = Field(
+        description="central only for required or strongly_implied items the hiring bar rests on; "
+        "preferred and trait_or_interest items are always secondary."
+    )
     candidate_evidence: str = Field(description="What in the candidate's background supports this classification, if anything.")
-    posting_evidence: str = Field(description="The posting language this requirement is drawn from.")
+    evidence_classification: EvidenceClassification
 
     model_config = {"extra": "ignore"}
+
+    @model_validator(mode="after")
+    def _only_required_items_are_central(self) -> RequirementEvidenceItem:
+        """Enforced rather than trusted: a nice-to-have the model also tagged central would
+        otherwise drag down coverage and scope exactly as if it were a hard requirement."""
+        if self.stated_as in ("preferred", "trait_or_interest") and self.importance == "central":
+            self.importance = "secondary"
+        return self
 
 
 class SpecialistTenureAssessment(BaseModel):
@@ -59,8 +80,53 @@ class SpecialistTenureAssessment(BaseModel):
 
 
 class JobEvaluationResult(BaseModel):
-    verdict: Verdict
-    confidence: float = Field(ge=0.0, le=1.0)
+    # Field order is generation order — the tool call is forced and there's no separate thinking
+    # step, so this schema IS the model's reasoning sequence. Evidence and analysis come first and
+    # the verdict near the end. Observed live with the verdict first: the model committed to
+    # "reject" for Pilot, then wrote in primary_rejection_reason that it had no reason to reject
+    # ("[correction: no healthcare issue here] ... This role should not be a reject"); and
+    # rubric rules were rationalized past (preferred items listed as growth dimensions) to fit a
+    # verdict already given.
+    requirement_evidence: list[RequirementEvidenceItem] = Field(default_factory=list)
+    specialist_tenure_assessment: SpecialistTenureAssessment
+    required_matches: list[str] = Field(default_factory=list)
+    required_gaps: list[str] = Field(
+        default_factory=list,
+        description="Unmet required or strongly implied qualifications only — never a preferred item.",
+    )
+    preferred_only_gaps: list[str] = Field(default_factory=list)
+    growth_dimensions: list[str] = Field(
+        default_factory=list,
+        description="Material central, REQUIRED parts of the role not already demonstrated at "
+        "roughly the required level. Never a preferred/helpful/learnable item, a new business "
+        "domain the posting doesn't require prior experience in, working with ambiguity, or an "
+        "interest. Omit minor tool differences.",
+    )
+    hidden_staff_signals: list[str] = Field(
+        default_factory=list,
+        description="Signals that this 'Senior' posting actually carries staff-level or "
+        "elite-startup scope (organization-wide influence, repeated zero-to-one ownership, "
+        "extreme scale/reliability, sole technical authority, ...). Breadth of influence beyond "
+        "one team — never ordinary senior expectations such as owning or driving one's own "
+        "features, autonomy, comfort with ambiguity, prototyping, mentoring or ambitious wording.",
+    )
+    is_product_company: bool = Field(
+        description="True if this specific posting is for building/operating the company's own "
+        "product or platform, false if it is client-delivery/billable consulting work."
+    )
+    remote_employment_verification: str = Field(
+        description="Assessment of whether the role is genuinely U.S. remote and open to a "
+        "Washington State resident."
+    )
+    compensation_assessment: str = Field(
+        description="Whether the published range passes the candidate's compensation rule — a "
+        "pass/fail gate, not a score."
+    )
+    evidence: list[str] = Field(
+        default_factory=list,
+        description="Short direct quotes or close paraphrases from the posting supporting the verdict.",
+    )
+    minor_caveats: list[str] = Field(default_factory=list)
     scope_fit: ScopeFit = Field(
         description="Whether the role's actual scope is at, one step above, two-plus steps "
         "above, or below demonstrated experience — independent of title or keyword overlap."
@@ -70,38 +136,6 @@ class JobEvaluationResult(BaseModel):
         description="Weighted coverage of important required qualifications by demonstrated or "
         "transferable evidence — not a mechanical keyword-overlap count.",
     )
-    specialist_tenure_assessment: SpecialistTenureAssessment
-    requirement_evidence: list[RequirementEvidenceItem] = Field(default_factory=list)
-    growth_dimensions: list[str] = Field(
-        default_factory=list,
-        description="Material central parts of the role not already demonstrated at roughly the "
-        "required level. Omit minor tool differences.",
-    )
-    hidden_staff_signals: list[str] = Field(
-        default_factory=list,
-        description="Signals that this 'Senior' posting actually carries staff-level or "
-        "elite-startup scope (organization-wide influence, repeated zero-to-one ownership, "
-        "extreme scale/reliability, sole technical authority, ...).",
-    )
-    is_product_company: bool = Field(
-        description="True if this specific posting is for building/operating the company's own "
-        "product or platform, false if it is client-delivery/billable consulting work."
-    )
-    compensation_assessment: str = Field(
-        description="Assessment of whether the published range makes a $170,000+ offer credible."
-    )
-    remote_employment_verification: str = Field(
-        description="Assessment of whether the role is genuinely U.S. remote and open to a "
-        "Washington State resident."
-    )
-    required_matches: list[str] = Field(default_factory=list)
-    required_gaps: list[str] = Field(default_factory=list)
-    preferred_only_gaps: list[str] = Field(default_factory=list)
-    minor_caveats: list[str] = Field(default_factory=list)
-    evidence: list[str] = Field(
-        default_factory=list,
-        description="Short direct quotes or close paraphrases from the posting supporting the verdict.",
-    )
     credibility_assessment: str = Field(
         description="One or two sentences on whether applying is professionally credible given fit."
     )
@@ -109,15 +143,18 @@ class JobEvaluationResult(BaseModel):
         description="Concise, specific explanation of interview/offer plausibility given scope_fit "
         "and evidence_coverage_percent — not a restatement of the verdict."
     )
+    verdict: Verdict = Field(description="Follows from the analysis above, per the verdict rules.")
+    confidence: float = Field(ge=0.0, le=1.0)
     worth_applying: bool = Field(
         description="A forced yes/no distillation of why_this_is_or_is_not_gettable, independent "
         "of the verdict label — would a real interview loop plausibly survive contact with this "
-        "posting's central requirements? False when central requirements depend on a technology, "
-        "domain, or scale the candidate has never demonstrably touched (e.g. the role centers on "
-        "Rust/Kafka/Kubernetes-as-core-systems, a security clearance, formal people management, "
-        "production AI/ML ownership) such that interviewers would almost certainly expose the "
-        "mismatch — even when evidence_coverage_percent looks moderate from secondary-requirement "
-        "overlap. True for genuine aspirational stretches where the gap is depth/scale/tenure in "
+        "posting's central requirements? False when the posting REQUIRES a technology, domain, or "
+        "scale the candidate has never demonstrably touched (e.g. required Rust/Kafka/"
+        "Kubernetes-as-core-systems, a security clearance, formal people management, production "
+        "AI/ML ownership) such that interviewers would almost certainly expose the mismatch — even "
+        "when evidence_coverage_percent looks moderate from secondary-requirement overlap. Never "
+        "False merely for a language or domain the posting calls helpful, preferred or learnable. "
+        "True for genuine aspirational stretches where the gap is depth/scale/tenure in "
         "already-familiar territory, and always True for strong_match/plausible_match.",
     )
     primary_rejection_reason: str | None = Field(
@@ -138,6 +175,18 @@ class JobEvaluationResult(BaseModel):
         if isinstance(value, str):
             return [line.strip("-•* \t") for line in value.strip().splitlines() if line.strip()]
         return value
+
+    @model_validator(mode="before")
+    @classmethod
+    def _unwrap_single_nested_object(cls, data: object) -> object:
+        """Observed live (Lumos, 2026-10-06): the model wrapped its whole answer in one extra
+        object — {"evaluation": {...every field...}} — failing validation and losing a complete
+        evaluation. Unwrap a lone nested object that carries the verdict."""
+        if isinstance(data, dict) and len(data) == 1:
+            (inner,) = data.values()
+            if isinstance(inner, dict) and "verdict" in inner:
+                return inner
+        return data
 
     @model_validator(mode="before")
     @classmethod

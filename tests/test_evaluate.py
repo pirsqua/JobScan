@@ -9,6 +9,13 @@ import pytest
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.llm.client import AnthropicClient
+from jobscan.llm import prompts
+from jobscan.llm.prompts import (
+    evaluation_rubric_version,
+    load_profile,
+    render_profile_text,
+    triage_rubric_version,
+)
 from jobscan.llm.schemas import JOB_EVALUATION_TOOL_NAME, TRIAGE_TOOL_NAME
 from jobscan.models import (
     AtsType,
@@ -381,3 +388,122 @@ class TestTriageIntegration:
         assert recovered.triage_skipped == stats.triage_skipped == 1
         assert recovered.triage_model == stats.triage_model == "test-haiku-model"
         assert recovered.triage_input_tokens == stats.triage_input_tokens
+
+
+def profile_text(settings) -> str:
+    return render_profile_text(load_profile(settings.profile_path))
+
+
+class TestRubricVersion:
+    """The cache is keyed by description hash, so without a rubric stamp a fix to the prompts or
+    profile would never reach a posting already judged (observed live: Posit's wrongful
+    "not worth applying" would have stood forever after the rubric was corrected)."""
+
+    def _evaluate_once(self, db, settings, input_dict=VALID_EVAL_INPUT):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        job = seed_job(db, settings, company)
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([tool_response(input_dict)]))
+        evaluate_all(db, settings, client=client)
+        return job
+
+    def _age(self, db, job):
+        db.conn.execute("UPDATE evaluations SET rubric_version = 'older-rubric' WHERE job_id = ?", (job.id,))
+
+    def test_full_evaluation_records_the_current_rubric(self, db: Database, settings):
+        job = self._evaluate_once(db, settings)
+
+        assert db.get_evaluation_for_job(job.id).rubric_version == evaluation_rubric_version(profile_text(settings))
+
+    def test_triage_skip_records_the_current_rubric(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        job = seed_job(db, settings, company)
+        triage_client = AnthropicClient(
+            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_tool_response(skip_full_evaluation=True)])
+        )
+        full_client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
+
+        evaluate_all(db, settings, client=full_client, triage_client=triage_client)
+
+        assert db.get_evaluation_for_job(job.id).rubric_version == triage_rubric_version(profile_text(settings))
+
+    def test_rubric_versions_change_with_the_profile_and_differ_by_kind(self):
+        assert evaluation_rubric_version("profile A") != evaluation_rubric_version("profile B")
+        assert evaluation_rubric_version("profile A") == evaluation_rubric_version("profile A")
+        assert triage_rubric_version("profile A") != evaluation_rubric_version("profile A")
+
+    def test_a_triage_prompt_change_leaves_full_evaluations_current(self, db: Database, settings, monkeypatch):
+        # Observed live: a triage-only fix mid-refresh would otherwise have re-billed every full
+        # evaluation just made, though none of them ever saw the triage prompt.
+        self._evaluate_once(db, settings)
+        monkeypatch.setattr(prompts, "TRIAGE_SYSTEM", prompts.TRIAGE_SYSTEM + " (revised)")
+        sdk = FakeSdkClient([])
+
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
+        )
+
+        assert sdk.messages.call_count == 0
+        assert stats.cache_hits == 1
+
+    def test_a_triage_prompt_change_makes_triage_screen_outs_stale(self, db: Database, settings, monkeypatch):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+        triage_client = AnthropicClient(
+            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_tool_response(skip_full_evaluation=True)])
+        )
+        evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])),
+                     triage_client=triage_client)
+        monkeypatch.setattr(prompts, "TRIAGE_SYSTEM", prompts.TRIAGE_SYSTEM + " (revised)")
+
+        stats = evaluate_all(db, settings, refresh_stale=True)
+
+        assert stats.unverified == 1
+        assert stats.cache_hits == 0
+
+    def test_verdict_from_an_older_rubric_is_reused_by_default(self, db: Database, settings):
+        job = self._evaluate_once(db, settings)
+        self._age(db, job)
+        sdk = FakeSdkClient([])
+
+        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert sdk.messages.call_count == 0
+        assert stats.cache_hits == 1
+
+    def test_refresh_stale_re_screens_a_verdict_from_an_older_rubric(self, db: Database, settings):
+        job = self._evaluate_once(db, settings)
+        self._age(db, job)
+        rejected = dict(VALID_EVAL_INPUT, verdict="reject", worth_applying=False, primary_rejection_reason="Requires Rust.")
+        sdk = FakeSdkClient([tool_response(rejected)])
+
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
+        )
+
+        assert sdk.messages.call_count == 1
+        assert stats.sent_to_llm == 1
+        refreshed = db.get_evaluation_for_job(job.id)
+        assert refreshed.verdict == Verdict.REJECT
+        assert refreshed.rubric_version == evaluation_rubric_version(profile_text(settings))
+
+    def test_refresh_stale_leaves_current_verdicts_alone(self, db: Database, settings):
+        self._evaluate_once(db, settings)
+        sdk = FakeSdkClient([])
+
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
+        )
+
+        assert sdk.messages.call_count == 0
+        assert stats.cache_hits == 1
+
+    def test_refresh_stale_dry_run_counts_stale_verdicts_without_touching_them(self, db: Database, settings):
+        job = self._evaluate_once(db, settings)
+        self._age(db, job)
+
+        stats = evaluate_all(db, settings, refresh_stale=True)
+
+        assert stats.unverified == 1
+        assert stats.cache_hits == 0
+        kept = db.get_evaluation_for_job(job.id)
+        assert (kept.verdict, kept.rubric_version) == (Verdict.STRONG_MATCH, "older-rubric")

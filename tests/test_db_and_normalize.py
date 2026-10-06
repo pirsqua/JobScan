@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timezone
 
 from jobscan.config import Settings
@@ -10,10 +11,14 @@ from jobscan.models import (
     Company,
     CompanyClassification,
     Evaluation,
+    EvidenceClassification,
     JobStatus,
     ManualOverride,
     RawPosting,
     RemoteScope,
+    RequirementEvidence,
+    RequirementImportance,
+    RequirementStrength,
     SalarySource,
     ScopeFit,
     SpecialistTenureAssessment,
@@ -267,3 +272,34 @@ class TestEvaluationPersistence:
 
         loaded = db.get_evaluation_for_job(job_id)
         assert loaded.worth_applying is True
+
+    def test_rubric_version_and_requirement_wording_round_trip(self, db: Database, settings: Settings, sample_company: Company):
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+        evaluation = dataclasses.replace(
+            make_evaluation(job_id), rubric_version="abc123",
+            requirement_evidence=[RequirementEvidence(
+                requirement="Go or TypeScript", importance=RequirementImportance.SECONDARY,
+                evidence_classification=EvidenceClassification.NOT_DEMONSTRATED, candidate_evidence="none",
+                posting_evidence="Go or Typescript ... are helpful", stated_as=RequirementStrength.PREFERRED,
+            )],
+        )
+        db.save_evaluation(evaluation)
+
+        loaded = db.get_evaluation_for_job(job_id)
+        assert loaded.rubric_version == "abc123"
+        assert loaded.requirement_evidence[0].stated_as == RequirementStrength.PREFERRED
+        assert db.get_evaluation_by_hash("hash-1", rubric_versions=("other", "abc123")) is not None
+        assert db.get_evaluation_by_hash("hash-1", rubric_versions=("other",)) is None
+
+    def test_legacy_requirement_evidence_without_wording_still_loads(self, db: Database, settings: Settings, sample_company: Company):
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+        db.save_evaluation(make_evaluation(job_id))
+        legacy = '[{"requirement": "Go", "importance": "central", "evidence_classification": "not_demonstrated", ' \
+                 '"candidate_evidence": "none", "posting_evidence": "Go required"}]'
+        db.conn.execute("UPDATE evaluations SET requirement_evidence_json = ? WHERE job_id = ?", (legacy, job_id))
+
+        loaded = db.get_evaluation_for_job(job_id)
+        assert loaded.requirement_evidence[0].stated_as is None
+        assert loaded.rubric_version is None

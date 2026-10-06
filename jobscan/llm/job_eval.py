@@ -20,6 +20,7 @@ from jobscan.models import (
     JobPosting,
     RequirementEvidence,
     RequirementImportance,
+    RequirementStrength,
     ScopeFit,
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
@@ -74,6 +75,7 @@ def evaluate_job(
             evidence_classification=EvidenceClassification(item.evidence_classification),
             candidate_evidence=item.candidate_evidence,
             posting_evidence=item.posting_evidence,
+            stated_as=RequirementStrength(item.stated_as),
         )
         for item in parsed.requirement_evidence
     ]
