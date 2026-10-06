@@ -802,6 +802,21 @@
   discovery_source: curated_remote_wlb_2026
   notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
 
+- name: Posit
+  domain: posit.co
+  careers_url: https://posit.co/about/careers/
+  ats_type: greenhouse
+  board_id: rstudio
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [python, data_platform, saas_backend]
+  remote_signal: current_us_remote
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: candidate_suggested_2026-10-04
+  notes: "Formerly RStudio; Public Benefit Corp and B Corp, profitable, over half of engineering on open source (R, Python, Quarto, Positron). Posit Team (Workbench/Connect/Package Manager) is an on-prem data-science platform. Greenhouse board still uses the old 'rstudio' slug. [Verified 2026-10-04: 7 postings, 1 engineering — Senior Software Engineer, 'USA - Remote', $141,800-$187,110 base (max clears $170K); wants Go or TypeScript plus Python or R, backend/data tooling, and interest in building AI/MCP features into the platform; job says async, minimal meetings, 100% of medical premiums covered for families. Culture unverified: Glassdoor review pages block automated fetches, so SWE-review recency and spread weren't checked. Job-security note: InfoWorld reported 2024-01-05 that Posit laid off Yihui Xie (knitr/R Markdown creator); no broader layoff reporting found.]"
+
 - name: Precisely
   domain: precisely.com
   careers_url: https://www.precisely.com/careers
