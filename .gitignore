@@ -4,6 +4,6 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 .env
-/data/jobscan.db
-/data/jobscan.db-journal
+*.db
+*.db-journal
 /out/

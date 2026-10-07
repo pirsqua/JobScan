@@ -1,0 +1,4 @@
+# LF line endings in the repository and in every working copy, Windows included — one rule for
+# every clone, whatever its core.autocrlf setting. Git detects binary files itself (text=auto).
+# PowerShell scripts are fine with LF; add `*.bat text eol=crlf` if cmd scripts ever appear.
+* text=auto eol=lf
