@@ -75,8 +75,9 @@
   board_id: airbnb
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, data pipeline, sql, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, python, data pipeline, sql, integration. [Crawl 2026-10-07: 44 engineering postings, 9 not remote, 2 exclude WA, 3 no salary, 1 below $170K, 29 reached evaluation, shortlist: none.]"
 
 - name: Airbyte
   domain: airbyte.com
@@ -85,8 +86,9 @@
   board_id: airbyte
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: python, sql, databricks pyspark, data pipeline, api integration. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] [Crawl 2026-10-07: 6 engineering postings, 4 not remote, 1 exclude WA, 1 below $170K, 0 reached evaluation, shortlist: none.]"
 
 - name: Akamai
   domain: akamai.com
@@ -139,9 +141,10 @@
   ats_type: greenhouse
   board_id: asana
   classification: product
-  active: true
+  active: false
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, backend api, integration, azure, sql. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: csharp dotnet, backend api, integration, azure, sql. [Deactivated 2026-10-07: every engineering posting requires office-centric hybrid work (SF/NYC/Vancouver).] [Crawl 2026-10-07: 29 engineering postings, 4 no salary, 10 below $170K, 15 reached evaluation, shortlist: none.]"
 
 - name: Astronomer
   domain: astronomer.io
@@ -150,8 +153,9 @@
   board_id: astronomer
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: python, sql, databricks pyspark, data pipeline, api integration. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] [Crawl 2026-10-07: 12 engineering postings, 10 not remote, 1 exclude WA, 1 reached evaluation, shortlist: none.]"
 
 - name: Aurora Solar
   domain: aurorasolar.com
@@ -176,8 +180,9 @@
   board_id: betterment
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, csharp dotnet, python, sql, event driven. [Crawl 2026-10-07: 9 engineering postings, 9 not remote, 0 reached evaluation, shortlist: none.]"
 
 - name: BeyondTrust
   domain: beyondtrust.com
@@ -231,8 +236,9 @@
   board_id: cloudflare
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, python, distributed systems, observability, ci cd. [Crawl 2026-10-07: 113 engineering postings, 109 not remote, 4 no salary, 0 reached evaluation, shortlist: none.]"
 
 - name: Cockroach Labs
   domain: cockroachlabs.com
@@ -241,8 +247,9 @@
   board_id: cockroachlabs
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, python, distributed systems, observability, ci cd. Selective watch: roles center on Go, networking or infrastructure; keep only suitable backend exceptions. [Crawl 2026-10-07: 4 engineering postings, 1 no salary, 3 reached evaluation, shortlist: none.]"
 
 - name: Commvault
   domain: commvault.com
@@ -266,8 +273,9 @@
   board_id: cribl
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Remote-first; Glassdoor 4.2 overall / 4.0 WLB. Senior software roles have published roughly $185K-$215K and staff roles $205K+. Strong data/telemetry/backend fit; screen out AI-heavy and deep platform roles."
+  notes: "Remote-first; Glassdoor 4.2 overall / 4.0 WLB. Senior software roles have published roughly $185K-$215K and staff roles $205K+. Strong data/telemetry/backend fit; screen out AI-heavy and deep platform roles. [Crawl 2026-10-07: 10 engineering postings, 10 reached evaluation, shortlist: none.]"
 
 - name: Dagster Labs
   domain: dagster.io
@@ -275,9 +283,10 @@
   ats_type: greenhouse
   board_id: dagsterlabs
   classification: product
-  active: true
+  active: false
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: python, sql, databricks pyspark, data pipeline, api integration. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] [Deactivated 2026-10-07: acquired by Prefect (announced 2026-07-13); its board has no openings. Prefect added instead.] [Crawl 2026-10-07: 0 engineering postings, 0 reached evaluation, shortlist: none.]"
 
 - name: Databricks
   domain: databricks.com
@@ -286,8 +295,9 @@
   board_id: databricks
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: python, sql, databricks pyspark, data pipeline, api integration. Using Databricks is a reason to look at its application/data roles, not its distributed engine. [Crawl 2026-10-07: 228 engineering postings, 214 not remote, 1 exclude WA, 6 no salary, 7 reached evaluation, shortlist: none.]"
 
 - name: Dayforce
   domain: dayforce.com
@@ -326,8 +336,9 @@
   board_id: digitalocean98
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, python, distributed systems, observability, ci cd. [Crawl 2026-10-07: 80 engineering postings, 46 not remote, 1 no salary, 33 reached evaluation, shortlist: none.]"
 
 - name: Discord
   domain: discord.com
@@ -351,8 +362,9 @@
   board_id: docker
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Remote-first; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Positive employer-level culture signal, but verify the current engineering team; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Remote-first. Curated lanes: backend api, python, distributed systems, observability, ci cd. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] Selective watch: roles center on Go, networking or infrastructure; keep only suitable backend exceptions. [Crawl 2026-10-07: 20 engineering postings, 7 exclude WA, 13 reached evaluation, shortlist: none.]"
 
 - name: DocuSign
   domain: docusign.com
@@ -405,9 +417,10 @@
   ats_type: greenhouse
   board_id: duolingo
   classification: product
-  active: true
+  active: false
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, data pipeline, sql, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, python, data pipeline, sql, integration. [Deactivated 2026-10-07: none of its 16 engineering postings offers remote work (New York/Pittsburgh).] [Crawl 2026-10-07: 16 engineering postings, 16 not remote, 0 reached evaluation, shortlist: none.]"
 
 - name: Epicor
   domain: epicor.com
@@ -446,8 +459,9 @@
   board_id: fivetran
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: python, sql, databricks pyspark, data pipeline, api integration. [Crawl 2026-10-07: 62 engineering postings, 20 not remote, 1 exclude WA, 10 no salary, 3 below $170K, 28 reached evaluation, shortlist: none.]"
 
 - name: Genesys
   domain: genesys.com
@@ -486,8 +500,9 @@
   board_id: gitlab
   classification: product
   active: true
+  priority: A-
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Remote-first; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Positive employer-level culture signal, but verify the current engineering team; continue strict job-level screening."
+  notes: "Remote-first. Curated lanes: backend api, python, distributed systems, observability, ci cd. [Crawl 2026-10-07: 67 engineering postings, 23 exclude WA, 19 no salary, 1 below $170K, 24 reached evaluation, shortlist: Intermediate Backend Engineer, AMER (growth).]"
 
 - name: Grafana Labs
   domain: grafana.com
@@ -496,8 +511,9 @@
   board_id: grafanalabs
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Vast majority of roles remote; Glassdoor 4.2 overall / 4.4 WLB. Senior/staff engineering bands can clear $170K. Excellent observability/backend company, but many roles prefer Go and deep infrastructure experience."
+  notes: "Vast majority of roles remote; Glassdoor 4.2 overall / 4.4 WLB. Senior/staff engineering bands can clear $170K. Excellent observability/backend company, but many roles prefer Go and deep infrastructure experience. Most postings exclude Washington; the rest lean Go/infrastructure. [Crawl 2026-10-07: 54 engineering postings, 39 exclude WA, 9 no salary, 3 below $170K, 3 reached evaluation, shortlist: none.]"
 
 - name: Gusto
   domain: gusto.com
@@ -505,9 +521,10 @@
   ats_type: greenhouse
   board_id: gusto
   classification: product
-  active: true
+  active: false
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, csharp dotnet, python, sql, event driven. [Deactivated 2026-10-07: 28 of 29 engineering postings are not remote (hybrid, 3 of 5 days at home for senior staff); reviews describe forced stack ranking (15% rated low performers).] [Crawl 2026-10-07: 29 engineering postings, 28 not remote, 1 reached evaluation, shortlist: none.]"
 
 - name: HubSpot
   domain: hubspot.com
@@ -515,9 +532,10 @@
   ats_type: greenhouse
   board_id: hubspotjobs
   classification: product
-  active: true
+  active: false
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, backend api, integration, azure, sql. Positive employer-level culture signal, but verify the current engineering team; continue strict job-level screening."
+  notes: "Curated lanes: csharp dotnet, backend api, integration, azure, sql. [Deactivated 2026-10-07: 2026 reviews report salary bands cut ~10%, unlimited PTO removed and low engineering morale; no posting has reached the shortlist.] [Crawl 2026-10-07: 19 engineering postings, 6 exclude WA, 3 no salary, 10 reached evaluation, shortlist: none.]"
 
 - name: Hungryroot
   domain: hungryroot.com
@@ -541,8 +559,9 @@
   board_id: huntress
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A-. Fully remote; Glassdoor 4.1 overall / 4.3 WLB. Staff software ranges have reached roughly $162K-$257K. Good backend/product target; weigh recent engineering reviews and security-domain requirements."
+  notes: "Fully remote; Glassdoor 4.1 overall / 4.3 WLB. Staff software ranges have reached roughly $162K-$257K. Good backend/product target; weigh recent engineering reviews and security-domain requirements. Current senior application openings are explicitly Ruby/Rails. [Crawl 2026-10-07: 7 engineering postings, 7 reached evaluation, shortlist: none.]"
 
 - name: iManage
   domain: imanage.com
@@ -551,13 +570,13 @@
   board_id: imanagecom
   classification: product
   active: true
-  priority: A-
+  priority: C
   fit_lanes: [dotnet, csharp, azure, sql, apis]
   remote_signal: team_specific
   compensation_signal: likely_170k_path
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Document-management SaaS has recurring C#/.NET/Azure backend demand. Legal-domain exposure is helpful but often not mandatory. [Verified 2026-09-30: 88% recommend, positive culture, but hybrid-leaning (company explicitly values in-person time) rather than remote-first — worth tracking but not a clean remote fit.] [Verified 2026-09-30: old careers URL was dead; real board is an embedded JazzHR/ApplyToJob widget (imanagecom.applytojob.com). Built a new JazzHRAdapter; confirmed live, 7 real engineering postings with structured salary ranges (e.g. Senior AI Engineer $180k-$220k, Principal Software Engineer $150k-$200k).]"
+  notes: "Document-management SaaS has recurring C#/.NET/Azure backend demand. Legal-domain exposure is helpful but often not mandatory. [Verified 2026-09-30: 88% recommend, positive culture, but hybrid-leaning (company explicitly values in-person time) rather than remote-first — worth tracking but not a clean remote fit.] [Verified 2026-09-30: old careers URL was dead; real board is an embedded JazzHR/ApplyToJob widget (imanagecom.applytojob.com). Built a new JazzHRAdapter; confirmed live, 7 real engineering postings with structured salary ranges (e.g. Senior AI Engineer $180k-$220k, Principal Software Engineer $150k-$200k).] Remote exceptions only — the company is hybrid-leaning. [Crawl 2026-10-07: 12 engineering postings, 7 not remote, 3 no salary, 2 below $170K, 0 reached evaluation, shortlist: none.]"
 
 - name: Impinj
   domain: impinj.com
@@ -658,8 +677,9 @@
   board_id: mapbox
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, python, sql, gis, data pipeline, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: csharp dotnet, python, sql, gis, data pipeline, integration. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] Culture caution: reviews are polarized — reports of brutal on-call and long hours alongside 2026 praise for work-life balance (3.6/5, 57% recommend). [Crawl 2026-10-07: 23 engineering postings, 6 exclude WA, 13 no salary, 2 below $170K, 2 reached evaluation, shortlist: none.]"
 
 - name: Marqeta
   domain: marqeta.com
@@ -668,8 +688,9 @@
   board_id: marqeta-inc
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: backend api, csharp dotnet, python, sql, event driven. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] [Crawl 2026-10-07: 8 engineering postings, 6 exclude WA, 2 reached evaluation, shortlist: none.]"
 
 - name: Modern Treasury
   domain: moderntreasury.com
@@ -678,8 +699,9 @@
   board_id: moderntreasury
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: backend api, csharp dotnet, python, sql, event driven. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] [Crawl 2026-10-07: 2 engineering postings, 2 reached evaluation, shortlist: none.]"
 
 - name: MongoDB
   domain: mongodb.com
@@ -688,8 +710,9 @@
   board_id: mongodb
   classification: product
   active: true
+  priority: B+
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, python, distributed systems, observability, ci cd. [Crawl 2026-10-07: 82 engineering postings, 55 not remote, 6 no salary, 1 below $170K, 20 reached evaluation, shortlist: Senior Software Engineer, Identity & Access Management (FedRamp) (attractive).]"
 
 - name: Monte Carlo
   domain: montecarlodata.com
@@ -698,8 +721,9 @@
   board_id: montecarlodata
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: python, sql, databricks pyspark, data pipeline, api integration. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] [Crawl 2026-10-07: 2 engineering postings, 2 reached evaluation, shortlist: none.]"
 
 - name: Motorola Solutions
   domain: motorolasolutions.com
@@ -738,8 +762,9 @@
   board_id: nerdwallet
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: backend api, csharp dotnet, python, sql, event driven. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] [Crawl 2026-10-07: 4 engineering postings, 1 exclude WA, 3 reached evaluation, shortlist: none.]"
 
 - name: Netwrix
   domain: netwrix.com
@@ -763,8 +788,9 @@
   board_id: newrelic
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, python, distributed systems, observability, ci cd. [Crawl 2026-10-07: 13 engineering postings, 9 no salary, 3 below $170K, 1 reached evaluation, shortlist: none.]"
 
 - name: Octopus Deploy
   domain: octopus.com
@@ -794,7 +820,7 @@
   compensation_signal: uncertain
   evidence_level: current_board_verified
   discovery_source: candidate_suggested_2026-10-06
-  notes: "Outdoor GPS/mapping apps (Hunt, Offroad, Fish, Backcountry); Missoula-HQ, remote-first through 'Basecamps' (remote employees within 60 miles of a hub city) — Seattle is a listed Basecamp, and engineering roles are 'remote from any state where onX is a registered employer'. Geospatial domain overlaps the candidate's spatial-processing pipeline work. [Verified 2026-10-06: 20 postings; engineering ones are level III (Backend Engineer III - Growth, Full-Stack, Android, SRE) at $130K-$153K 'upon hire', below the $170K floor — kept active to catch senior/staff-adjacent roles with higher bands. No layoff reporting found for onXmaps. Culture unverified (Glassdoor blocks automated fetches).]"
+  notes: "Outdoor GPS/mapping apps (Hunt, Offroad, Fish, Backcountry); Missoula-HQ, remote-first through 'Basecamps' (remote employees within 60 miles of a hub city) — Seattle is a listed Basecamp, and engineering roles are 'remote from any state where onX is a registered employer'. Geospatial domain overlaps the candidate's spatial-processing pipeline work. [Verified 2026-10-06: 20 postings; engineering ones are level III (Backend Engineer III - Growth, Full-Stack, Android, SRE) at $130K-$153K 'upon hire', below the $170K floor — kept active to catch senior/staff-adjacent roles with higher bands. No layoff reporting found for onXmaps. Culture unverified (Glassdoor blocks automated fetches).] [Crawl 2026-10-07: 4 engineering postings, 4 below $170K, 0 reached evaluation, shortlist: none.]"
 
 - name: PagerDuty
   domain: pagerduty.com
@@ -803,8 +829,9 @@
   board_id: pagerduty
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, python, distributed systems, observability, ci cd. [Crawl 2026-10-07: 6 engineering postings, 6 not remote, 0 reached evaluation, shortlist: none.]"
 
 - name: Pilot
   domain: pilot.com
@@ -829,8 +856,9 @@
   board_id: plaid
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: backend api, csharp dotnet, python, sql, event driven. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] [Crawl 2026-10-07: 31 engineering postings, 31 not remote, 0 reached evaluation, shortlist: none.]"
 
 - name: Posit
   domain: posit.co
@@ -839,13 +867,13 @@
   board_id: rstudio
   classification: product
   active: true
-  priority: B+
+  priority: A-
   fit_lanes: [python, data_platform, saas_backend]
   remote_signal: current_us_remote
   compensation_signal: verified_170k_path
   evidence_level: current_board_verified
   discovery_source: candidate_suggested_2026-10-04
-  notes: "Formerly RStudio; Public Benefit Corp and B Corp, profitable, over half of engineering on open source (R, Python, Quarto, Positron). Posit Team (Workbench/Connect/Package Manager) is an on-prem data-science platform. Greenhouse board still uses the old 'rstudio' slug. [Verified 2026-10-04: 7 postings, 1 engineering — Senior Software Engineer, 'USA - Remote', $141,800-$187,110 base (max clears $170K); wants Go or TypeScript plus Python or R, backend/data tooling, and interest in building AI/MCP features into the platform; job says async, minimal meetings, 100% of medical premiums covered for families. Culture unverified: Glassdoor review pages block automated fetches, so SWE-review recency and spread weren't checked. Job-security note: InfoWorld reported 2024-01-05 that Posit laid off Yihui Xie (knitr/R Markdown creator); no broader layoff reporting found.]"
+  notes: "Formerly RStudio; Public Benefit Corp and B Corp, profitable, over half of engineering on open source (R, Python, Quarto, Positron). Posit Team (Workbench/Connect/Package Manager) is an on-prem data-science platform. Greenhouse board still uses the old 'rstudio' slug. [Verified 2026-10-04: 7 postings, 1 engineering — Senior Software Engineer, 'USA - Remote', $141,800-$187,110 base (max clears $170K); wants Go or TypeScript plus Python or R, backend/data tooling, and interest in building AI/MCP features into the platform; job says async, minimal meetings, 100% of medical premiums covered for families. Culture unverified: Glassdoor review pages block automated fetches, so SWE-review recency and spread weren't checked. Job-security note: InfoWorld reported 2024-01-05 that Posit laid off Yihui Xie (knitr/R Markdown creator); no broader layoff reporting found.] [Crawl 2026-10-07: 1 engineering postings, 1 reached evaluation, shortlist: Senior Software Engineer (best).]"
 
 - name: Precisely
   domain: precisely.com
@@ -862,6 +890,21 @@
   discovery_source: curated_dotnet_azure_demand_2026
   notes: "Data-integrity and integration products create relevant C#/.NET, Python, SQL, and pipeline work. Keep only roles with a published U.S. base band that makes $170K credible. [Verified 2026-09-30: excellent — 4.6 SWE rating, remote-first, unlimited PTO, and confirmed real Python usage alongside Java/Node/Go.] [Corrected 2026-10-01: real ATS is Greenhouse — two boards exist, 'preciselyusjobs' (36 jobs, used here as the US-relevant one) and 'preciselyinternationaljobs' (22 jobs); missed in the earlier 'custom' probe.]"
 
+- name: Prefect
+  domain: prefect.io
+  careers_url: https://jobs.ashbyhq.com/prefect
+  ats_type: ashby
+  board_id: prefect
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [python, data_platform, saas_backend]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: candidate_suggested_2026-10-07
+  notes: "Python workflow-orchestration company (Prefect); agreed to acquire Dagster Labs (announced 2026-07-13) — Dagster keeps its name, open-source license and roadmap. [Verified 2026-10-07: Ashby board, 8 postings, all 'Remote' with published bands — e.g. Senior Analytics Engineer $154K-$222K, Staff Platform Engineer $214K-$309K (Staff: screened out by policy). Culture unverified (Glassdoor blocks automated fetches).]"
+
 - name: Pulumi
   domain: pulumi.com
   careers_url: https://job-boards.greenhouse.io/pulumicorporation
@@ -869,8 +912,9 @@
   board_id: pulumicorporation
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority B+. Seattle-founded and fully remote; Seattle senior range recently about $181K-$228K. Strong Python/Azure/IaC adjacency. Current engineering opening is agentic-AI centered, so wait for a conventional backend/platform role."
+  notes: "Seattle-founded and fully remote; Seattle senior range recently about $181K-$228K. Strong Python/Azure/IaC adjacency. Current engineering opening is agentic-AI centered, so wait for a conventional backend/platform role. Selective watch: roles center on Go, networking or infrastructure; keep only suitable backend exceptions. [Crawl 2026-10-07: 1 engineering postings, 1 reached evaluation, shortlist: none.]"
 
 - name: Qlik
   domain: qlik.com
@@ -894,8 +938,9 @@
   board_id: quizlet-inc
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, data pipeline, sql, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: backend api, python, data pipeline, sql, integration. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] [Crawl 2026-10-07: 3 engineering postings, 3 not remote, 0 reached evaluation, shortlist: none.]"
 
 - name: RealPage
   domain: realpage.com
@@ -904,13 +949,13 @@
   board_id: careers-realpagepms
   classification: product
   active: true
-  priority: B
+  priority: C
   fit_lanes: [dotnet, csharp, sql_server, azure, apis]
   remote_signal: team_specific
   compensation_signal: uncertain
   evidence_level: monitor_only
   discovery_source: curated_dotnet_local_vertical_2026
-  notes: "Property-management software vendor (Dallas-based, private-equity owned), Microsoft-stack heritage across many acquired product lines. [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.] [Verified 2026-09-30: decent — 3.9-4.2 SWE range, genuinely remote-friendly, unlimited PTO, 63% recommend and rising. Python fit unconfirmed.] [Verified 2026-10-03: iCIMS classic portal 'careers-realpagepms' is crawlable (adapter added) — 49 open postings, 9 engineering-titled, nearly all on-site Richardson TX or Boston; one 'US-TX-Remote'; no structured salary data.]"
+  notes: "Property-management software vendor (Dallas-based, private-equity owned), Microsoft-stack heritage across many acquired product lines. [Verified 2026-09-25: real ATS is iCIMS — no adapter yet, stays inactive.] [Verified 2026-09-30: decent — 3.9-4.2 SWE range, genuinely remote-friendly, unlimited PTO, 63% recommend and rising. Python fit unconfirmed.] [Verified 2026-10-03: iCIMS classic portal 'careers-realpagepms' is crawlable (adapter added) — 49 open postings, 9 engineering-titled, nearly all on-site Richardson TX or Boston; one 'US-TX-Remote'; no structured salary data.] Engineering openings are office-based or Texas-specific remote; no qualifying WA role yet. [Crawl 2026-10-07: 8 engineering postings, 6 not remote, 2 reached evaluation, shortlist: none.]"
 
 - name: Reddit
   domain: redditinc.com
@@ -935,13 +980,13 @@
   board_id: render
   classification: product
   active: true
-  priority: A-
+  priority: B+
   fit_lanes: [python, sql, data_platform, databricks]
   remote_signal: team_specific
   compensation_signal: verified_170k_path
   evidence_level: current_board_verified
   discovery_source: diamond_hunt_2026-10-02
-  notes: "Cloud application platform. [Verified 2026-10-02: Ashby board live (18 eng postings); Senior/Staff Data Engineer (SF or Remote US/Canada, $195-268K) asks for 'strong Python and SQL skills, with hands-on experience building reliable ingestion and ELT pipelines', with Databricks/Airflow — a direct match to the Databricks/PySpark pipeline work. Glassdoor 4.2 / 4.4 WLB / 77% recommend — small sample (12 reviews).]"
+  notes: "Cloud application platform. [Verified 2026-10-02: Ashby board live (18 eng postings); Senior/Staff Data Engineer (SF or Remote US/Canada, $195-268K) asks for 'strong Python and SQL skills, with hands-on experience building reliable ingestion and ELT pipelines', with Databricks/Airflow — overlaps the Databricks/PySpark pipeline work. Glassdoor 4.2 / 4.4 WLB / 77% recommend — small sample (12 reviews).] [2026-10-07: the full evaluation rejected that Senior/Staff Data Engineer role as two steps up (architecture ownership, platform direction, required Airflow/IaC) — not a direct match.] [Crawl 2026-10-07: 17 engineering postings, 17 reached evaluation, shortlist: none.]"
 
 - name: RevenueCat
   domain: revenuecat.com
@@ -965,8 +1010,9 @@
   board_id: salsify
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, integration, python, csharp dotnet, sql. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, integration, python, csharp dotnet, sql. [Crawl 2026-10-07: 0 engineering postings, 0 reached evaluation, shortlist: none.]"
 
 - name: Samsara
   domain: samsara.com
@@ -975,8 +1021,9 @@
   board_id: samsara
   classification: product
   active: true
+  priority: A-
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, python, sql, gis, data pipeline, integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: csharp dotnet, python, sql, gis, data pipeline, integration. [Crawl 2026-10-07: 63 engineering postings, 30 exclude WA, 4 no salary, 2 below $170K, 27 reached evaluation, shortlist: Senior Software Engineer II, Route Planning (best).]"
 
 - name: Schneider Electric
   domain: se.com
@@ -1030,14 +1077,14 @@
   ats_type: workday
   board_id: servicetitan/wd1/ServiceTitan
   classification: product
-  active: true
-  priority: A
+  active: false
+  priority: C
   fit_lanes: [dotnet, csharp, sql, apis, distributed_systems]
   remote_signal: current_us_remote
   compensation_signal: verified_170k_path
   evidence_level: current_role_verified
   discovery_source: curated_dotnet_azure_demand_2026
-  notes: "Large C#/.NET product organization; a recent remote Senior Software Engineer band was $152.6K-$204.2K. Verify team-specific frontend, AWS, and scale expectations."
+  notes: "Large C#/.NET product organization; a recent remote Senior Software Engineer band was $152.6K-$204.2K. Verify team-specific frontend, AWS, and scale expectations. [Deactivated 2026-10-07: candidate rejected it; its remote openings are Staff-level, mobile or Salesforce-specialist.] [Crawl 2026-10-07: 15 engineering postings, 8 not remote, 2 exclude WA, 2 below $170K, 3 reached evaluation, shortlist: none.]"
 
 - name: Siemens Digital Industries Software
   domain: siemens.com
@@ -1077,8 +1124,9 @@
   board_id: stripe
   classification: product
   active: true
+  priority: C
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, csharp dotnet, python, sql, event driven. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: backend api, csharp dotnet, python, sql, event driven. [Crawl 2026-10-07: 156 engineering postings, 123 not remote, 2 exclude WA, 20 no salary, 11 reached evaluation, shortlist: none.]"
 
 - name: Tailscale
   domain: tailscale.com
@@ -1087,8 +1135,9 @@
   board_id: tailscale
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority B+. Remote company explicitly promotes flexible hours and WLB; Glassdoor WLB about 4.4 but from a small sample. High compensation, but engineering roles often require Go, networking or security depth."
+  notes: "Remote company explicitly promotes flexible hours and WLB; Glassdoor WLB about 4.4 but from a small sample. High compensation, but engineering roles often require Go, networking or security depth. Selective watch: roles center on Go, networking or infrastructure; keep only suitable backend exceptions. [Crawl 2026-10-07: 18 engineering postings, 10 exclude WA, 1 below $170K, 7 reached evaluation, shortlist: none.]"
 
 - name: Teleport
   domain: goteleport.com
@@ -1097,8 +1146,9 @@
   board_id: goteleport
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Remote-first; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, identity, azure, event driven, sql. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Remote-first. Curated lanes: backend api, identity, azure, event driven, sql. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] Selective watch: roles center on Go, networking or infrastructure; keep only suitable backend exceptions. [Crawl 2026-10-07: 13 engineering postings, 3 exclude WA, 10 reached evaluation, shortlist: none.]"
 
 - name: Temporal
   domain: temporal.io
@@ -1107,8 +1157,9 @@
   board_id: temporal
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: backend api, python, distributed systems, observability, ci cd. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
+  notes: "Curated lanes: backend api, python, distributed systems, observability, ci cd. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.] Selective watch: roles center on Go, networking or infrastructure; keep only suitable backend exceptions. [Crawl 2026-10-07: 24 engineering postings, 1 exclude WA, 23 reached evaluation, shortlist: none.]"
 
 - name: Thumbtack
   domain: thumbtack.com
@@ -1177,8 +1228,9 @@
   board_id: twilio
   classification: product
   active: true
+  priority: B
   discovery_source: curated_remote_wlb_2026
-  notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: csharp dotnet, backend api, integration, azure, sql. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening."
+  notes: "Curated lanes: csharp dotnet, backend api, integration, azure, sql. [Crawl 2026-10-07: 37 engineering postings, 21 exclude WA, 2 no salary, 5 below $170K, 9 reached evaluation, shortlist: none.]"
 
 - name: Veeam
   domain: veeam.com
