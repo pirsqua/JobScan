@@ -88,6 +88,21 @@
   discovery_source: curated_remote_wlb_2026
   notes: "Priority A. Has a history of U.S.-remote engineering roles; senior compensation can credibly reach $170K+ in suitable roles. Relevant lanes: python, sql, databricks pyspark, data pipeline, api integration. Recent engineering-team WLB evidence still needs verification; continue strict job-level screening. [Corrected 2026-09-15: original ats_type/board_id 404'd on live crawl; verified via web search + direct API probe.]"
 
+- name: Akamai
+  domain: akamai.com
+  careers_url: https://jobs.akamai.com/en/sites/CX_1
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: B
+  fit_lanes: [python, saas_backend, apis, data_platform]
+  remote_signal: current_us_remote
+  compensation_signal: uncertain
+  evidence_level: monitor_only
+  discovery_source: candidate_suggested_2026-10-06
+  notes: "CDN/security/cloud (Linode) product company with U.S.-remote engineering roles (e.g. 'Senior Software Engineer - Remote', Edge Applications). [Verified 2026-10-06: board is Oracle Recruiting Cloud (jobs.akamai.com, site CX_1), fronted by Akamai's own bot protection — the page and its JSON API both return 'Access Denied' to non-browser clients, so there's no crawlable path that doesn't evade it. Stays inactive; check manually. Job security: ~2.5% layoff late 2024 and a Q4 2025 restructuring with headcount reductions (10-Q). Culture unverified (Glassdoor blocks automated fetches).]"
+
 - name: Alaska Airlines
   domain: alaskaair.com
   careers_url: https://www.alaskaair.com/careers
@@ -765,6 +780,21 @@
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
   notes: "Superb .NET/deployment-product and culture fit, but current U.S. engineering openings are sparse and the $170K base path is not yet established. [Verified 2026-09-29 via Playwright render: Greenhouse board confirmed live, 4 jobs — small board, let per-posting salary filtering do the real gating.]"
+
+- name: onX Maps
+  domain: onxmaps.com
+  careers_url: https://www.onxmaps.com/careers
+  ats_type: greenhouse
+  board_id: onxmaps
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [saas_backend, apis, data_platform]
+  remote_signal: remote_first
+  compensation_signal: uncertain
+  evidence_level: current_board_verified
+  discovery_source: candidate_suggested_2026-10-06
+  notes: "Outdoor GPS/mapping apps (Hunt, Offroad, Fish, Backcountry); Missoula-HQ, remote-first through 'Basecamps' (remote employees within 60 miles of a hub city) — Seattle is a listed Basecamp, and engineering roles are 'remote from any state where onX is a registered employer'. Geospatial domain overlaps the candidate's spatial-processing pipeline work. [Verified 2026-10-06: 20 postings; engineering ones are level III (Backend Engineer III - Growth, Full-Stack, Android, SRE) at $130K-$153K 'upon hire', below the $170K floor — kept active to catch senior/staff-adjacent roles with higher bands. No layoff reporting found for onXmaps. Culture unverified (Glassdoor blocks automated fetches).]"
 
 - name: PagerDuty
   domain: pagerduty.com
