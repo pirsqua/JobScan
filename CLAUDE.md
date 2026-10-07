@@ -39,6 +39,25 @@ evidence/analysis fields before `verdict`/`worth_applying`: with the verdict fir
 decided before analysing and then rationalized (it once rejected Pilot and then wrote that it had
 no reason to). A test pins this order.
 
+Rules the model must apply while writing a field work far better in that field's `description`
+than in the system prompt alone (observed: a rule stated only in the prompt was ignored; repeated
+in the field description, it held), and a concrete example beats an abstract rule.
+
+Tool calls go out in strict mode (`strict: true`, schema converted by
+`jobscan.llm.client.strict_input_schema` at send time — the fingerprinted schema is unchanged), so
+the API guarantees the response's shape; Pydantic still checks ranges.
+
+## Triage skips must be substantiated
+
+The cheap triage model can only skip for an allowed category, quoting the posting's own words;
+`jobscan.llm.triage.skip_is_substantiated` checks that the quote is really in the posting and sends
+anything unsupported to the full evaluation (observed: Haiku skipped good roles on level, salary
+arithmetic and invented leadership scope, even when told not to). Beyond that, code only checks the
+near-objective categories — Staff+ and manager titles, location wording. Whether a *skill* is truly
+required is left to the model: don't add pattern-matching of skill sentences ("Go or Python",
+"ideally", "you do not need experience with ...") — it was tried and proved too ambiguous. Every
+check there may only turn a skip into a full evaluation — never the reverse.
+
 ## Architectural boundaries — keep these separate
 
 - `jobscan/job_family.py` (is this posting even software engineering?) runs at **crawl time**,

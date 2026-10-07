@@ -26,6 +26,33 @@ class ToolCallResult:
     cache_read_input_tokens: int = 0
 
 
+# Keywords strict tool use can't enforce (numeric/length bounds) or that conflict with every
+# property being required (defaults). Pydantic still enforces the bounds on the way back in.
+_UNSUPPORTED_STRICT_KEYWORDS = frozenset({
+    "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
+    "minLength", "maxLength", "minItems", "maxItems", "default",
+})
+
+
+def strict_input_schema(schema: Any) -> Any:
+    """A copy of a Pydantic-generated JSON schema in the form strict tool use accepts: every
+    object closed (``additionalProperties: false``) with all its properties required (optional
+    ones are already nullable via ``anyOf ... null``), unsupported keywords dropped. With
+    ``strict: true`` the API guarantees the tool input matches — observed live without it, the
+    model once wrapped a whole evaluation in an extra ``{"evaluation": {...}}`` object (Lumos)."""
+    if isinstance(schema, list):
+        return [strict_input_schema(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    converted = {
+        key: strict_input_schema(value) for key, value in schema.items() if key not in _UNSUPPORTED_STRICT_KEYWORDS
+    }
+    if converted.get("type") == "object" and "properties" in converted:
+        converted["additionalProperties"] = False
+        converted["required"] = list(converted["properties"])
+    return converted
+
+
 class AnthropicClient:
     def __init__(
         self,
@@ -79,11 +106,19 @@ class AnthropicClient:
                 max_tokens=max_tokens,
                 system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": content}],
-                tools=[{**tool_schema, "cache_control": {"type": "ephemeral"}}],
+                tools=[{
+                    **tool_schema,
+                    "input_schema": strict_input_schema(tool_schema["input_schema"]),
+                    "strict": True,
+                    "cache_control": {"type": "ephemeral"},
+                }],
                 tool_choice={"type": "tool", "name": tool_name},
             )
         except anthropic.APIError as exc:
             raise LlmCallError(f"Anthropic API call failed: {exc}") from exc
+
+        if getattr(response, "stop_reason", None) == "max_tokens":
+            raise LlmCallError(f"'{tool_name}' response was cut off at max_tokens={max_tokens}")
 
         for block in response.content:
             block_type = getattr(block, "type", None)

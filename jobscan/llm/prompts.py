@@ -71,9 +71,10 @@ software-engineering experience as 15 years in every specialty a posting happens
 not convert one demonstrated project into "several" similar ones. Do not infer repeated \
 experience, massive production scale, or organization-wide influence without direct evidence.
 
-The candidate is targeting properly scoped Senior Engineer roles — not mid-level roles, and not \
-roles that use a "Senior" title to disguise Staff-level or elite-startup scope. One job is to catch \
-that gap: a role can share every keyword with the candidate's background and still expect \
+The candidate is targeting properly scoped Senior Engineer roles — not roles that use a "Senior" \
+title to disguise Staff-level or elite-startup scope. A below-Senior title (Software Engineer II, \
+Intermediate, ...) is acceptable when the profile's conditions for it are met: judge the work and \
+the pay, not the title. One job is to catch the over-scoping gap: a role can share every keyword with the candidate's background and still expect \
 specialized tenure, a repeated track record, production scale, or organizational ownership the \
 candidate has not demonstrated.
 
@@ -99,7 +100,9 @@ boldness to learn, "interested in", "passion for".
    Read qualifiers inside a sentence: in "Proficiency in Python, ideally including numpy", Python \
 is required and numpy is preferred. When a requirement accepts alternatives ("Go or a comparable \
 language such as Python", "Python or C#"), judge it against the alternative the candidate has — \
-that the team mostly works in the other one is at most a growth note. Read the posting's framing as a whole: when it says it doesn't \
+that the team mostly works in the other one is at most a growth note. "Using technologies like \
+AWS, MySQL and Kubernetes" or "such as ..." names examples, not requirements — equivalent \
+experience (Azure, SQL Server) meets it. Read the posting's framing as a whole: when it says it doesn't \
 expect every item to be met, or that eagerness to learn is what's essential, the technologies it \
 lists are preferred unless one is individually marked as required. Never treat a preferred \
 qualification or a trait/interest as required.
@@ -145,11 +148,17 @@ teams or the whole engineering org, combining architecture + product strategy + 
 long-term ownership across a whole product area, or an exceptional salary paired with extremely \
 broad ownership. Weigh the combination of responsibilities, qualifications, company structure and \
 compensation — not any one sentence. Ordinary senior expectations are NOT staff signals, alone or \
-together: owning features end to end, planning and driving one's own features, high agency or \
+together: owning features end to end, planning and driving one's own features, owning the team's \
+goals or delivery, tech-leading or leading engineers on the team through a project, high agency or \
 self-direction, comfort with ambiguity, prototyping, shipping quickly, mentoring, cross-functional \
 collaboration, aspirational "build things we haven't imagined" language, or a mission-driven or \
 generalist culture. Staff scope is breadth of influence beyond one team, not initiative within it. \
-Put relevant signals in `hidden_staff_signals`.
+For example, "owning and delivering quarterly goals for your team, leading engineers on your team \
+through ambiguity, advocating for good practices beyond your team through writing and tech talks" \
+is an ordinary senior/tech-lead expectation at a structured company — not a staff signal and not a \
+growth dimension (technical leadership is a match for this candidate); "set technical direction \
+across several teams" or "be the technical authority for the platform" is a staff signal. Put \
+relevant signals in `hidden_staff_signals`.
 
 6. CLASSIFY SCOPE (`scope_fit`), exactly one of:
    - at_level: the candidate has already performed substantially similar work at comparable scope.
@@ -157,7 +166,8 @@ Put relevant signals in `hidden_staff_signals`.
 more than one material growth dimension.
    - two_plus_steps_up: the role combines at least two material unproven dimensions, or expects a \
 substantially deeper repeated track record than demonstrated.
-   - below_level: the role would materially underuse the candidate's experience.
+   - below_level: the described work itself would materially underuse the candidate (junior \
+tasks, close supervision) — never because of the title alone.
    A role is NOT one_step_up merely because its title says "Senior" or because several \
 technologies match.
 
@@ -263,39 +273,46 @@ TRIAGE_SYSTEM = """You do a fast, deliberately lenient first-pass screen: is thi
 worth a full detailed evaluation against the candidate profile, or is it such a clear mismatch that \
 a detailed review would just waste money confirming what's already obvious?
 
-Mark skip_full_evaluation=true ONLY when you're confident a careful reviewer would also reject it \
-outright — a hard disqualifying requirement the posting actually REQUIRES, as a genuine central \
-expectation, not a passing mention: a completely different primary technology stack/language than \
-the candidate's that the posting requires proficiency in (e.g. "5+ years of Go" or "expert Rust" \
-with no .NET/Python/C# presence), formal people-management responsibility, a required specialized \
-domain or production scale far beyond general backend/data-pipeline work, a hard \
-employment-type/location mismatch not already caught by factual filters (including a role tied to \
-an office or city whose text never offers remote work — text that does offer remote work, even \
-without naming eligible states, is not a mismatch), an employer in an industry the candidate's \
-hard filters explicitly exclude, a non-engineering job (sales, advocacy, support) under an \
-engineering-sounding title, or a title above Senior — Staff, Senior Staff, Principal, Director, \
-Distinguished; the candidate doesn't target Staff-level roles — unless the title also hires at \
-Senior ("Senior/Staff", "Senior or Staff").
+You may skip a posting only for one of these disqualifiers, and only when the posting itself states \
+it as a genuine, central requirement — not a passing mention:
+- staff_or_higher_title: the job title is Staff, Senior Staff, Principal, Distinguished, Director or \
+above (the candidate doesn't target Staff-level roles) — but not a dual-level title that also hires \
+at Senior ("Senior/Staff", "Senior or Staff").
+- people_management: formal people management — direct reports, hiring, performance reviews. \
+Tech-leading, or "leading engineers on the team" through a project, is ordinary senior work, not \
+this.
+- not_remote: the posting requires office or hybrid presence, or limits remote work to places, \
+time zones or states that exclude a Washington resident. A remote offer that doesn't list eligible \
+states is not a mismatch.
+- excluded_industry: the employer is in an industry the candidate's hard filters exclude.
+- not_engineering: not a software-engineering job at all — sales, support, solutions, developer \
+advocacy and the like under an engineering-sounding title.
+- required_unfamiliar_language: the posting requires proficiency in a primary language or \
+framework the candidate lacks ("5+ years of Go", "expert Rust", "deep React/TypeScript ownership") \
+and accepts none of the candidate's languages instead.
+- required_specialty: the posting requires prior specialist experience the candidate lacks — \
+production ML/LLM/AI-agent systems, security, SRE/infrastructure/Kubernetes platforms, low-level \
+networking, mobile, embedded, or a frontend-centered role.
 
-Never skip over:
-- something the posting only calls helpful, preferred, a plus, or learnable ("Go or TypeScript \
-are helpful", "Rails, or a willingness to learn it");
-- a language requirement that accepts one of the candidate's languages as an alternative ("C#, \
-C++, or Java", "Go or a comparable language such as Python") — that requirement is met;
-- an interest the posting hopes for ("interested in building AI tools"), or an unfamiliar \
-business domain it doesn't require prior experience in;
-- ordinary senior expectations within one team — owning the team's goals or delivery, leading or \
-tech-leading engineers on the team through a project, mentoring, ambiguity, high autonomy;
-- the role's level looking lower than the candidate's (a "Software Engineer" or "3+ years" title) \
-— whether it underuses the candidate is for the full evaluation to judge;
-- salary or compensation — code has already checked the published range against the minimum, and \
-anything finer is the full evaluation's call.
-When you're genuinely unsure, or the posting has real overlap alongside some gaps, do NOT skip — \
-that's exactly the judgment call the full evaluation exists for. Skipping a posting that deserved a \
-full look silently destroys a real opportunity; sending a clear reject through for full evaluation \
-only costs a few cents. Treat those two mistakes as very different in severity.
+For a skip, copy into disqualifier_quote the posting's exact words that establish it — one phrase \
+or sentence, character for character from the title or text, no paraphrase or ellipsis — and set \
+disqualifier to its category. Code only checks that the quote really is in the posting — whether \
+a skill is truly required is entirely your judgment, so read its qualifiers ("ideally", "a plus", \
+"or similar", "such as", "you do not need experience with ...") before skipping on it.
 
-Always call the submit_triage tool exactly once with a one-sentence reason."""
+Never skip over: something the posting calls helpful, preferred, a plus, or learnable ("Go or \
+TypeScript are helpful", "Rails, or a willingness to learn it"); a language requirement that \
+accepts one of the candidate's languages ("C#, C++, or Java", "Go or a comparable language such as \
+Python"); an interest the posting hopes for; an unfamiliar business domain; ordinary senior \
+expectations (owning or leading the team's delivery, mentoring, ambiguity, autonomy); the role's \
+level looking lower than the candidate's; salary or compensation (code has already checked it); or \
+anything else not in the list above. When you're genuinely unsure, or the posting has real overlap \
+alongside some gaps, do NOT skip — set disqualifier to none and leave the quote empty. Skipping a \
+posting that deserved a full look silently destroys a real opportunity; sending a clear reject \
+through for full evaluation only costs a few cents. Treat those two mistakes as very different in \
+severity.
+
+Always call the submit_triage tool exactly once."""
 
 
 def build_triage_user_message(company: Company, job: JobPosting) -> str:

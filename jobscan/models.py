@@ -137,6 +137,10 @@ class ScopeFit(str, Enum):
     ONE_STEP_UP = "one_step_up"
     TWO_PLUS_STEPS_UP = "two_plus_steps_up"
     BELOW_LEVEL = "below_level"
+    # Only ever set by code, on a triage screen-out: the cheap screen never assesses scope, and a
+    # placeholder like two_plus_steps_up read as a judgment (one was on a role triage had thought
+    # was BELOW level). Not offered to the LLM — jobscan.llm.schemas.ScopeFit is the LLM's set.
+    NOT_ASSESSED = "not_assessed"
 
 
 class RequirementImportance(str, Enum):
@@ -378,6 +382,9 @@ class EvaluateStats:
     # needs its own token counts and its own model name to look up its own pricing tier.
     triaged: int = 0
     triage_skipped: int = 0
+    # Skips the triage model asked for that its quoted evidence didn't support (see
+    # jobscan.llm.triage.skip_is_substantiated) — sent on to the full evaluation instead. Not persisted.
+    triage_overruled: int = 0
     triage_input_tokens: int = 0
     triage_output_tokens: int = 0
     triage_cache_creation_input_tokens: int = 0

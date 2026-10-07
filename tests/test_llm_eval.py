@@ -149,6 +149,25 @@ class TestJobEvaluation:
 
         assert sdk.messages.calls[0]["max_tokens"] >= 8192
 
+    def test_tool_is_sent_in_strict_mode_with_a_closed_all_required_schema(self, profile):
+        # Strict tool use makes the API guarantee a schema-valid input — without it the model once
+        # wrapped a whole evaluation in an extra {"evaluation": {...}} object (Lumos).
+        sdk = FakeSdkClient([tool_response(JOB_EVALUATION_TOOL_NAME, VALID_EVAL_INPUT)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        evaluate_job(client, profile, make_company(), make_job())
+
+        tool = sdk.messages.calls[0]["tools"][0]
+        assert tool["strict"] is True
+        schema = tool["input_schema"]
+        assert schema["additionalProperties"] is False
+        assert set(schema["required"]) == set(schema["properties"])
+        item = schema["$defs"]["RequirementEvidenceItem"]
+        assert item["additionalProperties"] is False and set(item["required"]) == set(item["properties"])
+        assert "minimum" not in schema["properties"]["confidence"]  # unsupported in strict mode
+        # The fingerprinted schema itself is untouched — strictness is transport, not rubric.
+        assert "strict" not in JOB_EVALUATION_TOOL_SCHEMA
+
     def test_worth_applying_false_is_passed_through(self, profile):
         # A borderline verdict the model judged not realistically attainable (central
         # requirements in an unfamiliar core technology, e.g. Rust/Kafka) — worth_applying=False
@@ -529,7 +548,7 @@ class TestCompanyClassification:
 class TestTriage:
     def test_happy_path_skip_true(self, profile):
         sdk = FakeSdkClient(
-            [tool_response(TRIAGE_TOOL_NAME, {"skip_full_evaluation": True, "reason": "Requires 8+ years Rust."})]
+            [tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "8+ years of Rust", "disqualifier": "required_unfamiliar_language", "skip_full_evaluation": True, "reason": "Requires 8+ years Rust."})]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
@@ -545,7 +564,7 @@ class TestTriage:
 
     def test_happy_path_skip_false(self, profile):
         sdk = FakeSdkClient(
-            [tool_response(TRIAGE_TOOL_NAME, {"skip_full_evaluation": False, "reason": "Real backend overlap."})]
+            [tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "", "disqualifier": "none", "skip_full_evaluation": False, "reason": "Real backend overlap."})]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
@@ -557,13 +576,23 @@ class TestTriage:
         # The whole point is a cheap, short-output call — it should not request anywhere near the
         # 8192 the full evaluation needs.
         sdk = FakeSdkClient(
-            [tool_response(TRIAGE_TOOL_NAME, {"skip_full_evaluation": False, "reason": "ok"})]
+            [tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "", "disqualifier": "none", "skip_full_evaluation": False, "reason": "ok"})]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         triage_job(client, render_profile_text(profile), make_company(), make_job())
 
-        assert sdk.messages.calls[0]["max_tokens"] <= 500
+        assert sdk.messages.calls[0]["max_tokens"] <= 1024
+
+    def test_truncated_response_raises_a_clear_error(self, profile):
+        # Observed live at max_tokens=300: a long quote crowded out `reason`; say so plainly
+        # instead of surfacing it as a confusing "field required" validation error.
+        response = tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "x" * 50})
+        response.stop_reason = "max_tokens"
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([response]))
+
+        with pytest.raises(LlmCallError, match="max_tokens"):
+            triage_job(client, render_profile_text(profile), make_company(), make_job())
 
     def test_missing_required_field_raises(self, profile):
         sdk = FakeSdkClient([tool_response(TRIAGE_TOOL_NAME, {"reason": "missing the boolean"})])

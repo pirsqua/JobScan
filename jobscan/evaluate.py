@@ -24,7 +24,7 @@ from jobscan.llm.prompts import (
     triage_rubric_version,
 )
 from jobscan.llm.schemas import TriageResult
-from jobscan.llm.triage import triage_job
+from jobscan.llm.triage import skip_is_substantiated, triage_job
 from jobscan.logging_setup import get_logger, log_extra
 from jobscan.models import (
     ClassificationSource,
@@ -67,9 +67,7 @@ def _build_triage_skip_evaluation(
         description_hash=job.description_hash,
         verdict=Verdict.REJECT,
         confidence=_TRIAGE_SKIP_CONFIDENCE,
-        # Not actually assessed — scope_fit is irrelevant for a REJECT verdict in report routing,
-        # this is just a valid placeholder rather than a real classification.
-        scope_fit=ScopeFit.TWO_PLUS_STEPS_UP,
+        scope_fit=ScopeFit.NOT_ASSESSED,
         evidence_coverage_percent=0,
         specialist_tenure_assessment=SpecialistTenureAssessment(
             classification=SpecialistTenureClassification.NOT_APPLICABLE,
@@ -85,7 +83,9 @@ def _build_triage_skip_evaluation(
         required_gaps=[reason],
         preferred_only_gaps=[],
         minor_caveats=[],
-        evidence=[],
+        # The category and the posting's own words the skip was substantiated by — so an audit of
+        # "why was this screened out?" always has the quote, not just the model's summary.
+        evidence=[f'{triage.disqualifier}: "{triage.disqualifier_quote}"'],
         credibility_assessment=reason,
         why_this_is_or_is_not_gettable=f"Not gettable as described: {reason}",
         is_product_company=company.classification == CompanyClassification.PRODUCT,
@@ -277,7 +277,16 @@ def evaluate_all(
                     stats.triage_output_tokens += t_out
                     stats.triage_cache_creation_input_tokens += t_cache_w
                     stats.triage_cache_read_input_tokens += t_cache_r
-                    if triage_result.skip_full_evaluation:
+                    if triage_result.skip_full_evaluation and not skip_is_substantiated(triage_result, job):
+                        stats.triage_overruled += 1
+                        logger.info(
+                            "triage skip not substantiated by the posting — running the full evaluation",
+                            extra=log_extra(
+                                job_id=job.id, title=job.title, disqualifier=triage_result.disqualifier,
+                                quote=triage_result.disqualifier_quote, reason=triage_result.reason,
+                            ),
+                        )
+                    elif triage_result.skip_full_evaluation:
                         stats.triage_skipped += 1
                         skip_evaluation = _build_triage_skip_evaluation(
                             job, company, triage_result, triage_client.model, triage_rubric
