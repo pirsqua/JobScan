@@ -50,7 +50,8 @@ class RequirementEvidenceItem(BaseModel):
         description="How the posting's own wording frames it: required (must/required/minimum/N+ "
         "years/\"you have\" in a requirements list), strongly_implied (unstated but plainly "
         "unavoidable to do the job), preferred (helpful, a plus, bonus, nice to have, preferred, "
-        "ideally, familiarity with, exposure to, \"or willingness to learn\"), or trait_or_interest "
+        "ideally, familiarity with, exposure to, \"or willingness to learn\", and technologies "
+        "named as examples — \"technologies like ...\", \"such as ...\"), or trait_or_interest "
         "(curiosity, high agency, eagerness to learn, interest in a topic)."
     )
     importance: RequirementImportance = Field(
@@ -99,8 +100,11 @@ class JobEvaluationResult(BaseModel):
         default_factory=list,
         description="Material central, REQUIRED parts of the role not already demonstrated at "
         "roughly the required level. Never a preferred/helpful/learnable item, a new business "
-        "domain the posting doesn't require prior experience in, working with ambiguity, or an "
-        "interest. Omit minor tool differences.",
+        "domain the posting doesn't require prior experience in, working with ambiguity, "
+        "tech-leading or owning delivery within the team (technical leadership is a match), a "
+        "technology named only as an example (\"using technologies like AWS, MySQL and "
+        "Kubernetes\" — equivalent Azure/SQL Server experience meets it), or an interest. Omit "
+        "minor tool differences.",
     )
     hidden_staff_signals: list[str] = Field(
         default_factory=list,
@@ -108,7 +112,10 @@ class JobEvaluationResult(BaseModel):
         "elite-startup scope (organization-wide influence, repeated zero-to-one ownership, "
         "extreme scale/reliability, sole technical authority, ...). Breadth of influence beyond "
         "one team — never ordinary senior expectations such as owning or driving one's own "
-        "features, autonomy, comfort with ambiguity, prototyping, mentoring or ambitious wording.",
+        "features, owning the team's goals or delivery, tech-leading or leading engineers on the "
+        "team through a project, sharing practices through writing or tech talks, autonomy, "
+        "comfort with ambiguity, prototyping, mentoring or ambitious wording. Empty when there are "
+        "none — never list reasons something is NOT a signal.",
     )
     is_product_company: bool = Field(
         description="True if this specific posting is for building/operating the company's own "
@@ -133,8 +140,8 @@ class JobEvaluationResult(BaseModel):
     )
     evidence_coverage_percent: int = Field(
         ge=0, le=100,
-        description="Weighted coverage of important required qualifications by demonstrated or "
-        "transferable evidence — not a mechanical keyword-overlap count.",
+        description="0 to 100: weighted coverage of important required qualifications by "
+        "demonstrated or transferable evidence — not a mechanical keyword-overlap count.",
     )
     credibility_assessment: str = Field(
         description="One or two sentences on whether applying is professionally credible given fit."
@@ -144,7 +151,7 @@ class JobEvaluationResult(BaseModel):
         "and evidence_coverage_percent — not a restatement of the verdict."
     )
     verdict: Verdict = Field(description="Follows from the analysis above, per the verdict rules.")
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0, description="0.0 to 1.0.")
     worth_applying: bool = Field(
         description="A forced yes/no distillation of why_this_is_or_is_not_gettable, independent "
         "of the verdict label — would a real interview loop plausibly survive contact with this "
@@ -229,7 +236,24 @@ JOB_EVALUATION_TOOL_SCHEMA = {
 }
 
 
+TriageDisqualifier = Literal[
+    "none", "staff_or_higher_title", "people_management", "not_remote", "excluded_industry",
+    "not_engineering", "required_unfamiliar_language", "required_specialty",
+]
+
+
 class TriageResult(BaseModel):
+    # Quote and category come before the decision, so the skip has to rest on something the
+    # posting actually says, in a category the instructions allow; jobscan.llm.triage
+    # .skip_is_substantiated checks both before any skip is honoured.
+    disqualifier_quote: str = Field(
+        description="When skipping: the posting's exact words that establish the disqualifier, "
+        "copied character for character from the title or text — one phrase or sentence, no "
+        "paraphrase or ellipsis. Empty string when not skipping."
+    )
+    disqualifier: TriageDisqualifier = Field(
+        description="The one category from the instructions that justifies skipping, or none."
+    )
     skip_full_evaluation: bool = Field(
         description="True only when confident a careful reviewer would also reject this posting "
         "outright. False whenever there's real overlap alongside gaps, or any genuine uncertainty "

@@ -71,6 +71,9 @@ target_roles_prioritized:
     several data platforms from scratch)
   - Senior Software Engineer working on a data or analytics team
   - Backend-heavy full-stack roles where frontend development is genuinely secondary
+  - Below-Senior titles (Software Engineer II, Intermediate, plain Software Engineer) when the pay
+    passes the compensation rule and the work itself is a strong backend fit — judge the work and
+    the pay, not the title
 
 favored_work:
   - Python or C#
@@ -156,6 +159,8 @@ hard_filters:
   - Employer is not a healthcare or health-tech company — no healthcare providers, health
     insurers/payers, digital-health, telehealth or mental-health platforms, health-data companies,
     pharmacy or pharmacy-benefit companies, pharma/biotech, or medical-device makers, including
-    software companies whose product primarily serves the healthcare industry
+    software companies whose product primarily serves the healthcare industry — and including a
+    role in the healthcare division or healthcare product line of an otherwise non-healthcare
+    company (e.g. Experian Health)
   - Current official posting that still accepts applications
   - Published base-salary range with a credible path to at least $170,000

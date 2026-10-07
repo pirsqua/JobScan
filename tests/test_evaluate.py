@@ -25,6 +25,7 @@ from jobscan.models import (
     EvaluateStats,
     ManualOverride,
     RawPosting,
+    ScopeFit,
     Verdict,
 )
 from jobscan.normalize import normalize_posting
@@ -80,10 +81,20 @@ def tool_response(input_dict, input_tokens=100, output_tokens=50):
     return SimpleNamespace(content=[block], usage=usage)
 
 
-def triage_tool_response(skip_full_evaluation: bool, reason="test reason", input_tokens=30, output_tokens=10):
+def triage_tool_response(
+    skip_full_evaluation: bool, reason="test reason", input_tokens=30, output_tokens=10,
+    disqualifier=None, quote=None,
+):
+    """A skip defaults to one the substantiation check accepts: an allowed category, quoting words
+    that really are in seed_job's default description."""
+    if disqualifier is None:
+        disqualifier = "not_engineering" if skip_full_evaluation else "none"
+    if quote is None:
+        quote = "We build our own SaaS product." if skip_full_evaluation else ""
     block = SimpleNamespace(
         type="tool_use", name=TRIAGE_TOOL_NAME,
-        input={"skip_full_evaluation": skip_full_evaluation, "reason": reason},
+        input={"disqualifier_quote": quote, "disqualifier": disqualifier,
+               "skip_full_evaluation": skip_full_evaluation, "reason": reason},
     )
     usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
     return SimpleNamespace(content=[block], usage=usage)
@@ -306,6 +317,38 @@ class TestTriageIntegration:
         assert saved.verdict == Verdict.REJECT
         assert saved.primary_rejection_reason == "Requires 8+ years Rust."
         assert saved.model_name == "triage:test-haiku-model"
+        assert saved.evidence == ['not_engineering: "We build our own SaaS product."']
+
+    def test_skip_the_posting_does_not_support_goes_to_the_full_evaluation(self, db: Database, settings):
+        # Observed live: Haiku skipped a Software Engineer II as "overqualified" despite being told
+        # level is not a skip reason. A skip now needs an allowed category and a real quote.
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+        full_eval_sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        triage_sdk = FakeSdkClient([triage_tool_response(
+            skip_full_evaluation=True, disqualifier="required_specialty", quote="would be overqualified",
+        )])
+
+        stats = evaluate_all(
+            db, settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk),
+            triage_client=AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk),
+        )
+
+        assert full_eval_sdk.messages.call_count == 1
+        assert (stats.triage_overruled, stats.triage_skipped, stats.sent_to_llm) == (1, 0, 1)
+
+    def test_triage_screen_out_is_marked_not_assessed(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        job = seed_job(db, settings, company)
+        triage_client = AnthropicClient(
+            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_tool_response(skip_full_evaluation=True)])
+        )
+
+        evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])),
+                     triage_client=triage_client)
+
+        assert db.get_evaluation_for_job(job.id).scope_fit == ScopeFit.NOT_ASSESSED
 
     def test_no_skip_proceeds_to_the_full_evaluation(self, db: Database, settings):
         company = seed_company(db, classification=CompanyClassification.PRODUCT)

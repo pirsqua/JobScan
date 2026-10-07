@@ -292,6 +292,18 @@ class TestEvaluationPersistence:
         assert db.get_evaluation_by_hash("hash-1", rubric_versions=("other", "abc123")) is not None
         assert db.get_evaluation_by_hash("hash-1", rubric_versions=("other",)) is None
 
+    def test_legacy_triage_screen_out_scope_placeholder_becomes_not_assessed(self, db: Database, settings: Settings, sample_company: Company):
+        # Triage screen-outs used to store a two_plus_steps_up placeholder, which read as a real
+        # scope judgment (one sat on a role triage had thought was BELOW the candidate's level).
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+        db.save_evaluation(dataclasses.replace(
+            make_evaluation(job_id), model_name="triage:haiku", verdict=Verdict.REJECT, scope_fit=ScopeFit.TWO_PLUS_STEPS_UP,
+        ))
+
+        with Database(settings.db_path) as reopened:
+            assert reopened.get_evaluation_for_job(job_id).scope_fit == ScopeFit.NOT_ASSESSED
+
     def test_legacy_requirement_evidence_without_wording_still_loads(self, db: Database, settings: Settings, sample_company: Company):
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))

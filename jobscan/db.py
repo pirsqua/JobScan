@@ -234,6 +234,11 @@ class Database:
         self._add_column_if_missing("companies", "applied", "INTEGER")
         self._add_column_if_missing("jobs", "workplace_type", "TEXT")
         self._add_column_if_missing("evaluations", "rubric_version", "TEXT")
+        # Triage screen-outs used to carry a two_plus_steps_up placeholder for scope_fit.
+        self.conn.execute(
+            "UPDATE evaluations SET scope_fit = 'not_assessed' "
+            "WHERE model_name LIKE 'triage:%' AND scope_fit != 'not_assessed'"
+        )
 
     def _add_column_if_missing(self, table: str, column: str, sql_type: str) -> None:
         existing = {row["name"] for row in self.conn.execute(f"PRAGMA table_info({table})")}
