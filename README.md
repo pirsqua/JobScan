@@ -1,256 +1,179 @@
 # JobScan
 
-A personal pipeline that crawls company career sites directly (Greenhouse, Ashby, Lever, Workday,
-Jobvite, Esri's bespoke API, SmartRecruiters, Avature, Rippling, and JazzHR), stores every
-posting in SQLite, applies a small set of safe
-factual filters, and uses Claude for the judgment-sensitive screening (product-vs-consulting,
-required-vs-preferred fit, compensation credibility, whether a role is actually attainable rather
-than a hidden staff-level stretch). A cheap first-pass Claude screen and prompt caching keep LLM
-spend low enough to run against a large registry regularly. It reports exactly how many companies,
-boards and postings it processed — it never claims "comprehensive" coverage beyond what the
-employer registry actually contains.
+A personal job-search pipeline. It crawls the career boards of a curated list of companies, keeps
+the software-engineering postings, rejects the ones that fail hard facts (salary, remote
+eligibility, employment type) in code, and has Claude judge the rest against a candidate profile.
+The output is a ranked report of roles worth applying to, each linked to its posting.
 
-## What this is (and isn't)
+It searches only the employer registry you give it, and every report states exactly how many
+companies and postings were processed — never an implied "comprehensive" coverage.
 
-- It searches the **employer registry you give it** — curated YAML/CSV files under `data/`, not a
-  claim of market coverage. Add or swap companies with `python -m jobscan companies import`;
-  nothing in Python needs to change.
-- It only searches for **software/backend/data engineering roles**. A crawl-time filter
-  (`jobscan/job_family.py`) keeps a company's Sales, Support, Legal, People, and Product postings
-  out of the database entirely — this is a job-search tool, not a generic careers-page mirror.
-- Python only ever rejects **facts** (salary ceiling below your configured minimum, or nothing
-  published at all; explicit hybrid/on-site; explicit contract/part-time/intern; a company already
-  confirmed as a staffing shop). Every judgment call — is this really a product company, does "AWS
-  or Azure" vs "deep AWS expertise" matter, is the seniority right, is a "borderline" role actually
-  worth applying to or just a mislabeled reject — goes to Claude, cached by description hash so a
-  posting is never re-evaluated unless its text actually changes.
+## How it works
 
-## Requirements
+```
+crawl ──► title gate ──► factual filters ──► triage (Haiku) ──► full evaluation (Sonnet) ──► report
+          (code)          (code)              cheap, may skip     cached per description
+```
 
-- Windows with PowerShell
-- Python 3.12+ (developed against 3.14)
-- An [Anthropic API key](https://console.anthropic.com/) for the `evaluate` step (crawling and
-  reporting work without one; postings just stay "unverified" until you add a key)
+1. **Crawl.** One adapter per job-board platform fetches every active company's current
+   postings. A title gate (`jobscan/job_family.py`) drops anything that isn't a software, data or
+   platform engineering role before it's stored. New, changed and closed postings are tracked;
+   nothing is deleted.
+2. **Factual filters (code).** A posting is rejected without any LLM call when its published
+   salary range tops out below `min_base_salary`, or it publishes no salary; when it isn't remote
+   (on-site, hybrid, or never mentions remote work) or excludes the candidate's state; when it
+   isn't full-time; or when the company is confirmed as consulting/staffing.
+3. **Triage (cheap model).** A fast, lenient screen may skip a posting only for a fixed list of
+   reasons — Staff-or-above title, people management, not remote, excluded industry, not an
+   engineering job, a required unfamiliar language, a required specialty — and must quote the
+   posting's own words for it. Code checks the quote is really there, decides Staff+ from the title
+   and management from a manager title, and rejects location quotes that actually offer remote
+   work. Anything else goes to the full evaluation.
+4. **Full evaluation (main model).** One structured call per posting, against
+   `config/candidate_profile.yaml`: requirement by requirement (required vs. preferred, by the
+   posting's own wording), growth dimensions, hidden staff-level scope, compensation and remote
+   eligibility, then scope fit, verdict and a yes/no on whether it's worth applying. Companies of
+   unknown type get one separate, cached product-vs-consulting call.
+5. **Report.** Markdown, CSV and JSON in `out/`, timestamped in Seattle time.
 
-## Setup (PowerShell)
+Verdicts are cached by description text: a posting is re-judged only when its text changes, or on
+request after the rubric changes (see [Changing the rubric](#changing-the-rubric)).
+
+## Setup (Windows, PowerShell)
+
+Needs Python 3.12+ (developed on 3.14) and an [Anthropic API key](https://console.anthropic.com/)
+for the evaluate step; crawling and reporting work without one.
 
 ```powershell
-cd C:\Users\jpvin\Src\Python\JobScan
-
-# Create and activate a virtual environment
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1          # if blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+pip install -e ".[dev]"
+playwright install chromium           # one adapter (Esri) renders pages in a headless browser
 
-# Install dependencies
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-pip install -e .
-
-# One adapter (Esri) renders posting pages with a real headless browser; download it once
-playwright install chromium
-
-# Configure your API key
-Copy-Item .env.example .env
-notepad .env   # set ANTHROPIC_API_KEY=sk-ant-...
+Copy-Item .env.example .env           # then set ANTHROPIC_API_KEY=sk-ant-...
+python -m jobscan companies import data/jobscan_companies_2026-09-29.yaml
 ```
 
-If PowerShell blocks the activation script, run once (as your normal user, not admin):
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
-
-## Quick start (PowerShell)
+## Daily use
 
 ```powershell
-# 1. Load a curated employer registry file (additive by default)
-python -m jobscan companies import data/jobscan_companies_2026-09-29.yaml
-
-# 2. Crawl every active company's board
-python -m jobscan crawl
-
-# 3. Filter + screen with Claude (costs real API usage; see --limit below)
-python -m jobscan evaluate
-
-# 4. Generate Markdown/CSV/JSON reports into .\out\
-python -m jobscan report
-
-# ...or do all three in one shot:
-python -m jobscan run
+python -m jobscan run        # crawl + evaluate + report
 ```
 
-Reports land in `out\report_<timestamp>.{md,csv,json}`, timestamped in Seattle local time (e.g.
-`report_20260913T223640PT.md` — the `PT` suffix covers both PST and PDT, whichever is in effect).
-Open the `.md` file first — it has the run statistics and four ranked sections: **Best Bets**
-(at-level strong/plausible matches), **Growth Bets** (a genuine one-step-up role with no more than
-one material growth dimension), **Attractive Stretches** (real overlap but two or more unproven
-scope dimensions — aspirational, not a Best Bet), and **Rejected or Unverified** (everything else,
-including anything Claude judged not actually worth applying to regardless of its nominal verdict).
+Open the newest `out\report_<timestamp>PT.md`. It has the run statistics, then:
+
+| Section | Meaning |
+|---|---|
+| **Best Bets** | Strong or plausible match at your level |
+| **Growth Bets** | Plausible match one step up — no more than one material growth dimension |
+| **Attractive Stretches** | Real overlap but a genuine stretch, still judged worth applying to |
+| **Rejected or Unverified** | Everything else, each with its primary reason |
+
+To see why postings were filtered out — useful for spotting a wrongly rejected role — run
+`python -m jobscan audit`.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `python -m jobscan companies import <file.csv\|.yaml> [--replace\|--delete]` | Add/update employers in the registry; optionally make the file the complete active set |
-| `python -m jobscan companies list [--all]` | List registered companies (active only by default) |
-| `python -m jobscan crawl` | Fetch current postings for every active company |
-| `python -m jobscan evaluate [--limit N] [--refresh-stale]` | Apply factual filters, then LLM-screen new/changed postings. `--limit` caps the number of *real LLM calls* made this run (factual filtering and cache hits are free and unaffected) — useful for bounding spend, e.g. `--limit 15`. `--refresh-stale` also re-screens postings whose cached verdict predates the current rubric (see below) |
-| `python -m jobscan report [--out DIR]` | Generate Markdown/CSV/JSON reports from the current database state |
-| `python -m jobscan run [--out DIR] [--limit N] [--refresh-stale]` | Crawl, evaluate, and report in sequence |
-| `python -m jobscan audit [--out DIR]` | Report every filtered posting (factual or LLM) and why, so false negatives can be reviewed |
-| `python -m jobscan overrides set <job\|company> <id> <field> <value> [--reason TEXT]` | Manually force a verdict (`job ... verdict strong_match`) or a company classification (`company ... classification consulting`) |
+| `crawl` | Fetch current postings for every active company |
+| `evaluate [--limit N] [--refresh-stale]` | Filter and screen new/changed postings. `--limit` caps real LLM calls; `--refresh-stale` also re-screens verdicts made under an older rubric |
+| `report [--out DIR]` | Write the Markdown/CSV/JSON report from the current database |
+| `run [--out DIR] [--limit N] [--refresh-stale]` | `crawl`, `evaluate` and `report` in sequence |
+| `audit [--out DIR]` | Every filtered posting and the reason (factual filter, triage or full evaluation) |
+| `companies import <file> [--replace\|--delete]` | Add/update companies from a YAML or CSV registry file |
+| `companies list [--all]` | List companies (active only unless `--all`) |
+| `overrides set job <id> verdict <value> [--reason TEXT]` | Force a job's verdict; bypasses filters and the LLM |
+| `overrides set company <id> classification <value>` | Force a company's product/consulting classification |
 
-Run any command with no arguments to see this same list: `python -m jobscan --help`.
+All commands are `python -m jobscan <command>`; `python -m jobscan --settings PATH <command>` uses
+another settings file.
 
-Before running `evaluate` or `run` without `--limit` against the full registry, it's worth doing a
-free dry run first (build `Settings` with `anthropic_api_key=None` and call `evaluate_all()`) —
-this runs the real factual filters with zero LLM calls and reports exactly how many postings
-*would* be sent, so you can estimate cost from real counts instead of a guess.
+## Costs
 
-Verdicts are cached by description text, so editing `config/candidate_profile.yaml` or the
-prompts doesn't by itself change any posting already judged. Every verdict records the *rubric
-version* it was made under (a fingerprint of the prompt, tool schema and profile behind it — full
-evaluations and triage screen-outs are versioned separately, so a triage-only change re-checks
-only the triage screen-outs); `--refresh-stale` re-screens the ones made under an older rubric. It spends money in proportion to
-the whole cached set, so dry-run it the same way (`evaluate_all(..., refresh_stale=True)` without a
-key counts them) and cap it with `--limit` if needed.
+Only `evaluate` (and `run`) spend money. Crawling, reporting, auditing and cache hits are free,
+and both LLM calls cache the shared system prompt, tool schema and candidate profile. A daily run
+sends only new or changed postings, so it usually costs cents; re-screening the whole cached set
+after a rubric change is the expensive operation.
+
+Check what a run would send before running it — this applies the real filters with no API calls
+and stores no verdicts (it does log a run, so a `report` right after it shows the dry run's
+statistics until the next real `evaluate`):
+
+```powershell
+python -c "import dataclasses; from jobscan.config import load_settings; from jobscan.db import Database; from jobscan.evaluate import evaluate_all; s = dataclasses.replace(load_settings(), anthropic_api_key=None); print(evaluate_all(Database(s.db_path), s).unverified, 'postings would be sent')"
+```
+
+(`evaluate_all(..., refresh_stale=True)` counts a full re-screen the same way.) Each run prints its
+estimated cost, computed from the pricing table in `config/settings.yaml` — keep that table in
+step with current model prices.
+
+## Changing the rubric
+
+The screening rubric is the system prompts (`jobscan/llm/prompts.py`), the tool schemas
+(`jobscan/llm/schemas.py`) and `config/candidate_profile.yaml`. Every verdict records a
+fingerprint of the rubric it was made under — full evaluations and triage screen-outs separately.
+Editing any of them doesn't re-judge cached verdicts; it marks them stale.
+`evaluate --refresh-stale` re-screens the stale ones (a profile change marks everything stale, a
+triage-prompt change only triage screen-outs). Dry-run it first, and validate a change on a handful
+of known postings — some that should pass, some that must stay rejected — before re-screening
+everything.
 
 ## Configuration
 
-- **Secrets** (`ANTHROPIC_API_KEY`) go in `.env` (gitignored) or real environment variables —
-  never in `config/*.yaml`.
-- **`config/settings.yaml`** — the Claude model name and pricing table (for cost estimates), an
-  optional cheaper `triage_model` for the first-pass screen (see below), your minimum acceptable
-  base salary (`min_base_salary`), and your employment-eligible state. Change the model here, not
-  in code.
-- **`config/candidate_profile.yaml`** — the full candidate profile (skills, target roles,
-  exclusions, qualification-interpretation rules, and the compensation rule Claude applies) sent
-  to Claude on every evaluation. Edit this file to tune what gets recommended; no code changes
-  needed.
+- **`.env`** — `ANTHROPIC_API_KEY` (never in a YAML file).
+- **`config/settings.yaml`** — main and triage model, pricing for cost estimates,
+  `min_base_salary`, the candidate's state, database and output paths.
+- **`config/candidate_profile.yaml`** — skills, accomplishments, target roles, roles to avoid,
+  qualification-interpretation rules, the compensation rule and hard filters, sent with every
+  evaluation. This is where to tune what gets recommended.
 
-### Keeping LLM cost down
+## The employer registry
 
-Two things keep this affordable even against a large, regularly-refreshed registry:
+`data/jobscan_companies_2026-09-29.yaml` is the list of companies to search. Code reads `name`,
+`domain`, `careers_url`, `ats_type`, `board_id`, `classification`, `active`, `applied`,
+`discovery_source` and `notes`; the rest (`priority`, `fit_lanes`, `remote_signal`,
+`compensation_signal`, `evidence_level`) is research metadata for you. Priorities follow a simple
+evidence scale: **A-** has a role on the current shortlist, **B+** roles regularly reach
+evaluation but none fit yet, **B** few reach evaluation, **C** low-yield watch (nearly every
+posting non-remote, excluding your state, or unpriced).
 
-- **Prompt caching** — the system prompt, tool schema, and candidate-profile block are marked
-  cacheable on every call, so only the specific job posting's text is billed at full input price
-  on repeat evaluations of similar postings.
-- **A cheap triage pass** (`triage_model` in `config/settings.yaml`) — a smaller/cheaper model
-  gives a fast, deliberately lenient yes/no on whether a posting is even worth the full evaluation
-  before the expensive call is made. It's tuned to only skip postings a careful reviewer would also
-  reject outright; any real ambiguity falls through to the full evaluation. Leave `triage_model`
-  unset to disable it and send every posting straight to full evaluation.
+`companies import` is additive. `--replace` makes the file the complete active set, deactivating
+anything absent (reversible; history kept). `--delete` permanently removes absent companies and all
+their job and evaluation history.
 
-Both are silent, cache-hit style optimizations — they don't change what a posting is ultimately
-judged on, only how much of that judgment has to be paid for on each run.
+**Crawled platforms (`ats_type`):** `greenhouse`, `ashby`, `lever`, `workday`, `jobvite`,
+`smartrecruiters`, `avature`, `rippling`, `jazzhr`, `icims` (classic portal) and `esri`. `board_id`
+is the company's token in that platform's public URL (Workday uses `tenant/cluster/site`, and
+Workday, SmartRecruiters and Avature accept the platform's own server-side filters as a query
+string — see each adapter's docstring). `taleo`, `phenom`, `eightfold`, `successfactors` and
+`custom` can be recorded but have no adapter; keep those companies `active: false`. JobScan never
+works around a deliberate anti-bot measure — boards that block automated access (Akamai's,
+Eightfold tenants, some Avature tenants) stay inactive, to check by hand.
 
-## Adding more companies
+## Data
 
-```powershell
-# CSV columns: name, domain, careers_url, ats_type, board_id, classification, discovery_source, notes
-# ats_type: greenhouse, ashby, lever, workday, jobvite, esri, smartrecruiters, avature, rippling,
-# jazzhr and icims are actually crawled. taleo, phenom, eightfold, successfactors and custom are also
-# accepted (so a registry can record "this company uses X" for later), but have no adapter — keep
-# those rows active=false, or they'll show up as a failed board with "no adapter registered".
-# board_id is the token in that ATS's public API URL, e.g. boards-api.greenhouse.io/v1/boards/<board_id>
-# (Workday encodes "{tenant}/{cluster}/{site}" instead of a single token — see jobscan.adapters.workday)
-# For big multinational boards, workday, smartrecruiters and avature board_ids can append the ATS's
-# own server-side filters as a query string, so only matching postings are ever fetched — e.g.
-# "acme/wd5/Careers?locationCountry=bc33aa3152ec42d4995f4791a106ed09" (Workday's US facet id) or
-# "Acme?country=us" (SmartRecruiters). See each adapter's docstring for how to find the ids.
-python -m jobscan companies import my_companies.csv
-```
+Everything lives in `data/jobscan.db` (SQLite, not committed). Closed postings are marked closed,
+never deleted, and a posting's previous text is snapshotted whenever it changes, so `crawl` is
+always safe to re-run.
 
-YAML works too — either a bare list or `{companies: [...]}`. Field names are `board_id` and
-`classification` in both CSV and YAML (no alternate spellings are accepted — keep registry files
-conformed to this schema). `classification` and `discovery_source` are optional; leave
-`classification` blank/`unknown` to let the LLM classify the company itself (cached indefinitely,
-or override any time with `overrides set company ...`).
-
-Import is additive by default (existing companies not in the file are left alone). Two flags
-change that scope, mutually exclusive with each other:
+## Development
 
 ```powershell
-# The file becomes the complete active registry; anything absent is deactivated (reversible —
-# history and postings are kept, and re-importing a company reactivates it).
-python -m jobscan companies import my_companies.yaml --replace
-
-# Same, but PERMANENTLY DELETES absent companies and all their job/evaluation history instead
-# of deactivating them. Irreversible — only use this when you actually want that data gone.
-python -m jobscan companies import my_companies.yaml --delete
-```
-
-## Manual overrides
-
-Overrides always win over the automated pipeline and are checked before any LLM call:
-
-```powershell
-# Force a verdict on a specific job (skips both factual filters and the LLM for that job)
-python -m jobscan overrides set job 123 verdict strong_match --reason "I know this team"
-
-# Permanently mark a company as consulting/staffing (skips its postings without an LLM call)
-python -m jobscan overrides set company 7 classification consulting --reason "Confirmed via LinkedIn"
-```
-
-## How it decides
-
-**Python (facts):** salary ceiling below your configured minimum salary (or nothing published at
-all — see `min_base_salary` in `config/settings.yaml`), explicit hybrid/on-site, explicit
-contract/part-time/intern, a company already confirmed as consulting/staffing. A crawl-time title
-gate also keeps non-engineering postings out of the database entirely (see
-`jobscan/job_family.py`) — this doesn't judge fit, only whether a title reads as a
-software/backend/data engineering role at all.
-
-**Claude (judgment):** a cheap first-pass triage call (optional, see "Keeping LLM cost down" above)
-screens out the postings a careful reviewer would obviously reject, before the full evaluation
-runs on everything else. The full evaluation — one call per posting, cached by description hash —
-judges product company vs. consulting/client-delivery, required vs. preferred qualifications, exact
-matches, material gaps, minor/preferred-only gaps, whether frontend/AI-agent/distributed-systems
-ownership is central, whether the compensation is credible, whether the role's actual scope (not
-its title) is at, above, or below demonstrated experience, and a final forced yes/no on whether
-applying is genuinely worth it — that last field is what keeps a technically-plausible-looking but
-practically-unattainable stretch (e.g. a "Senior" title that turns out to require deep Rust/Kafka
-ownership) out of the Attractive Stretches section. Company classification is a separate, second
-cached call (once per company, using its homepage text + a sample job description), reused
-indefinitely.
-
-## Data and history
-
-Everything lives in `data\jobscan.db` (SQLite, gitignored). Closed postings are never deleted —
-they're marked `status='closed'` with a `closed_at` timestamp, and every changed description is
-snapshotted to `job_snapshots` before being overwritten, so history is preserved. Re-running
-`crawl` is always safe: unchanged postings are untouched, changed ones are updated in place with
-their prior version archived, and postings that disappeared from a board are closed (not deleted).
-
-## Testing
-
-```powershell
-.\.venv\Scripts\Activate.ps1
 python -m pytest -q
 ```
 
-The suite (261 tests) covers salary parsing and the minimum-salary attainability rule, remote vs.
-hybrid vs. explicit state exclusions, full-time vs. contract/part-time/intern,
-new/changed/closed/duplicate postings, every adapter's pagination and partial board failures
-(including real API quirks like Greenhouse sending explicit `null` for metadata/departments),
-manual overrides, LLM response validation/caching, prompt-caching token accounting, the triage
-pre-screen (including that it never produces a false negative against real historical outcomes),
-mixed-model cost estimation, report ranking/section routing, `load_settings()`'s YAML/env-var
-precedence, the audit-report builder, and CLI argument parsing/dispatch — all against mocked HTTP
-responses and a stub Anthropic client, so the suite never makes a real network or API call.
+The tests use mocked HTTP and a stub Anthropic client — they never touch the network or spend
+money. To support a new job board, implement `jobscan.adapters.base.SourceAdapter`, register it in
+`jobscan/adapters/__init__.py`, and add tests built from the board's real responses.
+`CLAUDE.md` has the working conventions (cost checks, where code may and may not judge postings,
+schema field order, line endings).
 
-## Known limitations
+## Limitations
 
-- The employer registry is a curated list you control, not a claim of market coverage. The tool
-  will always report the exact number it actually crawled, not an implied "comprehensive" number.
-- Eleven ATS platforms are actually crawled: Greenhouse, Ashby, Lever, Workday, Jobvite, Esri's
-  own bespoke API, SmartRecruiters, Avature, Rippling, JazzHR, and iCIMS's classic job portal
-  (board_id = the portal subdomain, e.g. `uscareers-yelp`). Avature's gating is tenant-specific
-  — some companies' boards actively 403/reCAPTCHA-gate automated access and stay unsupported,
-  while others serve the same pages as plain, non-gated HTML and are crawled normally. A registry
-  can record that a company uses Taleo, Phenom, SuccessFactors, or a gated Avature/Eightfold
-  tenant so the finding isn't lost, but none of those have (or will get) an adapter — this tool
-  never attempts to defeat a deliberate anti-bot measure. Add a new adapter by implementing
-  `jobscan.adapters.base.SourceAdapter`.
-- The job-family and location/salary parsers are regex-based heuristics tuned against real data
-  from several live boards during development; they will occasionally miss an edge case (an
-  unusually worded title, a novel salary format). That's what `python -m jobscan audit` and the
-  manual-override commands are for.
-- No web UI, scheduler, or cloud deployment — this is a CLI you run when you want fresh results.
+- Coverage is exactly the registry, no more.
+- The title gate and the salary/location parsers are heuristics tuned on real boards; an unusual
+  title or salary format can slip through or be dropped. `audit` and manual overrides cover that.
+- LLM judgment is fallible in both directions. Spot-check skips with `audit` now and then — a
+  sampled second opinion on triage skips has found misses before.
+- A CLI you run when you want fresh results — no scheduler or UI.
