@@ -157,6 +157,8 @@ class JobEvaluationResult(BaseModel):
     scope_fit: ScopeFit = Field(
         description="Whether the role's actual scope is at, one step above, two-plus steps "
         "above, or below demonstrated experience — independent of title or keyword overlap. "
+        "below_level only when the work itself is junior (close supervision, early-career or "
+        "new-grad scope) — never because the stated requirements are modest or easy to meet. "
         "below_level is never by itself a reason to reject: with passing pay and backend work, "
         "the verdict follows the evidence as for an at_level role."
     )

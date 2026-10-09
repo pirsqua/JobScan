@@ -180,7 +180,12 @@ more than one material growth dimension.
    - two_plus_steps_up: the role combines at least two material unproven dimensions, or expects a \
 substantially deeper repeated track record than demonstrated.
    - below_level: the described work itself would materially underuse the candidate (junior \
-tasks, close supervision) — never because of the title alone. Being below level is not a reason \
+tasks, close supervision, an explicitly early-career or new-grad role) — never because of the \
+title alone, and never because the stated requirements are modest or easy for the candidate to \
+meet: a low years-of-experience minimum, "previous work or internship experience", or standard \
+expectations (code review, debugging, designing a multi-component system) describe the hiring bar, \
+not junior work (observed: a Senior backend role paying $195,000-$255,000 called below_level for \
+that alone, pushing it out of the Best Bets). Being below level is not a reason \
 to reject: when the pay passes the compensation rule and the work is a backend fit, give the \
 verdict the evidence supports, exactly as for an at_level role (observed: an "early-career, 1.5+ \
 years" backend role paying $165,000-$225,000 at 95% coverage was rejected for its level alone).
