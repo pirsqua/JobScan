@@ -280,7 +280,24 @@ class TriageResult(BaseModel):
     disqualifier_quote: str = Field(
         description="When skipping: the posting's exact words that establish the disqualifier, "
         "copied character for character from the title or text — one phrase or sentence, no "
-        "paraphrase or ellipsis. Empty string when not skipping."
+        "paraphrase or ellipsis. Empty string when not skipping. For a skill category the quote "
+        "must be a stated requirement the candidate cannot meet — never a responsibility (\"You'll "
+        "help build the authentication, authorization, and access-management primitives\"), never "
+        "a \"familiarity with\" or \"exposure to\" item, and never one with an alternative the "
+        "candidate meets (\"Go, Java, or another applicable backend language\"; \"Proficiency in Go "
+        "(or a strong willingness to ramp quickly)\"; \"Exposure to, or strong interest in, "
+        "building on top of large language models\"). If that is the strongest quote there is, "
+        "don't skip."
+    )
+    quote_is_hard_requirement: bool = Field(
+        description="About the quote alone: is it a hard requirement this candidate cannot meet? "
+        "False when it is a responsibility rather than a requirement; when it asks only for "
+        "familiarity, exposure, interest or willingness to learn; when it offers an alternative "
+        "the candidate meets (\"or another applicable backend language\", \"or a strong "
+        "willingness to ramp quickly\", \"or strong interest in\"); when it is preferred, ideal "
+        "or a plus; or when the candidate's profile shows they meet it (e.g. hands-on use of AI "
+        "coding tools such as Claude Code). True for a quote that really rules the candidate out, "
+        "and for the title and location categories. False when not skipping."
     )
     disqualifier: TriageDisqualifier = Field(
         description="The one category from the instructions that justifies skipping, or none."

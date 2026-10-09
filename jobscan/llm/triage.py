@@ -14,6 +14,7 @@ import re
 
 from pydantic import ValidationError
 
+from jobscan.job_family import names_software_role
 from jobscan.llm.client import AnthropicClient, LlmCallError
 from jobscan.llm.prompts import TRIAGE_SYSTEM, build_candidate_profile_block, build_triage_user_message
 from jobscan.llm.schemas import TRIAGE_TOOL_NAME, TRIAGE_TOOL_SCHEMA, TriageResult
@@ -94,8 +95,16 @@ def skip_is_substantiated(
     ])))
     if not _quoted_from(result.disqualifier_quote, posting):
         return False
+    if result.disqualifier in ("required_unfamiliar_language", "required_specialty") and not result.quote_is_hard_requirement:
+        # The model's own answer about its quote, asked narrowly before the decision. Observed: a
+        # skip quoting "Exposure to, or strong interest in, building on top of large language
+        # models" — the very example its instructions forbid — while the decision field said skip.
+        return False
     if result.disqualifier == "people_management":
         return bool(_MANAGER_TITLE_RE.search(title))
+    if result.disqualifier == "not_engineering":
+        # Observed live: "Software Engineer, AI Enablement" skipped as not engineering.
+        return not names_software_role(job.title)
     if result.disqualifier == "not_remote":
         quote = _normalize(result.disqualifier_quote)
         if _PREFERENCE_RE.search(quote):

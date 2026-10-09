@@ -76,6 +76,11 @@ _LANGUAGE_RE = re.compile(
 )
 
 
+def names_software_role(title: str) -> bool:
+    """True if the title names software development outright ("Software Engineer, AI Enablement")."""
+    return bool(_SOFTWARE_ROLE_RE.search(title))
+
+
 def is_engineering_title(title: str) -> bool:
     """True if this title reads as a software/backend/data engineering role worth keeping in a
     software-engineering job search. Errs toward inclusion on genuinely ambiguous titles."""

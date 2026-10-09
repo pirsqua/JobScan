@@ -23,17 +23,18 @@ def job(title="Senior Software Engineer", description="", location="Remote - US"
     )
 
 
-def skip(disqualifier: str, quote: str) -> TriageResult:
-    return TriageResult(disqualifier_quote=quote, disqualifier=disqualifier, skip_full_evaluation=True, reason="r")
+def skip(disqualifier: str, quote: str, hard: bool = True) -> TriageResult:
+    return TriageResult(disqualifier_quote=quote, quote_is_hard_requirement=hard, disqualifier=disqualifier,
+                        skip_full_evaluation=True, reason="r")
 
 
 class TestQuoteMustBeInThePosting:
     def test_not_skipping_is_never_a_skip(self):
-        result = TriageResult(disqualifier_quote="", disqualifier="none", skip_full_evaluation=False, reason="r")
+        result = TriageResult(disqualifier_quote="", quote_is_hard_requirement=False, disqualifier="none", skip_full_evaluation=False, reason="r")
         assert not skip_is_substantiated(result, job())
 
     def test_skip_without_a_category(self):
-        result = TriageResult(disqualifier_quote="x", disqualifier="none", skip_full_evaluation=True, reason="r")
+        result = TriageResult(disqualifier_quote="x", quote_is_hard_requirement=True, disqualifier="none", skip_full_evaluation=True, reason="r")
         assert not skip_is_substantiated(result, job(description="x"))
 
     def test_quote_not_in_the_posting(self):
@@ -92,6 +93,30 @@ class TestTitles:
         # Observed live (Affirm PBA - Growth, a Senior role): tech-leading claimed as management.
         quote = "leading engineers on your team through ambiguity"
         assert not skip_is_substantiated(skip("people_management", quote), job(description=quote))
+
+
+class TestHardRequirement:
+    def test_a_skill_skip_the_model_itself_calls_not_a_hard_requirement_is_overruled(self):
+        # GitLab: skipped quoting "Exposure to, or strong interest in, ..." — the very example its
+        # instructions forbid.
+        quote = "Exposure to, or strong interest in, building on top of large language models"
+        assert not skip_is_substantiated(skip("required_specialty", quote, hard=False), job(description=quote))
+
+    def test_the_answer_only_gates_skill_categories(self):
+        quote = "50% Telecommuting permitted."
+        assert skip_is_substantiated(skip("not_remote", quote, hard=False), job(description=quote))
+
+
+class TestNotEngineering:
+    def test_a_title_naming_software_engineering_is_overruled(self):
+        quote = "reporting to our co-founder, working alongside our first AI enablement engineer"  # Tailscale
+        posting = job(title="Software Engineer, AI Enablement", description=quote)
+        assert not skip_is_substantiated(skip("not_engineering", quote), posting)
+
+    def test_an_engineering_sounding_title_for_another_profession_is_honoured(self):
+        quote = "Partner with account executives to run technical demos"
+        posting = job(title="Senior Solutions Engineer", description=quote)
+        assert skip_is_substantiated(skip("not_engineering", quote), posting)
 
 
 class TestLocation:
