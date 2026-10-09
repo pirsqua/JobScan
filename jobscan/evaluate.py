@@ -277,7 +277,10 @@ def evaluate_all(
                     stats.triage_output_tokens += t_out
                     stats.triage_cache_creation_input_tokens += t_cache_w
                     stats.triage_cache_read_input_tokens += t_cache_r
-                    if triage_result.skip_full_evaluation and not skip_is_substantiated(triage_result, job):
+                    if triage_result.skip_full_evaluation and not skip_is_substantiated(
+                        triage_result, job, settings.candidate_state, settings.candidate_state_name,
+                        settings.candidate_time_zone,
+                    ):
                         stats.triage_overruled += 1
                         logger.info(
                             "triage skip not substantiated by the posting — running the full evaluation",

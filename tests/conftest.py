@@ -33,6 +33,8 @@ def settings(tmp_path: Path) -> Settings:
         http_user_agent="JobScan-Test/0.1",
         anthropic_api_key=None,
         profile_path=Path(__file__).resolve().parent.parent / "config" / "candidate_profile.yaml",
+        # Never the real data/applications.yaml — tests that need applications write their own.
+        applications_path=tmp_path / "applications.yaml",
     )
 
 

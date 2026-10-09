@@ -106,6 +106,38 @@ class TestSalaryParsing:
         assert result.salary_period == "hour"
         assert result.salary_min == 85
 
+    # Real wordings that the parser once misread, each of which rejected the posting outright
+    # (as "no salary published" or as a max below $170,000) before any LLM saw it.
+    def test_currency_code_after_each_bound_in_a_between_range(self):
+        # 1Password: read as a flat $153,000 and rejected as below the minimum.
+        result = parse_salary_from_text("The annual base salary for this role is between $153,000 USD and $214,000 USD, plus benefits.")
+        assert (result.salary_min, result.salary_max) == (153000, 214000)
+
+    def test_extra_spaces_around_range_numbers(self):
+        # Grafana and Affirm: double spaces from HTML-to-text conversion, read as no salary at all.
+        grafana = parse_salary_from_text("In the United States, the Base compensation range for this role is USD  174,986  - USD  209,983 .")
+        affirm = parse_salary_from_text("USA base pay range (CA, WA, NY, NJ, CT) per year:\xa0 165,000\xa0 -\xa0 225,000")
+        assert (grafana.salary_min, grafana.salary_max) == (174986, 209983)
+        assert (affirm.salary_min, affirm.salary_max) == (165000, 225000)
+
+    def test_k_written_once_applies_to_both_ends(self):
+        result = parse_salary_from_text("Salary range: $170-210K")
+        assert (result.salary_min, result.salary_max) == (170000, 210000)
+
+    def test_highest_pay_zone_is_used_not_the_first_listed(self):
+        # Twilio lists its lowest zone first; rejecting on it dropped roles whose Washington band
+        # clears $170,000.
+        text = (
+            "Based in Colorado, Hawaii or Illinois: the pay range is $132,640.00 - $165,800.00. "
+            "Based in New York, New Jersey, Washington State, or California: the pay range is $150,000.00 - $187,500.00."
+        )
+        result = parse_salary_from_text(text)
+        assert (result.salary_min, result.salary_max) == (150000, 187500)
+
+    def test_unrecognized_range_shape_keeps_its_ceiling(self):
+        result = parse_salary_from_text("The base salary is $150,000 for entry, rising to a base salary of $185,000.")
+        assert (result.salary_min, result.salary_max) == (150000, 185000)
+
     def test_structured_takes_precedence_over_text(self):
         result = resolve_salary(150000, 190000, "USD", "year", "This role pays $999,000 - $1,000,000 (typo in description).")
         assert result.salary_min == 150000
@@ -218,6 +250,38 @@ class TestLocationParsing:
 
     def test_remote_tied_to_uk_city_is_restricted(self):
         scope, _ = normalize_location("London, UK (Remote)", None, WorkplaceType.REMOTE)
+        assert scope == RemoteScope.REMOTE_US_RESTRICTED
+
+    def test_washington_dc_exclusion_does_not_exclude_washington_state(self):
+        # Samsara: this sentence rejected every Samsara posting as excluding Washington State.
+        text = (
+            "This position open to candidates residing in the US except the San Francisco Bay Metro "
+            "Area, NYC Metro Area, and Washington, D.C. Metro Area."
+        )
+        scope, _ = normalize_location("Remote - US", text, WorkplaceType.REMOTE)
+        assert scope == RemoteScope.REMOTE_US
+
+    def test_distributed_location_is_remote(self):
+        # Cloudflare's word for remote; read as a posting that never mentions remote work.
+        scope, _ = normalize_location("Distributed", "Build the security platform.", None)
+        assert scope == RemoteScope.REMOTE_US
+
+    @pytest.mark.parametrize(
+        "location, workplace",
+        [("United States (Remote)", WorkplaceType.HYBRID), ("Remote or Hybrid - Seattle, WA", None)],
+    )
+    def test_remote_location_contradicting_a_hybrid_label_is_deferred(self, location, workplace):
+        scope, _ = normalize_location(location, None, workplace)
+        assert scope == RemoteScope.UNKNOWN
+
+    @pytest.mark.parametrize("location", ["Remote - New Mexico", "Remote - Toronto or Seattle, WA", "Remote - Dublin, OH"])
+    def test_non_us_word_in_a_location_that_names_a_us_state_is_not_restricted(self, location):
+        scope, _ = normalize_location(location, None, WorkplaceType.REMOTE)
+        assert scope != RemoteScope.REMOTE_US_RESTRICTED
+
+    def test_canadian_provinces_with_or_are_still_restricted(self):
+        # "OR" here is the word, not Oregon.
+        scope, _ = normalize_location("Remote - Ontario OR British Columbia", None, WorkplaceType.REMOTE)
         assert scope == RemoteScope.REMOTE_US_RESTRICTED
 
 

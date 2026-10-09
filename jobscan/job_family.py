@@ -6,54 +6,72 @@ Support, Legal, People, Design, Product, and warehouse/retail postings never ent
 or get anywhere near an LLM call. It deliberately stays permissive on specialty and seniority
 (DevOps, SRE, QA, frontend, Principal, EM titles all still pass) — sorting those against the
 candidate's actual fit is the LLM's job, not a title regex's.
+
+The rule is generic on purpose: any engineer/developer-type title passes unless it names a
+different profession. An earlier allowlist of specific phrases ("data engineer", "platform
+engineer", ...) silently dropped real backend roles whose titles nobody had thought of — Product
+Engineer, Analytics Engineer, Managing Engineer (C#/ASP.NET), Software Architect. A posting this
+gate drops is never seen again, while a non-software posting it lets through costs one cheap
+triage call, so ambiguity resolves toward keeping the posting.
 """
 from __future__ import annotations
 
 import re
 
-# Titles that are a software/backend/data/platform engineering role. Matched as substrings, so
-# "Senior Software Engineer II" and "Software Engineer, Growth" both match "software engineer".
-_ENGINEERING_TITLE_RE = re.compile(
+# Titles that name software development outright. These win over the profession list below, so a
+# team name can't drop a real role ("Senior Full-Stack Software Engineer, Developer Success",
+# "Software Engineer, Support Tools").
+_SOFTWARE_ROLE_RE = re.compile(
     r"\b("
-    r"software\s+(development\s+)?engineer|software\s+developer|"
-    r"backend\s+engineer|back-end\s+engineer|"
-    r"full[\s-]?stack\s+(software\s+)?engineer|"
-    r"data\s+engineer|platform\s+engineer|applications?\s+engineer|"
-    r"api\s+engineer|integration\s+engineer|"
-    r"infrastructure\s+engineer|cloud\s+engineer|devops\s+engineer|"
-    r"site\s+reliability\s+engineer|\bsre\b|"
-    r"machine\s+learning\s+engineer|\bml\s+engineer|ai\s+engineer|"
-    r"security\s+engineer|"
-    r"principal\s+engineer|staff\s+engineer|lead\s+engineer|senior\s+engineer|"
-    r"engineering\s+manager|director\s+of\s+engineering|vp\s+of\s+engineering|"
-    r"\bswe\b|\bsde\b|\bdeveloper\b|\bprogrammer\b|"
-    r"member\s+of\s+technical\s+staff|technical\s+lead|tech\s+lead|"
-    r"qa\s+engineer|quality\s+assurance\s+engineer|test\s+engineer|automation\s+engineer|sdet|"
-    r"frontend\s+engineer|front-end\s+engineer|mobile\s+engineer|"
-    r"android\s+(engineer|developer)|ios\s+(engineer|developer)|"
-    r"firmware\s+engineer|embedded\s+(engineer|software)|reliability\s+engineer|"
-    r"systems?\s+engineer"
+    r"software\s+(development\s+|dev\s+)?(engineer|developer)\w*|"
+    r"back-?end\s+(software\s+)?(engineer|developer)\w*|"
+    r"full[\s-]?stack\s+(software\s+)?(engineer|developer)\w*|"
+    r"swe|sde|sdet|programmer\w*"
     r")\b",
     re.IGNORECASE,
 )
 
-# Matched separately from _ENGINEERING_TITLE_RE: a leading "." (as in ".NET Engineer") is not a
-# word character, so it can never satisfy a preceding \b boundary — wrapping it in the same
-# \b(...)\b group above would silently never match.
-_DOTNET_RE = re.compile(r"\.net\s+(engineer|developer)", re.IGNORECASE)
-
-# "Engineer" titles that are almost never software-development roles. Checked first so they
-# aren't swept in by a broader match (none of these currently overlap _ENGINEERING_TITLE_RE, but
-# this keeps that guarantee explicit rather than implicit).
-_NON_SOFTWARE_ENGINEER_RE = re.compile(
+# Professions that put "engineer" (or a department name) in the title but aren't software
+# development. "engineer\w*" so "Sales Engineering Manager" is caught as well as "Sales Engineer".
+# The physical-engineering disciplines allow one word in between ("Hardware Testing Engineer",
+# "Electrical Infrastructure Engineer"); _SOFTWARE_ROLE_RE above keeps "Hardware Software
+# Engineer". "network" stays adjacent-only so "Network Security Engineer" still passes as security.
+_OTHER_PROFESSION_RE = re.compile(
     r"\b("
-    r"sales\s+engineer|support\s+engineer|field\s+engineer|network\s+engineer|"
-    r"solutions?\s+engineer|customer\s+engineer|"
-    r"process\s+engineer|manufacturing\s+engineer|mechanical\s+engineer|"
-    r"electrical\s+engineer|civil\s+engineer|chemical\s+engineer|"
-    r"hardware\s+engineer|industrial\s+engineer|validation\s+engineer|"
-    r"escalation\s+engineer"
+    r"(pre-?sales|sales|solutions?|customer(\s+success)?|support|field|escalation|"
+    r"professional\s+services|consulting|technical\s+services|network|business\s+(development|value)|"
+    r"(technical|product)\s+marketing)\s+engineer\w*|"
+    r"(process|manufacturing|mechanical|electrical|electronics?|civil|chemical|structural|"
+    r"hardware|industrial|validation|rf|radio\s+frequency|antenna|mechatronics|drilling|mine|mining|"
+    r"equipment|silicon|fpga|rtl|asic|facilities|voip)(\s+\w+)?\s+engineer\w*|"
+    r"(pre-?sales|sales|solutions?|professional\s+services(\s+technical)?)\s+architect\w*|"
+    r"developer\s+(relations|advocate|advocacy|evangelis\w+)|developer\s+success\s+engineer\w*|"
+    r"(product|ux|ui|visual|graphic|interaction)\s+designer|"
+    r"(product|program|project)\s+manager|technical\s+writer|account\s+(executive|manager)|"
+    r"technician|recruit\w*|sourcer"
     r")\b",
+    re.IGNORECASE,
+)
+
+# Any engineer/developer-type role, however the specialty is phrased.
+_ENGINEERING_ROLE_RE = re.compile(
+    r"\b("
+    r"engineer\w*|developer\w*|swe|sde|sdet|sre|devops|devsecops|"
+    r"member\s+of\s+technical\s+staff|tech(nical)?\s+lead|software\s+development|"
+    r"back-?end|full[\s-]?stack|"
+    r"(software|data|application|cloud|platform|integration|api|backend|systems?|technical)"
+    r"\s+architect\w*"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# A programming language or stack in the title marks a development role even without "engineer"
+# ("Platform (Lead) Consultant - .Net, Azure, API"). Custom boundaries instead of \b: a leading
+# "." or a trailing "#"/"+" is not a word character, so \b would never match around ".NET",
+# "C#" or "C++"; the lookarounds also keep "Java" from matching inside "JavaScript".
+_LANGUAGE_RE = re.compile(
+    r"(?<![\w.])(\.net|c#|c\+\+|python|java|golang|typescript|kotlin|scala|ruby|rails|node\.?js|rust)"
+    r"(?![\w+#])",
     re.IGNORECASE,
 )
 
@@ -61,6 +79,8 @@ _NON_SOFTWARE_ENGINEER_RE = re.compile(
 def is_engineering_title(title: str) -> bool:
     """True if this title reads as a software/backend/data engineering role worth keeping in a
     software-engineering job search. Errs toward inclusion on genuinely ambiguous titles."""
-    if _NON_SOFTWARE_ENGINEER_RE.search(title):
+    if _SOFTWARE_ROLE_RE.search(title):
+        return True
+    if _OTHER_PROFESSION_RE.search(title):
         return False
-    return bool(_ENGINEERING_TITLE_RE.search(title) or _DOTNET_RE.search(title))
+    return bool(_ENGINEERING_ROLE_RE.search(title) or _LANGUAGE_RE.search(title))

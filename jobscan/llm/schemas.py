@@ -17,6 +17,7 @@ RequirementImportance = Literal["central", "secondary"]
 RequirementStrength = Literal["required", "strongly_implied", "preferred", "trait_or_interest"]
 EvidenceClassification = Literal["directly_demonstrated", "credibly_transferable", "weakly_inferred", "not_demonstrated"]
 SpecialistTenureClassification = Literal["meets", "adjacent", "insufficient", "not_applicable"]
+WorkingHoursFit = Literal["compatible", "eastern_or_central_preferred", "eastern_or_central_required"]
 
 _LIST_FIELDS = (
     "required_matches", "required_gaps", "preferred_only_gaps", "minor_caveats", "evidence",
@@ -124,6 +125,22 @@ class JobEvaluationResult(BaseModel):
     remote_employment_verification: str = Field(
         description="Assessment of whether the role is genuinely U.S. remote and open to a "
         "Washington State resident."
+    )
+    working_hours_quote: str = Field(
+        description="The posting's own words about working hours, time-zone overlap or the time "
+        "zone employees must live in, copied from the text — e.g. \"ideally with the ability to "
+        "work within Eastern Time hours\". Empty string when the posting says nothing about hours."
+    )
+    working_hours_fit: WorkingHoursFit = Field(
+        description="Those words against the candidate's Pacific Time working day. "
+        "eastern_or_central_required: the posting requires working Eastern or Central Time hours, "
+        "or living in those time zones — a hard-filter failure, so the verdict is reject. "
+        "eastern_or_central_preferred: it states Eastern or Central hours as an expectation or "
+        "preference (\"ideally with the ability to work within Eastern Time hours\", \"core hours "
+        "9-5 ET preferred\") — a real negative for this candidate: say so in minor_caveats, and "
+        "the role is not a strong_match. compatible: nothing stated, flexible hours, Pacific "
+        "hours, or an overlap a Pacific day meets (\"within ±4 hours of Pacific Time\", \"at "
+        "least 4 hours of overlap with Eastern Time\")."
     )
     compensation_assessment: str = Field(
         description="Whether the published range passes the candidate's compensation rule — a "

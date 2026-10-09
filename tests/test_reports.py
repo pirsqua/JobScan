@@ -53,6 +53,8 @@ def strong_match_client() -> AnthropicClient:
             "is_product_company": True,
             "compensation_assessment": "Well above $170,000.",
             "remote_employment_verification": "US remote.",
+            "working_hours_quote": "",
+            "working_hours_fit": "compatible",
             "required_matches": ["C#", "Azure"],
             "required_gaps": [],
             "preferred_only_gaps": [],

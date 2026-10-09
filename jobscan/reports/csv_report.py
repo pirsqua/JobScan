@@ -7,9 +7,9 @@ from pathlib import Path
 from jobscan.reports.data import ReportData
 
 FIELDS = [
-    "company", "title", "verdict", "scope_fit", "evidence_coverage_percent", "confidence",
+    "company", "title", "applied_on", "verdict", "scope_fit", "evidence_coverage_percent", "confidence",
     "salary_min", "salary_max", "salary_period", "salary_source", "location_raw", "remote_scope",
-    "employment_type", "posting_url", "apply_url", "published_at", "first_seen_at",
+    "employment_type", "working_hours_fit", "working_hours_quote", "posting_url", "apply_url", "published_at", "first_seen_at",
     "required_matches", "required_gaps", "preferred_only_gaps", "minor_caveats",
     "growth_dimensions", "hidden_staff_signals", "specialist_tenure_classification",
     "primary_rejection_reason", "worth_applying", "is_product_company", "model_name",
@@ -27,6 +27,7 @@ def write_csv_report(data: ReportData, path: Path) -> None:
                 {
                     "company": company.name,
                     "title": job.title,
+                    "applied_on": row.applied_on.isoformat() if row.applied_on else "",
                     "verdict": ev.verdict.value,
                     "scope_fit": ev.scope_fit.value,
                     "evidence_coverage_percent": ev.evidence_coverage_percent,
@@ -38,6 +39,8 @@ def write_csv_report(data: ReportData, path: Path) -> None:
                     "location_raw": job.location_raw,
                     "remote_scope": job.remote_scope.value,
                     "employment_type": job.employment_type.value,
+                    "working_hours_fit": ev.working_hours_fit.value if ev.working_hours_fit else "",
+                    "working_hours_quote": ev.working_hours_quote,
                     "posting_url": job.posting_url,
                     "apply_url": job.apply_url,
                     "published_at": job.published_at.isoformat() if job.published_at else "",

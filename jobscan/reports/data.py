@@ -7,8 +7,10 @@ at-level "plausible_match", and compensation is a clamped tiebreaker, not an unb
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import datetime as dt
+from dataclasses import dataclass, field
 
+from jobscan.applications import Application, load_applications, normalize_url
 from jobscan.config import Settings
 from jobscan.db import Database
 from jobscan.filters import apply_factual_filters
@@ -22,6 +24,7 @@ from jobscan.models import (
     RequirementImportance,
     ScopeFit,
     Verdict,
+    WorkingHoursFit,
 )
 from jobscan.parsing import annualize
 from jobscan.timeutil import now_seattle
@@ -32,6 +35,16 @@ class JobReportRow:
     job: JobPosting
     company: Company
     evaluation: Evaluation | None
+    applied_on: dt.date | None = None
+
+
+@dataclass
+class ApplicationRow:
+    """One of the candidate's applications and where that posting stands now."""
+
+    application: Application
+    job: JobPosting | None
+    standing: str
 
 
 @dataclass
@@ -45,6 +58,7 @@ class ReportData:
     attractive_stretches: list[JobReportRow]
     all_evaluated: list[JobReportRow]
     unverified_count: int
+    applications: list[ApplicationRow] = field(default_factory=list)
 
 
 # The spec's six ranking groups, most to least preferred. Any (verdict, scope_fit) combination
@@ -91,6 +105,13 @@ def _report_section(evaluation: Evaluation | None) -> str:
     to rejected_or_unverified instead, regardless of the nominal verdict/scope_fit label."""
     if evaluation is None or evaluation.verdict == Verdict.REJECT:
         return "rejected_or_unverified"
+    # Enforced here rather than trusted to the verdict: required Eastern/Central hours fail a hard
+    # filter, and a stated preference for them is a real negative for a Pacific-time candidate —
+    # observed live, a posting "ideally" wanting Eastern hours came out a strong-match Best Bet.
+    if evaluation.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_REQUIRED:
+        return "rejected_or_unverified"
+    if evaluation.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED:
+        return "attractive_stretches" if evaluation.worth_applying else "rejected_or_unverified"
     if evaluation.verdict in (Verdict.STRONG_MATCH, Verdict.PLAUSIBLE_MATCH):
         if evaluation.scope_fit == ScopeFit.AT_LEVEL:
             return "best_bets"
@@ -147,19 +168,71 @@ def _rank_key(row: JobReportRow, settings: Settings) -> tuple:
     )
 
 
+_SECTION_LABELS = {
+    "best_bets": "Best Bet", "growth_bets": "Growth Bet", "attractive_stretches": "Attractive Stretch",
+}
+
+
+def _application_standing(db: Database, job: JobPosting | None, settings: Settings) -> str:
+    if job is None:
+        return "Not tracked (posting never crawled)"
+    if job.closed_at is not None:
+        return f"Closed {job.closed_at.date().isoformat()}"
+    company = db.get_company(job.company_id)
+    if company is None or not company.active:
+        return "Company no longer searched"
+    facts = apply_factual_filters(job, company, settings.min_base_salary)
+    if not facts.passed:
+        return f"Filtered out ({facts.reason})"
+    evaluation = db.get_evaluation_for_job(job.id)
+    if evaluation is None:
+        return "Not evaluated yet"
+    section = _report_section(evaluation)
+    if section in _SECTION_LABELS:
+        return _SECTION_LABELS[section]
+    return f"Rejected — {declined_reason(evaluation)}"
+
+
+def is_declined(evaluation: Evaluation) -> bool:
+    """Evaluated but in no shortlist section — rejected, judged not worth applying, or failing a
+    rule code enforces over the verdict (see _report_section)."""
+    return _report_section(evaluation) == "rejected_or_unverified"
+
+
+def declined_reason(evaluation: Evaluation) -> str:
+    if evaluation.verdict != Verdict.REJECT and evaluation.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_REQUIRED:
+        return f'requires Eastern/Central Time hours: "{evaluation.working_hours_quote}"'
+    return evaluation.primary_rejection_reason or "no reason recorded"
+
+
+def _application_rows(db: Database, applications: list[Application], settings: Settings) -> list[ApplicationRow]:
+    job_ids = {normalize_url(url): job_id for job_id, url in db.list_job_posting_urls()}
+    rows = []
+    for application in sorted(applications, key=lambda a: a.applied_on):
+        job_id = job_ids.get(normalize_url(application.url))
+        job = db.get_job(job_id) if job_id is not None else None
+        rows.append(ApplicationRow(application, job, _application_standing(db, job, settings)))
+    return rows
+
+
 def assemble_report_data(
     db: Database,
     settings: Settings,
     crawl_stats: CrawlRunStats | None = None,
     evaluate_stats: EvaluateStats | None = None,
 ) -> ReportData:
+    applications = load_applications(settings.applications_path)
+    applied_on = {normalize_url(a.url): a.applied_on for a in applications}
     rows: list[JobReportRow] = []
     for job in db.get_active_jobs():
         company = db.get_company(job.company_id)
         if company is None:
             continue
         evaluation = db.get_evaluation_for_job(job.id)
-        rows.append(JobReportRow(job=job, company=company, evaluation=evaluation))
+        rows.append(JobReportRow(
+            job=job, company=company, evaluation=evaluation,
+            applied_on=applied_on.get(normalize_url(job.posting_url)) if job.posting_url else None,
+        ))
 
     sections: dict[str, list[JobReportRow]] = {"best_bets": [], "growth_bets": [], "attractive_stretches": []}
     for row in rows:
@@ -185,4 +258,5 @@ def assemble_report_data(
         attractive_stretches=sections["attractive_stretches"],
         all_evaluated=evaluated,
         unverified_count=unverified_count,
+        applications=_application_rows(db, applications, settings),
     )

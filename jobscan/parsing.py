@@ -20,14 +20,18 @@ _K_SUFFIX = r"\s?[kK]\b"
 _UNIT_SUFFIX = r"(?:\s?/\s?(?:hr|hour|yr|year))?"
 
 # "$170,000 - $210,000", "$170,000—$210,000 USD", "170,000 to 210,000", "$170K-$210K",
-# "$85/hr - $100/hr", "USD $129,500.00 - USD $220,500.00 /Yr", "between $112,000 and $269,000".
+# "$85/hr - $100/hr", "USD $129,500.00 - USD $220,500.00 /Yr", "between $112,000 and $269,000",
+# "between $153,000 USD and $214,000 USD", "USD  174,986  - USD  209,983", "$170-210K".
 # "and" only separates a range after "between" — "$120,000 and a $40,000 bonus" is not a range.
+# Spacing is \s* throughout: ATS HTML-to-text often leaves double or non-breaking spaces around
+# the numbers, and a single-space pattern silently read those ranges as "no salary published".
 _RANGE_RE = re.compile(
     rf"(?P<between>\bbetween\s+)?"
-    rf"(?:(?P<pre_currency>USD|CAD)\s?)?\$?\s?(?P<low>{_NUMBER})(?P<low_k>{_K_SUFFIX})?{_UNIT_SUFFIX}"
-    rf"\s?(?:-|to|–|—|~|(?(between)and|(?!)))\s?"
-    rf"(?:(?:USD|CAD)\s?)?\$?\s?(?P<high>{_NUMBER})(?P<high_k>{_K_SUFFIX})?{_UNIT_SUFFIX}"
-    rf"(?:\s?(?P<currency>USD|CAD))?",
+    rf"(?:(?P<pre_currency>USD|CAD)\s*)?\$?\s*(?P<low>{_NUMBER})(?P<low_k>{_K_SUFFIX})?{_UNIT_SUFFIX}"
+    rf"(?:\s*(?:USD|CAD)\b)?"
+    rf"\s*(?:-|to|–|—|~|(?(between)and|(?!)))\s*"
+    rf"(?:(?:USD|CAD)\s*)?\$?\s*(?P<high>{_NUMBER})(?P<high_k>{_K_SUFFIX})?{_UNIT_SUFFIX}"
+    rf"(?:\s*(?P<currency>USD|CAD)\b)?",
     re.IGNORECASE,
 )
 
@@ -90,7 +94,9 @@ def parse_salary_from_text(text: str | None) -> ParsedSalary:
 
     candidates: list[tuple[int, float, float, str | None, str]] = []  # (score, min, max, currency, period)
     for match in _RANGE_RE.finditer(text):
-        low = _to_number(match.group("low"), bool(match.group("low_k")))
+        # "$170-210K": the K written once applies to both ends.
+        low_k = bool(match.group("low_k") or (match.group("high_k") and float(match.group("low").replace(",", "")) < 1000))
+        low = _to_number(match.group("low"), low_k)
         high = _to_number(match.group("high"), bool(match.group("high_k")))
         if low > high:
             low, high = high, low
@@ -108,8 +114,15 @@ def parse_salary_from_text(text: str | None) -> ParsedSalary:
         candidates.append((score, low, high, match.group("currency") or match.group("pre_currency"), period))
 
     if candidates:
-        candidates.sort(key=lambda c: c[0], reverse=True)
-        _, low, high, currency, period = candidates[0]
+        # Several ranges usually mean geographic pay zones, listed in no reliable order (Twilio
+        # lists its lowest zone first). The salary filter rejects on the range's maximum, so take
+        # the highest-paying salary-context range: a zone the candidate can't get only costs an
+        # LLM call, while rejecting on a lower zone would silently drop a posting whose Washington
+        # band clears the bar. The evaluation reads the full text and applies the right zone.
+        top_score = max(c[0] for c in candidates)
+        _, low, high, currency, period = max(
+            (c for c in candidates if c[0] == top_score), key=lambda c: annualize(c[2], c[4]) or 0
+        )
         return ParsedSalary(low, high, (currency or "USD").upper(), period, SalarySource.DESCRIPTION)
 
     # Fall back to a single dollar figure (e.g. "starting at $190,000").
@@ -130,9 +143,14 @@ def parse_salary_from_text(text: str | None) -> ParsedSalary:
         single_candidates.append((score, value, period))
 
     if single_candidates:
-        single_candidates.sort(key=lambda c: c[0], reverse=True)
-        _, value, period = single_candidates[0]
-        return ParsedSalary(value, value, "USD", period, SalarySource.DESCRIPTION)
+        # The first salary-context figure is the floor. A larger one after it is most likely the
+        # top of a range written in a shape _RANGE_RE doesn't know, so it raises the ceiling
+        # rather than the posting being rejected on its floor; a smaller one ("$120,000 and a
+        # $40,000 signing bonus") is something else and is ignored.
+        top_score = max(c[0] for c in single_candidates)
+        floor, period = next((c[1], c[2]) for c in single_candidates if c[0] == top_score)
+        ceiling = max(c[1] for c in single_candidates if c[0] == top_score and c[2] == period)
+        return ParsedSalary(floor, ceiling, "USD", period, SalarySource.DESCRIPTION)
 
     return ParsedSalary(None, None, None, None, SalarySource.NONE)
 
@@ -170,7 +188,8 @@ def resolve_salary(
 # Location / remote-scope parsing
 # ---------------------------------------------------------------------------
 
-_REMOTE_RE = re.compile(r"\bremote\b", re.IGNORECASE)
+# Remote in a location field. Cloudflare's boards say "Distributed" for remote roles.
+_REMOTE_RE = re.compile(r"\bremote\b|\bdistributed\b|\banywhere\b", re.IGNORECASE)
 # "U.S." needs its own branch: a trailing \b after the final "." never matches before ")" or
 # end-of-string, which made "Remote (U.S.)" fall through to UNKNOWN.
 _US_RE = re.compile(r"\b(?:us|usa|united states|north america)\b|\bu\.s\.?(?!\w)", re.IGNORECASE)
@@ -198,10 +217,14 @@ _US_STATE_NAMES = {
 
 
 def _state_excluded(text: str, state_abbr: str, state_name: str) -> bool:
-    """Detect explicit "remote, except CA/NY/WA" style exclusions naming the candidate's state."""
+    """Detect explicit "remote, except CA/NY/WA" style exclusions naming the candidate's state.
+    "Washington, D.C." is a different place: Samsara's "open to candidates residing in the US
+    except the San Francisco Bay Metro Area, NYC Metro Area, and Washington, D.C. Metro Area"
+    once rejected every Samsara posting as excluding Washington State."""
     exclusion_re = re.compile(
         rf"(except|excluding|not\s+(?:available|eligible)\s+(?:in|for)|cannot\s+(?:be\s+)?"
-        rf"(?:based|located)\s+in)[^.]{{0,80}}\b({re.escape(state_abbr)}|{re.escape(state_name)})\b",
+        rf"(?:based|located)\s+in)[^.]{{0,80}}\b({re.escape(state_abbr)}|{re.escape(state_name)})\b"
+        rf"(?!,?\s*D\.?\s?C\b)",
         re.IGNORECASE,
     )
     return bool(exclusion_re.search(text))
@@ -233,6 +256,15 @@ _NON_US_LOCATION_RE = re.compile(
     r"emea|apac|latam"
     r")\b",
     re.IGNORECASE,
+)
+
+# A U.S. state in a location field — by full name, or as a ", WA"-style abbreviation (uppercase
+# and after a comma, so the word "or" in "Ontario OR British Columbia" isn't read as Oregon). It
+# keeps a non-U.S. word from deciding a location that also names a state: "New Mexico", "New
+# England", "Dublin, OH", "Remote - Toronto or Seattle, WA".
+_US_STATE_LOCATION_RE = re.compile(
+    r"\b(?i:" + "|".join(_US_STATE_NAMES.values()) + r"|new\s+england)\b"
+    r"|,\s*(?:" + "|".join(_US_STATE_NAMES) + r")\b"
 )
 
 
@@ -272,17 +304,23 @@ def normalize_location(
     if _state_excluded(text_blob, candidate_state_abbr, candidate_state_name):
         return RemoteScope.REMOTE_US_RESTRICTED, f"{candidate_state_name} explicitly excluded from remote eligibility"
 
-    if workplace_type == WorkplaceType.HYBRID or _HYBRID_RE.search(location):
+    location_says_remote = bool(_REMOTE_RE.search(location))
+    hybrid = workplace_type == WorkplaceType.HYBRID or _HYBRID_RE.search(location)
+    if (hybrid or workplace_type == WorkplaceType.ONSITE) and location_says_remote:
+        # "United States (Remote)" with a structured Hybrid label, or "Remote or Hybrid": the
+        # source contradicts itself, which is not a fact to reject on.
+        return RemoteScope.UNKNOWN, f"source marks it {'hybrid' if hybrid else 'on-site'} but location says '{location.strip()}' — deferred to LLM"
+    if hybrid:
         return RemoteScope.HYBRID, "source marks it hybrid"
     if workplace_type == WorkplaceType.ONSITE:
         return RemoteScope.ONSITE, "source marks it on-site"
 
-    is_remote = workplace_type == WorkplaceType.REMOTE or bool(_REMOTE_RE.search(location))
+    is_remote = workplace_type == WorkplaceType.REMOTE or location_says_remote
 
     if is_remote:
-        if _US_RE.search(location) or "remote" == location.strip().lower():
+        if _US_RE.search(location) or location.strip().lower() in ("remote", "distributed", "anywhere"):
             return RemoteScope.REMOTE_US, None
-        if _NON_US_LOCATION_RE.search(location):
+        if _NON_US_LOCATION_RE.search(location) and not _US_STATE_LOCATION_RE.search(location):
             return (
                 RemoteScope.REMOTE_US_RESTRICTED,
                 f"remote but tied to a non-U.S. location '{location.strip()}'",

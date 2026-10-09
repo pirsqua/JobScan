@@ -25,6 +25,7 @@ from jobscan.models import (
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkingHoursFit,
 )
 
 
@@ -107,6 +108,8 @@ def evaluate_job(
         hidden_staff_signals=parsed.hidden_staff_signals,
         compensation_assessment=parsed.compensation_assessment,
         remote_employment_verification=parsed.remote_employment_verification,
+        working_hours_quote=parsed.working_hours_quote,
+        working_hours_fit=WorkingHoursFit(parsed.working_hours_fit),
         required_matches=parsed.required_matches,
         required_gaps=parsed.required_gaps,
         preferred_only_gaps=parsed.preferred_only_gaps,

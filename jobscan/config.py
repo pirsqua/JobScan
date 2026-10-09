@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SETTINGS_PATH = REPO_ROOT / "config" / "settings.yaml"
 DEFAULT_PROFILE_PATH = REPO_ROOT / "config" / "candidate_profile.yaml"
+DEFAULT_APPLICATIONS_PATH = REPO_ROOT / "data" / "applications.yaml"
 
 
 @dataclass
@@ -41,6 +42,8 @@ class Settings:
     http_user_agent: str
     anthropic_api_key: str | None = None
     profile_path: Path = DEFAULT_PROFILE_PATH
+    applications_path: Path = DEFAULT_APPLICATIONS_PATH
+    candidate_time_zone: str = "Pacific"
 
     def pricing_for(self, model_name: str) -> ModelPricing | None:
         return self.anthropic_pricing.get(model_name)
@@ -95,9 +98,11 @@ def load_settings(
         min_base_salary=int(raw.get("min_base_salary", 170000)),
         candidate_state=raw.get("candidate_state", "WA"),
         candidate_state_name=raw.get("candidate_state_name", "Washington"),
+        candidate_time_zone=raw.get("candidate_time_zone", "Pacific"),
         log_level=env_or("JOBSCAN_LOG_LEVEL", raw.get("log_level", "INFO")),
         http_timeout_seconds=int(raw.get("http_timeout_seconds", 30)),
         http_user_agent=raw.get("http_user_agent", "JobScan/0.1"),
         anthropic_api_key=env_or("ANTHROPIC_API_KEY", None),
         profile_path=Path(env_or("JOBSCAN_PROFILE_PATH", DEFAULT_PROFILE_PATH)),
+        applications_path=Path(env_or("JOBSCAN_APPLICATIONS_PATH", DEFAULT_APPLICATIONS_PATH)),
     )

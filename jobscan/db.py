@@ -36,6 +36,7 @@ from jobscan.models import (
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkingHoursFit,
     WorkplaceType,
 )
 
@@ -234,6 +235,8 @@ class Database:
         self._add_column_if_missing("companies", "applied", "INTEGER")
         self._add_column_if_missing("jobs", "workplace_type", "TEXT")
         self._add_column_if_missing("evaluations", "rubric_version", "TEXT")
+        self._add_column_if_missing("evaluations", "working_hours_quote", "TEXT")
+        self._add_column_if_missing("evaluations", "working_hours_fit", "TEXT")
         # Triage screen-outs used to carry a two_plus_steps_up placeholder for scope_fit.
         self.conn.execute(
             "UPDATE evaluations SET scope_fit = 'not_assessed' "
@@ -438,6 +441,11 @@ class Database:
             (source.value, source_job_id),
         ).fetchone()
         return self._row_to_job(row) if row else None
+
+    def list_job_posting_urls(self) -> list[tuple[int, str]]:
+        """(job id, posting URL) for every job ever seen, closed ones included."""
+        return [(row["id"], row["posting_url"])
+                for row in self.conn.execute("SELECT id, posting_url FROM jobs WHERE posting_url IS NOT NULL")]
 
     def get_job(self, job_id: int) -> JobPosting | None:
         row = self.conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
@@ -677,6 +685,8 @@ class Database:
             cache_read_input_tokens=row["cache_read_input_tokens"],
             created_at=_parse_dt(row["created_at"]),
             rubric_version=row["rubric_version"],
+            working_hours_quote=row["working_hours_quote"] or "",
+            working_hours_fit=WorkingHoursFit(row["working_hours_fit"]) if row["working_hours_fit"] else None,
         )
 
     def save_evaluation(self, evaluation: Evaluation) -> int:
@@ -708,8 +718,9 @@ class Database:
                 required_matches, required_gaps, preferred_only_gaps, minor_caveats, evidence,
                 credibility_assessment, why_this_is_or_is_not_gettable, is_product_company,
                 primary_rejection_reason, worth_applying, model_name, input_tokens, output_tokens,
-                cache_creation_input_tokens, cache_read_input_tokens, created_at, rubric_version)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                cache_creation_input_tokens, cache_read_input_tokens, created_at, rubric_version,
+                working_hours_quote, working_hours_fit)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(job_id, description_hash) DO UPDATE SET
                  verdict=excluded.verdict, confidence=excluded.confidence,
                  scope_fit=excluded.scope_fit,
@@ -732,7 +743,9 @@ class Database:
                  output_tokens=excluded.output_tokens,
                  cache_creation_input_tokens=excluded.cache_creation_input_tokens,
                  cache_read_input_tokens=excluded.cache_read_input_tokens,
-                 created_at=excluded.created_at, rubric_version=excluded.rubric_version
+                 created_at=excluded.created_at, rubric_version=excluded.rubric_version,
+                 working_hours_quote=excluded.working_hours_quote,
+                 working_hours_fit=excluded.working_hours_fit
                """,
             (
                 evaluation.job_id, evaluation.description_hash, evaluation.verdict.value,
@@ -748,6 +761,8 @@ class Database:
                 evaluation.model_name, evaluation.input_tokens, evaluation.output_tokens,
                 evaluation.cache_creation_input_tokens, evaluation.cache_read_input_tokens,
                 _dt(evaluation.created_at), evaluation.rubric_version,
+                evaluation.working_hours_quote,
+                evaluation.working_hours_fit.value if evaluation.working_hours_fit else None,
             ),
         )
         return cur.lastrowid or self.get_evaluation_for_job(evaluation.job_id).id

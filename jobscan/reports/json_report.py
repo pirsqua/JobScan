@@ -14,6 +14,7 @@ def _job_dict(row) -> dict:
         "company": company.name,
         "company_domain": company.domain,
         "title": job.title,
+        "applied_on": row.applied_on.isoformat() if row.applied_on else None,
         "location_raw": job.location_raw,
         "remote_scope": job.remote_scope.value,
         "employment_type": job.employment_type.value,
@@ -53,6 +54,8 @@ def _job_dict(row) -> dict:
             "hidden_staff_signals": ev.hidden_staff_signals,
             "compensation_assessment": ev.compensation_assessment,
             "remote_employment_verification": ev.remote_employment_verification,
+            "working_hours_quote": ev.working_hours_quote,
+            "working_hours_fit": ev.working_hours_fit.value if ev.working_hours_fit else None,
             "required_matches": ev.required_matches,
             "required_gaps": ev.required_gaps,
             "preferred_only_gaps": ev.preferred_only_gaps,
@@ -89,6 +92,11 @@ def build_json_report(data: ReportData) -> dict:
         if data.evaluate_stats
         else None,
         "estimated_cost_usd": data.estimated_cost_usd,
+        "applications": [
+            {"company": r.application.company, "title": r.application.title, "url": r.application.url,
+             "applied_on": r.application.applied_on.isoformat(), "standing": r.standing}
+            for r in data.applications
+        ],
         "best_bets": [_job_dict(r) for r in data.best_bets],
         "growth_bets": [_job_dict(r) for r in data.growth_bets],
         "attractive_stretches": [_job_dict(r) for r in data.attractive_stretches],
