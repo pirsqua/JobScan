@@ -180,7 +180,10 @@ more than one material growth dimension.
    - two_plus_steps_up: the role combines at least two material unproven dimensions, or expects a \
 substantially deeper repeated track record than demonstrated.
    - below_level: the described work itself would materially underuse the candidate (junior \
-tasks, close supervision) — never because of the title alone.
+tasks, close supervision) — never because of the title alone. Being below level is not a reason \
+to reject: when the pay passes the compensation rule and the work is a backend fit, give the \
+verdict the evidence supports, exactly as for an at_level role (observed: an "early-career, 1.5+ \
+years" backend role paying $165,000-$225,000 at 95% coverage was rejected for its level alone).
    A role is NOT one_step_up merely because its title says "Senior" or because several \
 technologies match.
 
@@ -191,9 +194,9 @@ preferred item may add a little; an unmet one subtracts nothing. This is a weigh
 not a mechanical keyword-overlap count.
 
 8. ASSIGN THE VERDICT:
-   - strong_match: the role is at_level, at least 80% of important required qualifications are \
+   - strong_match: the role is at_level or below_level, at least 80% of important required qualifications are \
 directly demonstrated or strongly supported, and there are no material required gaps.
-   - plausible_match: the role is at_level OR genuinely one_step_up, evidence coverage is \
+   - plausible_match: the role is at_level, below_level OR genuinely one_step_up, evidence coverage is \
 normally at least 70%, and there is no more than one material growth dimension.
    - borderline: technical overlap is attractive, but the role expects repeated experience, \
 specialization, scale, or organizational influence not demonstrated — OR the role is otherwise \

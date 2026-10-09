@@ -140,6 +140,13 @@ class TestLocation:
     def test_time_zone_quote_that_leaves_the_candidate_out_is_honoured(self, quote):
         assert skip_is_substantiated(skip("not_remote", quote), job(description=quote))
 
+    @pytest.mark.parametrize("quote", [
+        "This is a remote opportunity within Canada and the US, ideally with the ability to work within Eastern Time hours.",  # 1Password
+        "Core hours 9-5 EST preferred.",
+    ])
+    def test_a_stated_preference_is_not_a_disqualifier(self, quote):
+        assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+
     def test_the_candidates_state_is_a_parameter(self):
         quote = "This role will be remote, but is not eligible to be hired in CA, CT, NJ, NY, PA, WA."
         assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote), "OR", "Oregon")

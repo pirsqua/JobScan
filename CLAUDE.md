@@ -43,6 +43,12 @@ Rules the model must apply while writing a field work far better in that field's
 than in the system prompt alone (observed: a rule stated only in the prompt was ignored; repeated
 in the field description, it held), and a concrete example beats an abstract rule.
 
+The evaluation model can't be made deterministic — `temperature` is deprecated for it (the API
+returns 400). The same posting under the same rubric has come back Best Bet twice and Growth Bet
+once, and a near-miss not-worth-applying twice and worth-applying once. So: judge a rubric change
+on several runs of a posting, not one; and near-misses (borderline + not worth applying) get a
+second look in `evaluate_all`, keeping the more favourable result.
+
 Tool calls go out in strict mode (`strict: true`, schema converted by
 `jobscan.llm.client.strict_input_schema` at send time — the fingerprinted schema is unchanged), so
 the API guarantees the response's shape; Pydantic still checks ranges.

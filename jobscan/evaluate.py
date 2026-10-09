@@ -48,6 +48,34 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# A borderline judged not worth applying is the one verdict that sits right on the shortlist line,
+# and the model can't be made to sample deterministically (temperature is deprecated for it).
+# Observed: the same LaunchDarkly posting, same rubric, came back not-worth-applying twice and
+# worth-applying once in three runs — so one unlucky sample silently dropped it. Such a near-miss
+# gets one more evaluation and keeps the more favourable; a clear reject (a failed hard filter, a
+# missing required skill) doesn't.
+_VERDICT_RANK = {Verdict.REJECT: 0, Verdict.BORDERLINE: 1, Verdict.PLAUSIBLE_MATCH: 2, Verdict.STRONG_MATCH: 3}
+
+
+def _is_near_miss(evaluation: Evaluation) -> bool:
+    return evaluation.verdict == Verdict.BORDERLINE and not evaluation.worth_applying
+
+
+def _favourability(evaluation: Evaluation) -> tuple:
+    return (
+        evaluation.verdict != Verdict.REJECT and evaluation.worth_applying,
+        _VERDICT_RANK[evaluation.verdict],
+        evaluation.evidence_coverage_percent,
+    )
+
+
+def _count_tokens(stats: EvaluateStats, evaluation: Evaluation) -> None:
+    stats.input_tokens += evaluation.input_tokens or 0
+    stats.output_tokens += evaluation.output_tokens or 0
+    stats.cache_creation_input_tokens += evaluation.cache_creation_input_tokens or 0
+    stats.cache_read_input_tokens += evaluation.cache_read_input_tokens or 0
+
+
 # Placeholder confidence for a triage-skip pseudo-evaluation: the triage prompt only skips when it
 # professes confidence the posting is a clear reject, but it doesn't produce its own confidence
 # score, so this reflects that framing rather than a real measured value.
@@ -306,13 +334,23 @@ def evaluate_all(
                 stats.unverified += 1
                 stats.llm_errors += 1
                 continue
+            _count_tokens(stats, evaluation)
+
+            if _is_near_miss(evaluation):
+                try:
+                    second = replace(evaluate_job(client, profile, company, job), rubric_version=full_rubric)
+                except LlmCallError as exc:
+                    logger.warning("second look failed — keeping the first evaluation",
+                                   extra=log_extra(job_id=job.id, title=job.title, error=str(exc)))
+                else:
+                    stats.second_looks += 1
+                    _count_tokens(stats, second)
+                    if _favourability(second) > _favourability(evaluation):
+                        stats.second_looks_kept += 1
+                        evaluation = second
 
             db.save_evaluation(evaluation)
             stats.sent_to_llm += 1
-            stats.input_tokens += evaluation.input_tokens or 0
-            stats.output_tokens += evaluation.output_tokens or 0
-            stats.cache_creation_input_tokens += evaluation.cache_creation_input_tokens or 0
-            stats.cache_read_input_tokens += evaluation.cache_read_input_tokens or 0
             stats._bump_verdict(evaluation.verdict.value)
 
     stats.finished_at = _now()

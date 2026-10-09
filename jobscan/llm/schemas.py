@@ -53,7 +53,10 @@ class RequirementEvidenceItem(BaseModel):
         "unavoidable to do the job), preferred (helpful, a plus, bonus, nice to have, preferred, "
         "ideally, familiarity with, exposure to, \"or willingness to learn\", and technologies "
         "named as examples — \"technologies like ...\", \"such as ...\"), or trait_or_interest "
-        "(curiosity, high agency, eagerness to learn, interest in a topic)."
+        "(curiosity, high agency, eagerness to learn, interest in a topic). A requirement that "
+        "interest can satisfy is trait_or_interest even in a minimum-requirements list: "
+        "\"Experience or demonstrated interest in AI-native development\" is met by interest — "
+        "never treat it as required experience."
     )
     importance: RequirementImportance = Field(
         description="central only for required or strongly_implied items the hiring bar rests on; "
@@ -153,7 +156,9 @@ class JobEvaluationResult(BaseModel):
     minor_caveats: list[str] = Field(default_factory=list)
     scope_fit: ScopeFit = Field(
         description="Whether the role's actual scope is at, one step above, two-plus steps "
-        "above, or below demonstrated experience — independent of title or keyword overlap."
+        "above, or below demonstrated experience — independent of title or keyword overlap. "
+        "below_level is never by itself a reason to reject: with passing pay and backend work, "
+        "the verdict follows the evidence as for an at_level role."
     )
     evidence_coverage_percent: int = Field(
         ge=0, le=100,
@@ -199,6 +204,13 @@ class JobEvaluationResult(BaseModel):
         if isinstance(value, str):
             return [line.strip("-•* \t") for line in value.strip().splitlines() if line.strip()]
         return value
+
+    @field_validator("working_hours_quote")
+    @classmethod
+    def _strip_quote_marks(cls, value: str) -> str:
+        """Observed live: an empty quote sent as a literal '""', and real ones wrapped in quote
+        marks — the report adds its own."""
+        return value.strip().strip("\"'“”").strip()
 
     @model_validator(mode="before")
     @classmethod
