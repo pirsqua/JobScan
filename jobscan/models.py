@@ -143,6 +143,17 @@ class ScopeFit(str, Enum):
     NOT_ASSESSED = "not_assessed"
 
 
+class WorkingHoursFit(str, Enum):
+    """Whether the hours a posting expects suit the candidate's Pacific Time working day."""
+
+    COMPATIBLE = "compatible"
+    # Stated as an expectation or preference ("ideally with the ability to work within Eastern Time
+    # hours"): a real negative, so never a Best or Growth Bet — see reports.data._report_section.
+    EASTERN_OR_CENTRAL_PREFERRED = "eastern_or_central_preferred"
+    # Required hours or residence in those time zones: a hard-filter failure.
+    EASTERN_OR_CENTRAL_REQUIRED = "eastern_or_central_required"
+
+
 class RequirementImportance(str, Enum):
     CENTRAL = "central"
     SECONDARY = "secondary"
@@ -319,6 +330,10 @@ class Evaluation:
     # cache is keyed by description hash alone, so without this a rubric fix would never reach a
     # posting already judged — see evaluate_all(refresh_stale=...).
     rubric_version: str | None = None
+    # The posting's own words on working hours or time zone, and how they fit a Pacific day. None
+    # when not assessed (triage screen-outs, manual overrides, evaluations from before the field).
+    working_hours_quote: str = ""
+    working_hours_fit: WorkingHoursFit | None = None
 
 
 @dataclass

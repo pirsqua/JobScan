@@ -50,7 +50,7 @@
   evidence_level: current_board_verified
   discovery_source: curated_latest_leads_2026-09-28
   applied: true
-  notes: "Aviation maintenance/flight-ops scheduling software; fully remote team, flexible hours, results-focused culture, unlimited PTO. [Corrected 2026-09-30: real ATS is Lever ('aerostrat'), confirmed live with 3 jobs — the earlier Playwright probe missed it entirely.] Candidate has applied here."
+  notes: "Aviation maintenance/flight-ops scheduling software; fully remote team, flexible hours, results-focused culture, unlimited PTO. [Corrected 2026-09-30: real ATS is Lever ('aerostrat'), confirmed live with 3 jobs — the earlier Playwright probe missed it entirely.]"
 
 - name: Affirm
   domain: affirm.com
@@ -66,7 +66,7 @@
   evidence_level: current_board_verified
   discovery_source: curated_latest_leads_2026-09-28
   applied: true
-  notes: "Fintech (buy-now-pay-later) with known Python usage and credible senior compensation. [Verified 2026-09-28: Greenhouse board confirmed live, 177 jobs.] Large, genuinely polyglot org — screen hard per team; some roles will carry high-scale distributed-systems expectations beyond demonstrated experience. Candidate has applied here."
+  notes: "Fintech (buy-now-pay-later) with known Python usage and credible senior compensation. [Verified 2026-09-28: Greenhouse board confirmed live, 177 jobs.] Large, genuinely polyglot org — screen hard per team; some roles will carry high-scale distributed-systems expectations beyond demonstrated experience."
 
 - name: Airbnb
   domain: airbnb.com
@@ -171,7 +171,7 @@
   evidence_level: current_board_verified
   discovery_source: curated_latest_leads_2026-09-28
   applied: true
-  notes: "Solar-design/sales-engineering SaaS, plausible Python/data-platform backend. [Verified 2026-09-28: Ashby board confirmed live, 13 jobs.] [Verified 2026-09-30: Glassdoor 4.2 WLB / 4.0 culture, genuinely remote-friendly though reviews note some growth/leadership turbulence.] Candidate has applied here."
+  notes: "Solar-design/sales-engineering SaaS, plausible Python/data-platform backend. [Verified 2026-09-28: Ashby board confirmed live, 13 jobs.] [Verified 2026-09-30: Glassdoor 4.2 WLB / 4.0 culture, genuinely remote-friendly though reviews note some growth/leadership turbulence.]"
 
 - name: Betterment
   domain: betterment.com
@@ -502,6 +502,7 @@
   active: true
   priority: A-
   discovery_source: curated_remote_wlb_2026
+  applied: true
   notes: "Remote-first. Curated lanes: backend api, python, distributed systems, observability, ci cd. [Crawl 2026-10-07: 67 engineering postings, 23 exclude WA, 19 no salary, 1 below $170K, 24 reached evaluation, shortlist: Intermediate Backend Engineer, AMER (growth).]"
 
 - name: Grafana Labs
@@ -608,6 +609,21 @@
   discovery_source: curated_dotnet_local_vertical_2026
   notes: "Large ERP vendor (Koch-owned) assembled from many acquisitions; stack varies significantly by product line, with real Microsoft-stack pockets. [Verified 2026-09-30: genuinely strong SWE-specific numbers (4.3 WLB, 4.2 culture), real remote norm for most employees — better than the 'traditional ERP conglomerate' stereotype suggested. Python fit unconfirmed.]"
 
+- name: Jellyfish
+  domain: jellyfish.co
+  careers_url: https://jobs.ashbyhq.com/jellyfish
+  ats_type: ashby
+  board_id: jellyfish
+  classification: product
+  active: true
+  priority: B+
+  fit_lanes: [python, data_platform, saas_backend]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: candidate_suggested_2026-10-08
+  notes: "Engineering-intelligence SaaS (analyzes how engineering orgs work), Boston HQ, founded 2017, ~$114.5M raised incl. a $71M Series C. [Verified 2026-10-08: Ashby board, 6 postings, all remote with published bands. Senior Data Engineer (Remote - US, $165K-$235K) builds pipelines on its Databricks/Delta Lake platform — 'worked extensively with Databricks, Spark, Delta Lake', medallion/Unity Catalog/Airflow/CDC as bonus points; no time-zone requirement (only the Staff Security Engineer prefers EST/CST). No layoff reporting found. Culture unverified (Glassdoor blocks automated fetches).]"
+
 - name: KoBold Metals
   domain: koboldmetals.com
   careers_url: https://koboldmetals.com/careers/
@@ -622,7 +638,7 @@
   evidence_level: current_board_verified
   discovery_source: candidate_applied_2026-09-30
   applied: true
-  notes: "AI/ML-driven mineral-exploration company (battery-metals prospecting), backed by Bill Gates/Jeff Bezos/Breakthrough Energy. [Verified 2026-09-30: Greenhouse board confirmed live, 32 jobs; 93% of postings are remote-eligible; published bands e.g. Engineering Manager, Data Systems $200K-$240K.] Candidate has applied here."
+  notes: "AI/ML-driven mineral-exploration company (battery-metals prospecting), backed by Bill Gates/Jeff Bezos/Breakthrough Energy. [Verified 2026-09-30: Greenhouse board confirmed live, 32 jobs; 93% of postings are remote-eligible; published bands e.g. Engineering Manager, Data Systems $200K-$240K.]"
 
 - name: LaunchDarkly
   domain: launchdarkly.com
@@ -638,7 +654,7 @@
   evidence_level: current_board_verified
   discovery_source: curated_latest_leads_2026-09-28
   applied: true
-  notes: "Strong API, Python, data, experimentation, and production-ownership overlap with Seattle-calibrated pay. Some roles require Go or deeper high-scale platform experience. Candidate has applied here."
+  notes: "Strong API, Python, data, experimentation, and production-ownership overlap with Seattle-calibrated pay. Some roles require Go or deeper high-scale platform experience."
 
 - name: Liberty Mutual
   domain: libertymutualgroup.com
@@ -847,7 +863,7 @@
   evidence_level: current_board_verified
   discovery_source: diamond_hunt_2026-10-02
   applied: true
-  notes: "Bookkeeping/finance SaaS; 'Pilot's backend is written in fully typed modern Python'. [Verified 2026-10-02: Greenhouse board live; Sr. Software Engineer, Infrastructure ($133-267K), Sr. Software Engineer, Takeoff ($133-192K), Staff Software Engineer, Takeoff — all Remote, postings explicitly list WA among the eligible remote states, 'Experience with Python in production', no web-framework requirement. Glassdoor 3.6 / 3.8 WLB / 71% recommend; caveat: heavy AI-agent pivot raising job-security worries in 2026 reviews.] [Applied 2026-10-03: Sr. Software Engineer, Takeoff. Candidate's own read of Glassdoor: reviews are polarized (great vs. meh) and no software-engineer-specific review is newer than 2023, so the 3.6/3.8 aggregate says little about current engineering culture — validate it in interviews. Reviews also cite 'constant layoffs'; no announced layoff found; ~420 employees in 2026.]"
+  notes: "Bookkeeping/finance SaaS; 'Pilot's backend is written in fully typed modern Python'. [Verified 2026-10-02: Greenhouse board live; Sr. Software Engineer, Infrastructure ($133-267K), Sr. Software Engineer, Takeoff ($133-192K), Staff Software Engineer, Takeoff — all Remote, postings explicitly list WA among the eligible remote states, 'Experience with Python in production', no web-framework requirement. Glassdoor 3.6 / 3.8 WLB / 71% recommend; caveat: heavy AI-agent pivot raising job-security worries in 2026 reviews.] [Candidate's own read of Glassdoor, 2026-10-03: reviews are polarized (great vs. meh) and no software-engineer-specific review is newer than 2023, so the 3.6/3.8 aggregate says little about current engineering culture — validate it in interviews. Reviews also cite 'constant layoffs'; no announced layoff found; ~420 employees in 2026.]"
 
 - name: Plaid
   domain: plaid.com
@@ -873,6 +889,7 @@
   compensation_signal: verified_170k_path
   evidence_level: current_board_verified
   discovery_source: candidate_suggested_2026-10-04
+  applied: true
   notes: "Formerly RStudio; Public Benefit Corp and B Corp, profitable, over half of engineering on open source (R, Python, Quarto, Positron). Posit Team (Workbench/Connect/Package Manager) is an on-prem data-science platform. Greenhouse board still uses the old 'rstudio' slug. [Verified 2026-10-04: 7 postings, 1 engineering — Senior Software Engineer, 'USA - Remote', $141,800-$187,110 base (max clears $170K); wants Go or TypeScript plus Python or R, backend/data tooling, and interest in building AI/MCP features into the platform; job says async, minimal meetings, 100% of medical premiums covered for families. Culture unverified: Glassdoor review pages block automated fetches, so SWE-review recency and spread weren't checked. Job-security note: InfoWorld reported 2024-01-05 that Posit laid off Yihui Xie (knitr/R Markdown creator); no broader layoff reporting found.] [Crawl 2026-10-07: 1 engineering postings, 1 reached evaluation, shortlist: Senior Software Engineer (best).]"
 
 - name: Precisely
@@ -971,7 +988,7 @@
   evidence_level: current_board_verified
   discovery_source: curated_latest_leads_2026-09-28
   applied: true
-  notes: "Real U.S.-remote engineering roles and credible senior pay, but real evaluation history this session shows many postings center on Go/Scala/Kafka/Kubernetes high-scale ad/ingestion systems outside the candidate's demonstrated stack — screen hard per team rather than assuming company-wide fit. Candidate has applied here."
+  notes: "Real U.S.-remote engineering roles and credible senior pay, but real evaluation history this session shows many postings center on Go/Scala/Kafka/Kubernetes high-scale ad/ingestion systems outside the candidate's demonstrated stack — screen hard per team rather than assuming company-wide fit."
 
 - name: Render
   domain: render.com
@@ -1054,7 +1071,7 @@
   evidence_level: current_board_verified
   discovery_source: curated_latest_leads_2026-09-28
   applied: true
-  notes: "AI-assisted documentation/screen-recording SaaS. [Verified 2026-09-28: Ashby board confirmed live, 39 jobs.] [Verified 2026-09-30: Glassdoor 3.7 WLB / 3.4 culture, 62% recommend — decent but remote policy applied unevenly by level/office.] Candidate has applied here."
+  notes: "AI-assisted documentation/screen-recording SaaS. [Verified 2026-09-28: Ashby board confirmed live, 39 jobs.] [Verified 2026-09-30: Glassdoor 3.7 WLB / 3.4 culture, 62% recommend — decent but remote policy applied unevenly by level/office.]"
 
 - name: SeatGeek
   domain: seatgeek.com
@@ -1115,7 +1132,7 @@
   evidence_level: current_board_verified
   discovery_source: candidate_applied_2026-09-30
   applied: true
-  notes: "Automated financial-collaboration platform for VCs/founders (formerly Quaestor), backed by 8VC/Spark Capital. [Verified 2026-09-30: Greenhouse board confirmed live, 5 jobs including Software Engineer (Backend) at $180K-$225K, fully remote; Data Solutions Engineer role explicitly uses SQL/Python.] Candidate has applied here."
+  notes: "Automated financial-collaboration platform for VCs/founders (formerly Quaestor), backed by 8VC/Spark Capital. [Verified 2026-09-30: Greenhouse board confirmed live, 5 jobs including Software Engineer (Backend) at $180K-$225K, fully remote; Data Solutions Engineer role explicitly uses SQL/Python.]"
 
 - name: Stripe
   domain: stripe.com

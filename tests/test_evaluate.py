@@ -46,6 +46,8 @@ VALID_EVAL_INPUT = {
     "is_product_company": True,
     "compensation_assessment": "Comfortably above $170,000.",
     "remote_employment_verification": "US remote, no restrictions noted.",
+    "working_hours_quote": "",
+    "working_hours_fit": "compatible",
     "required_matches": ["C#", "Azure"],
     "required_gaps": [],
     "preferred_only_gaps": [],

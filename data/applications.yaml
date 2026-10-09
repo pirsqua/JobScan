@@ -1,0 +1,51 @@
+# Roles applied to — one entry per posting. Reports match `url` against crawled postings (case
+# and trailing slashes don't matter) and star each applied role wherever it now stands.
+applications:
+  - company: Affirm
+    title: Senior Software Engineer, Backend (Partner Merchant Interface)
+    url: https://job-boards.greenhouse.io/affirm/jobs/7832324003
+    applied_on: 2026-09-10
+  - company: Reddit
+    title: Software Engineer, Ads
+    url: https://job-boards.greenhouse.io/reddit/jobs/6469397
+    applied_on: 2026-09-17
+  - company: LaunchDarkly
+    title: Senior Backend Engineer, Experimentation
+    url: https://job-boards.greenhouse.io/launchdarkly/jobs/7920039003
+    applied_on: 2026-09-22
+  - company: Aerostrat
+    title: Senior Software Engineer (Backend)
+    url: https://jobs.lever.co/aerostrat/2e063426-3782-481f-bee0-3f04c8d7b8a9
+    applied_on: 2026-09-24
+  - company: Aurora Solar
+    title: Senior Software Engineer, Computation
+    url: https://jobs.ashbyhq.com/aurorasolar/900df453-aa45-444e-974f-12bf2b3d3118
+    applied_on: 2026-09-24
+  - company: KoBold Metals
+    title: Software Engineer (All Levels)
+    url: https://job-boards.greenhouse.io/koboldmetals/jobs/4510145005
+    applied_on: 2026-09-25
+  - company: Scribe
+    title: Senior Backend Engineer, Data Ingestion
+    url: https://jobs.ashbyhq.com/scribe/70043fce-177c-4986-9c47-4f5f9dbc50c0
+    applied_on: 2026-09-29
+  - company: Standard Metrics
+    title: Software Engineer (Backend)
+    url: https://job-boards.greenhouse.io/standardmetrics/jobs/4568073005
+    applied_on: 2026-09-30
+  - company: Pilot
+    title: Sr. Software Engineer, Takeoff
+    url: https://job-boards.greenhouse.io/pilothq/jobs/8729126002
+    applied_on: 2026-10-03
+  - company: Posit
+    title: Senior Software Engineer
+    url: https://posit.co/job-detail/?gh_jid=7984391003
+    applied_on: 2026-10-06
+  - company: GitLab
+    title: Intermediate Backend Engineer, AMER
+    url: https://job-boards.greenhouse.io/gitlab/jobs/8773006002
+    applied_on: 2026-10-06
+  - company: Affirm
+    title: Software Engineer II, Backend (Decisions Orchestration)
+    url: https://job-boards.greenhouse.io/affirm/jobs/8003016003
+    applied_on: 2026-10-08

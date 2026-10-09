@@ -46,6 +46,14 @@ _REMOTE_OFFERED_RE = re.compile(
     r"(candidates|employees|those|people|you) (who are |who live |who reside )?(in|near|within|based in|located in) "
     r"(the |our )?[\w .,'-]{0,40}(area|metro|region|office)s? (are|will|must|should|is)|if you (live|are|reside)\b|local to"
 )
+# A quote that rules some places out disqualifies only when the candidate's state is one of them.
+# Observed live (Samsara): "a remote position open to candidates residing in the US except the San
+# Francisco Bay Metro Area, NYC Metro Area, and Washington, D.C. Metro Area" skipped as not_remote.
+_EXCLUSION_RE = re.compile(r"except|exclud|not (eligible|available)|cannot|can't|unable to (hire|employ)")
+# A time-zone quote that names the candidate's own zone isn't a disqualifier. Observed live (Scribe):
+# "Remote based permanently in PST (Pacific Standard Time)" skipped as not_remote for a Seattle
+# candidate.
+_TIME_ZONE_RE = re.compile(r"time ?zone|\b(eastern|central|mountain|pacific)\b|\b[ecmp][sd]?t\b")
 _TRANSLATE = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"', "‐": "-",
                             "‑": "-", "‒": "-", "–": "-", "—": "-", "−": "-",
                             " ": " ", " ": " ", "·": " ", "•": " "})
@@ -61,9 +69,17 @@ def _quoted_from(quote: str, haystack: str) -> bool:
     return bool(parts) and all(part in haystack for part in parts)
 
 
-def skip_is_substantiated(result: TriageResult, job: JobPosting) -> bool:
+def skip_is_substantiated(
+    result: TriageResult,
+    job: JobPosting,
+    state_abbr: str = "WA",
+    state_name: str = "Washington",
+    time_zone: str = "Pacific",
+) -> bool:
     """True only when the triage model's skip names an allowed category and quotes the posting's
-    own words for it, and — for the title and location categories — the title or quote fits."""
+    own words for it, and — for the title and location categories — the title or quote fits.
+    ``state_abbr``/``state_name`` are the candidate's state, for quotes that exclude places, and
+    ``time_zone`` the candidate's own time zone ("Pacific"), for quotes about time zones."""
     if not result.skip_full_evaluation or result.disqualifier == "none":
         return False
     title = _normalize(job.title)
@@ -79,6 +95,16 @@ def skip_is_substantiated(result: TriageResult, job: JobPosting) -> bool:
         return bool(_MANAGER_TITLE_RE.search(title))
     if result.disqualifier == "not_remote":
         quote = _normalize(result.disqualifier_quote)
+        if _EXCLUSION_RE.search(quote):
+            names_state = re.search(
+                rf"\b({re.escape(state_abbr)}|{re.escape(state_name)})\b(?!,? ?d\.? ?c\b)", quote, re.IGNORECASE
+            )
+            if not names_state:
+                return False
+        if _TIME_ZONE_RE.search(quote):
+            zone = time_zone.lower()
+            if re.search(rf"\b({re.escape(zone)}|{re.escape(zone[0])}[sd]?t)\b", quote):
+                return False
         return bool(_NOT_REMOTE_RE.search(quote)) and not _REMOTE_OFFERED_RE.search(quote)
     return True
 

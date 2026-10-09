@@ -1,10 +1,25 @@
-# Candidate profile fed to the LLM for job screening. Edit freely; no code changes needed.
+# Candidate profile fed to the LLM for job screening, drawn from the resume. Edit freely; new top-level
+# keys also need a line in jobscan.llm.prompts.render_profile_text to reach the model.
 
 headline: >
-  Seattle-based backend-focused software engineer with approximately 15 years of general
-  software-engineering experience, targeting properly scoped Senior Engineer roles.
+  Seattle-based backend-focused software engineer with approximately 15 years of experience
+  building Python and .NET systems on Azure — APIs, data pipelines and integrations across
+  application code, databases and cloud infrastructure, from architecture and implementation
+  through deployment and production troubleshooting. Targeting properly scoped Senior Engineer
+  roles.
 
-location: Seattle, WA (remote)
+location: Seattle, WA (remote) — works a Pacific Time day
+
+education:
+  - B.S. in Computer Science, minor in Mathematics — Western Washington University (2011)
+
+certifications:
+  - "Microsoft Certified: Azure Developer Associate"
+
+work_history:
+  - Avanade (Seattle) — Backend Developer, Sr. Consultant, Jan 2018 to present. Projects below
+    marked Agent Assist, Hydraulic Fracturing Analytics and Microsoft Partner Network.
+  - Vertafore (Bothell) — Software Engineer II, Test Automation, Sep 2011 to Dec 2017.
 
 strongest_skills:
   - Approximately 15 years of general software-engineering experience
@@ -13,27 +28,57 @@ strongest_skills:
     troubleshooting
   - Led development of one clearly demonstrated end-to-end Azure Databricks pipeline processing
     thousands of wells
-  - PySpark, SQL, schemas, spatial processing and Spotfire outputs
+  - PySpark, SQL, schemas, spatial processing (Shapely, GeoPandas) and Spotfire outputs
+  - Translated domain requirements into simulation and optimization logic, working with
+    petroleum engineers
   - Rearchitected a Python Azure Functions application, reducing average response time from
     30 seconds to 3 seconds
   - Led an SAP HANA-to-SQL Server migration involving nearly 5000 lines of SQL, data migration,
-    indexing and performance testing
+    indexing and load/performance testing
   - Built Azure DevOps YAML pipelines and raised automated-test coverage above 90%
   - Has participated in architecture, technical decisions, code review and mentoring
 
 accomplishments:
-  - Led development of a Python and Azure Databricks pipeline processing thousands of wells,
-    producing geospatial analytics and map-ready data stored in SQL Server.
-  - Re-architected a Python Azure Functions application and reduced average response time from
-    30 seconds to 3 seconds.
-  - Led a SAP HANA-to-SQL Server migration involving nearly 5000 lines of SQL, data migration
-    and index design.
-  - Raised automated-test coverage above 90% and built Azure DevOps pipelines for builds, tests,
-    coverage and deployments.
-  - Built C# and ASP.NET MVC features, REST integrations and an Azure Durable Functions/Service
-    Bus migration workflow.
-  - Established C# Selenium WebDriver automation infrastructure, built internal
-    migration/performance tools, supported production releases and mentored junior engineers.
+  - "Agent Assist (Python, Azure Functions, SQL Server): re-architected a Python Azure Functions
+    application that retrieved customer account data for call-center agents, reducing average
+    response time from 30 seconds to 3 seconds."
+  - "Agent Assist: led a SAP HANA-to-SQL Server migration — translated and validated nearly 5000
+    lines of SQL and designed indexes for the new schema; designed and ran load and performance
+    tests against expected production traffic."
+  - "Agent Assist: raised code coverage above 90% with Python unit tests and built Azure DevOps
+    YAML pipelines for automated builds, tests and deployments."
+  - "Hydraulic Fracturing Analytics (Python, Azure Databricks, SQL Server, GIS): led development of
+    an Azure Databricks pipeline that processed data from thousands of wells into geospatial
+    analytics and map layers for Spotfire."
+  - "Hydraulic Fracturing Analytics: partnered with petroleum engineers to translate field
+    requirements into simulation and optimization logic estimating fracture lengths by stage from
+    fluid volume, permeability and geographic coordinates."
+  - "Hydraulic Fracturing Analytics: built spatial-processing workflows with Shapely, GeoPandas and
+    alphashape to generate and validate fracture polygons, quantify overlapping fracture zones and
+    identify under-fractured areas; designed SQL Server schemas and optimized data access for the
+    spatial outputs."
+  - "Microsoft Partner Network (.NET, ASP.NET MVC, Sitecore, Azure): developed full-stack features
+    and reusable Sitecore components in C#, ASP.NET MVC, JavaScript, HTML and CSS; integrated
+    Marketo REST APIs and forms for analytics and personalization; built an Azure Durable Functions
+    workflow using Service Bus to migrate customer data between platforms via application APIs."
+  - "Vertafore: built C# Selenium WebDriver UI-automation infrastructure for a new ASP.NET
+    application, mentoring junior engineers through code reviews; developed customer database
+    migration and performance-testing tools and supported production releases (validation,
+    deployment packaging, application and certificate troubleshooting)."
+
+# Listed on the resume without a project bullet above showing depth — credit as working
+# familiarity (credibly transferable), not as demonstrated production tenure.
+additional_skills:
+  - "Python web: Django, Django REST Framework"
+  - "Backend: ASP.NET Core, ASP.NET MVC/Web API"
+  - "APIs and integration: Azure API Management, Azure Service Bus, OpenAPI/Swagger, third-party API
+    integrations"
+  - "Azure: Functions, App Service, Entra ID, Key Vault, Storage, VNet, Application Insights"
+  - "Databases: PostgreSQL, SQL Server/T-SQL, MySQL, Cosmos DB, SAP HANA"
+  - "Containers: Docker, Kubernetes, Azure Kubernetes Service"
+  - "Infrastructure as code and CI/CD: Azure Pipelines, ARM templates, Bicep"
+  - "Testing: unit, integration, load and performance testing, code coverage"
+  - "AI-assisted development: Claude Code"
 
 # Specialty areas outside current focus — read together with non_inflation_rules below. These are
 # areas without direct demonstrated evidence in the profile above, not just "nice to have" gaps:
@@ -153,6 +198,11 @@ hard_filters:
     arrangement. Once remote work is offered, Washington is presumed eligible unless the posting
     excludes it or limits remote work to specific states or regions that leave it out; a remote
     offer that doesn't name eligible states is not a failure by itself
+  - Working hours that fit a Pacific Time day. A role that requires working Eastern or Central
+    Time hours, or living in those time zones, fails this filter. A stated preference for Eastern
+    or Central hours ("ideally with the ability to work within Eastern Time hours") is not a
+    failure, but it is a real negative for this candidate — weigh it against the role. Overlap a
+    Pacific day meets ("within ±4 hours of Pacific Time") is fine.
   - Full-time employee position
   - Employer principally builds and operates its own product or platform (not a consulting,
     staffing or outsourcing firm; not client-delivery/billable work)

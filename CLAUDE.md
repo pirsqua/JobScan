@@ -61,9 +61,17 @@ check there may only turn a skip into a full evaluation — never the reverse.
 ## Architectural boundaries — keep these separate
 
 - `jobscan/job_family.py` (is this posting even software engineering?) runs at **crawl time**,
-  before anything is persisted. It's a coarse title allowlist/denylist — permissive on
-  specialty/seniority (DevOps, QA, Principal, EM titles all pass), strict only on unambiguously
-  different professions (Sales Engineer, Mechanical Engineer, baristas, ...).
+  before anything is persisted. Any engineer/developer-type title passes unless it names an
+  unambiguously different profession (Sales Engineer, Mechanical Engineer, Developer Advocate,
+  ...) — permissive on specialty/seniority (DevOps, QA, Principal, EM titles all pass). Don't go
+  back to an allowlist of specific phrases: it silently dropped Product Engineer, Analytics
+  Engineer and "Managing Engineer (C#/ASP.NET)" for months.
+- Code-side rejections (the job-family gate, `jobscan/parsing.py`, `jobscan/filters.py`) are final
+  — no LLM ever sees the posting — so a pattern there must resolve ambiguity toward keeping or
+  deferring, never toward rejecting. Observed: "Washington, D.C." in an exclusion list rejected
+  every Samsara posting, "$153,000 USD and $214,000 USD" parsed as a flat $153K, double spaces
+  read as "no salary". When touching these, measure on the DB's real postings: what newly passes,
+  and what newly gets rejected.
 - `jobscan/filters.py` (safe factual rejections on postings already in the DB) never judges
   qualification language or job family — only salary/remote/employment-type facts and confirmed
   consulting employers. If a check requires reading and interpreting the posting's prose, it

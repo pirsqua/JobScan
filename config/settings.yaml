@@ -32,6 +32,8 @@ min_base_salary: 170000
 # Candidate's employment-eligible state, used for remote-location screening.
 candidate_state: WA
 candidate_state_name: Washington
+# The candidate's own time zone, so a triage skip on time-zone wording that names it is overruled.
+candidate_time_zone: Pacific
 
 log_level: INFO
 

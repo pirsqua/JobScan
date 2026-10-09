@@ -24,6 +24,7 @@ from jobscan.models import (
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkingHoursFit,
     WorkplaceType,
 )
 from jobscan.normalize import compute_description_hash, normalize_posting
@@ -291,6 +292,26 @@ class TestEvaluationPersistence:
         assert loaded.requirement_evidence[0].stated_as == RequirementStrength.PREFERRED
         assert db.get_evaluation_by_hash("hash-1", rubric_versions=("other", "abc123")) is not None
         assert db.get_evaluation_by_hash("hash-1", rubric_versions=("other",)) is None
+
+    def test_working_hours_round_trip(self, db: Database, settings: Settings, sample_company: Company):
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+        quote = "ideally with the ability to work within Eastern Time hours"
+        db.save_evaluation(dataclasses.replace(
+            make_evaluation(job_id), working_hours_quote=quote,
+            working_hours_fit=WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED,
+        ))
+
+        loaded = db.get_evaluation_for_job(job_id)
+        assert loaded.working_hours_quote == quote
+        assert loaded.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED
+
+    def test_working_hours_not_assessed_round_trips_as_none(self, db: Database, settings: Settings, sample_company: Company):
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+        db.save_evaluation(make_evaluation(job_id))
+
+        assert db.get_evaluation_for_job(job_id).working_hours_fit is None
 
     def test_legacy_triage_screen_out_scope_placeholder_becomes_not_assessed(self, db: Database, settings: Settings, sample_company: Company):
         # Triage screen-outs used to store a two_plus_steps_up placeholder, which read as a real

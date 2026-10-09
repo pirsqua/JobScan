@@ -116,3 +116,30 @@ class TestLocation:
     def test_not_remote_quote_must_be_about_location(self):
         posting = job(description="Own the team's quarterly goals.")
         assert not skip_is_substantiated(skip("not_remote", "Own the team's quarterly goals"), posting)
+
+    def test_exclusion_that_names_washington_dc_not_the_state_is_overruled(self):
+        # Samsara: skipped as not_remote on Washington, D.C. — the same misreading a regex once made.
+        quote = (
+            "This is a remote position open to candidates residing in the US except the San Francisco Bay "
+            "Metro Area, NYC Metro Area, and Washington, D.C. Metro Area."
+        )
+        assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+
+    def test_exclusion_that_names_the_candidates_state_is_honoured(self):
+        quote = "This role will be remote, but is not eligible to be hired in CA, CT, NJ, NY, PA, WA."  # Twilio
+        assert skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+
+    def test_time_zone_quote_naming_the_candidates_own_zone_is_overruled(self):
+        quote = "Remote based permanently in PST (Pacific Standard Time)."  # Scribe
+        assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+
+    @pytest.mark.parametrize("quote", [
+        "This role can be based remotely in the U.S. or Canada, limited to Eastern or Central time zones only.",  # MongoDB
+        "Note this role is remote for candidates residing in US within EST or CST time zone",  # Genesys
+    ])
+    def test_time_zone_quote_that_leaves_the_candidate_out_is_honoured(self, quote):
+        assert skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+
+    def test_the_candidates_state_is_a_parameter(self):
+        quote = "This role will be remote, but is not eligible to be hired in CA, CT, NJ, NY, PA, WA."
+        assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote), "OR", "Oregon")

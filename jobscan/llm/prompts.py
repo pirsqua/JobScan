@@ -23,11 +23,24 @@ def render_profile_text(profile: dict) -> str:
     return f"""Candidate headline: {profile.get('headline', '').strip()}
 Location: {profile.get('location', '')}
 
+Education:
+{_bullets(profile.get('education', []))}
+
+Certifications:
+{_bullets(profile.get('certifications', []))}
+
+Work history:
+{_bullets(profile.get('work_history', []))}
+
 Strongest skills:
 {_bullets(profile.get('strongest_skills', []))}
 
 Representative accomplishments:
 {_bullets(profile.get('accomplishments', []))}
+
+Other skills listed on the resume (working familiarity — credit as transferable, not as
+demonstrated production tenure, unless an accomplishment above shows depth):
+{_bullets(profile.get('additional_skills', []))}
 
 Specialty areas outside current focus (no direct demonstrated evidence — do not credit a
 posting's overlap with these as if it were already proven):

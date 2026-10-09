@@ -31,9 +31,40 @@ class TestPositiveMatches:
             "Engineering Manager",
             "Backend Developer",
             "Python Developer",
+            "Network Security Engineer",
         ],
     )
     def test_engineering_titles_pass(self, title: str):
+        assert is_engineering_title(title)
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Senior Product Engineer",
+            "Senior Product Engineer (Java/Spring Boot)",
+            "Senior Analytics Engineer",
+            "Managing Engineer (C#/ASP.NET)",
+            "Cloud Database Engineer II",
+            "Engineer 3 - Business Systems",
+            "Software Architect (L6)",
+            "Manager, Software Engineering",
+            "Forward Deployed Engineer",
+            "Platform (Lead) Consultant - .Net, Azure, API",
+        ],
+    )
+    def test_titles_a_specific_phrase_allowlist_missed_pass(self, title: str):
+        # Real titles the old allowlist of specific phrases silently dropped at crawl time. The
+        # gate is generic now; these pin that a new way of phrasing a role still gets through.
+        assert is_engineering_title(title)
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Senior Full-Stack Software Engineer, Developer Success",
+            "Software Engineer, Support Tools",
+        ],
+    )
+    def test_software_role_wins_over_a_team_name(self, title: str):
         assert is_engineering_title(title)
 
 
@@ -69,6 +100,13 @@ class TestEngineerTitledButNotSoftware:
             "Solutions Engineer",
             "Mechanical Engineer",
             "Civil Engineer",
+            "Sales Engineering Manager",
+            "Customer Success Engineer",
+            "Hardware Test Engineer",
+            "Technical Marketing Engineer",
+            "Senior Solutions Architect",
+            "Senior Developer Advocate",
+            "Developer Relations Engineer",
         ],
     )
     def test_engineer_titled_non_software_roles_fail(self, title: str):

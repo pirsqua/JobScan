@@ -9,6 +9,7 @@ prove the whole pipeline — not just the sort function — places them correctl
 """
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -30,6 +31,7 @@ from jobscan.models import (
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkingHoursFit,
 )
 from jobscan.normalize import normalize_posting
 from jobscan.reports.data import assemble_report_data
@@ -259,6 +261,51 @@ class TestRankingAndGrouping:
         assert [r.job.title for r in data.growth_bets] == ["One Step Up Role"]
 
 
+class TestWorkingHours:
+    # Observed live: 1Password's "ideally with the ability to work within Eastern Time hours" came
+    # out a strong-match Best Bet for a Pacific-time candidate.
+    QUOTE = "ideally with the ability to work within Eastern Time hours"
+
+    def _seed(self, db, settings, verdict, scope_fit, fit, worth_applying=True):
+        company = seed_company(db)
+        job = seed_job(db, settings, company, "1", "Senior .NET Developer", "x", 153000, 214000)
+        db.save_evaluation(dataclasses.replace(
+            make_evaluation(job.id, verdict, scope_fit, worth_applying=worth_applying),
+            working_hours_quote=self.QUOTE, working_hours_fit=fit,
+        ))
+
+    def test_preferred_eastern_hours_is_never_a_best_bet(self, db: Database, settings):
+        self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED)
+
+        data = assemble_report_data(db, settings)
+
+        assert data.best_bets == []
+        assert len(data.attractive_stretches) == 1
+        assert self.QUOTE in render_markdown(data)
+
+    def test_preferred_eastern_hours_is_never_a_growth_bet(self, db: Database, settings):
+        self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP, WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED)
+
+        data = assemble_report_data(db, settings)
+
+        assert data.growth_bets == []
+        assert len(data.attractive_stretches) == 1
+
+    def test_required_eastern_hours_is_rejected_whatever_the_verdict(self, db: Database, settings):
+        self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, WorkingHoursFit.EASTERN_OR_CENTRAL_REQUIRED)
+
+        data = assemble_report_data(db, settings)
+
+        assert data.best_bets == data.growth_bets == data.attractive_stretches == []
+        markdown = render_markdown(data)
+        assert "requires Eastern/Central Time hours" in markdown
+
+    def test_compatible_hours_change_nothing(self, db: Database, settings):
+        self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, WorkingHoursFit.COMPATIBLE)
+
+        assert len(assemble_report_data(db, settings).best_bets) == 1
+
+
 DOXIMITY_DESCRIPTION = (
     "About Doximity: Doximity is the leading clinical AI company with the largest network of "
     "U.S. clinicians. About the Role: Foremost a software engineer. You exemplify high code "
@@ -321,6 +368,8 @@ DOXIMITY_EXPECTED_RESPONSE = {
     "requirement despite the midpoint nominally clearing $170,000.",
     "remote_employment_verification": "Remote in the United States (also Canada/South America), "
     "no state-specific exclusion for Washington noted.",
+    "working_hours_quote": "",
+    "working_hours_fit": "compatible",
     "required_matches": ["Python", "SQL", "automated testing", "maintainable pipeline experience"],
     "required_gaps": [
         "5+ years specifically as a dedicated data engineer",
@@ -391,6 +440,8 @@ REVENUECAT_EXPECTED_RESPONSE = {
     "compensation is not the blocker here, but per the compensation rule this does not "
     "compensate for the scope mismatch.",
     "remote_employment_verification": "Remote-first team, described as 'Americas' — plausibly open to Washington.",
+    "working_hours_quote": "",
+    "working_hours_fit": "compatible",
     "required_matches": ["SQL", "backend ownership", "production feature delivery", "mentorship"],
     "required_gaps": [
         "8+ years designing complex systems from scratch at this scale",
@@ -469,6 +520,8 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
     "compensation_assessment": "Published base salary range $175,000-$210,000, midpoint "
     "$192,500, comfortably clears the $170,000 minimum.",
     "remote_employment_verification": "No location restriction noted; treated as open to Washington-based remote.",
+    "working_hours_quote": "",
+    "working_hours_fit": "compatible",
     "required_matches": ["Python/C#", "SQL", "REST APIs", "Azure", "testing/CI/CD", "production support", "mentoring"],
     "required_gaps": [],
     "preferred_only_gaps": [],
