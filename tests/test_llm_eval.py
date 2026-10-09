@@ -550,7 +550,7 @@ class TestCompanyClassification:
 class TestTriage:
     def test_happy_path_skip_true(self, profile):
         sdk = FakeSdkClient(
-            [tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "8+ years of Rust", "disqualifier": "required_unfamiliar_language", "skip_full_evaluation": True, "reason": "Requires 8+ years Rust."})]
+            [tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "8+ years of Rust", "quote_is_hard_requirement": True, "disqualifier": "required_unfamiliar_language", "skip_full_evaluation": True, "reason": "Requires 8+ years Rust."})]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
@@ -566,7 +566,7 @@ class TestTriage:
 
     def test_happy_path_skip_false(self, profile):
         sdk = FakeSdkClient(
-            [tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "", "disqualifier": "none", "skip_full_evaluation": False, "reason": "Real backend overlap."})]
+            [tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "", "quote_is_hard_requirement": False, "disqualifier": "none", "skip_full_evaluation": False, "reason": "Real backend overlap."})]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
@@ -578,7 +578,7 @@ class TestTriage:
         # The whole point is a cheap, short-output call — it should not request anywhere near the
         # 8192 the full evaluation needs.
         sdk = FakeSdkClient(
-            [tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "", "disqualifier": "none", "skip_full_evaluation": False, "reason": "ok"})]
+            [tool_response(TRIAGE_TOOL_NAME, {"disqualifier_quote": "", "quote_is_hard_requirement": False, "disqualifier": "none", "skip_full_evaluation": False, "reason": "ok"})]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 

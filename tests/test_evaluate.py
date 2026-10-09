@@ -90,12 +90,13 @@ def triage_tool_response(
     """A skip defaults to one the substantiation check accepts: an allowed category, quoting words
     that really are in seed_job's default description."""
     if disqualifier is None:
-        disqualifier = "not_engineering" if skip_full_evaluation else "none"
+        disqualifier = "excluded_industry" if skip_full_evaluation else "none"
     if quote is None:
         quote = "We build our own SaaS product." if skip_full_evaluation else ""
     block = SimpleNamespace(
         type="tool_use", name=TRIAGE_TOOL_NAME,
-        input={"disqualifier_quote": quote, "disqualifier": disqualifier,
+        input={"disqualifier_quote": quote, "quote_is_hard_requirement": skip_full_evaluation,
+               "disqualifier": disqualifier,
                "skip_full_evaluation": skip_full_evaluation, "reason": reason},
     )
     usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
@@ -361,7 +362,7 @@ class TestTriageIntegration:
         assert saved.verdict == Verdict.REJECT
         assert saved.primary_rejection_reason == "Requires 8+ years Rust."
         assert saved.model_name == "triage:test-haiku-model"
-        assert saved.evidence == ['not_engineering: "We build our own SaaS product."']
+        assert saved.evidence == ['excluded_industry: "We build our own SaaS product."']
 
     def test_skip_the_posting_does_not_support_goes_to_the_full_evaluation(self, db: Database, settings):
         # Observed live: Haiku skipped a Software Engineer II as "overqualified" despite being told
