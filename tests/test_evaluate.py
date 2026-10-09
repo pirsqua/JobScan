@@ -151,6 +151,48 @@ class TestEvaluateAll:
         assert stats.sent_to_llm == 1
         assert stats.verdict_counts["strong_match"] == 1
 
+    NEAR_MISS = {**VALID_EVAL_INPUT, "verdict": "borderline", "scope_fit": "one_step_up",
+                 "worth_applying": False, "primary_rejection_reason": "Go and React day to day"}
+
+    def test_near_miss_gets_a_second_look_and_keeps_the_more_favourable(self, db: Database, settings):
+        # The same posting came back not-worth-applying twice and worth-applying once in three
+        # live runs; one unlucky sample shouldn't decide it.
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        job = seed_job(db, settings, company)
+        second = {**self.NEAR_MISS, "worth_applying": True}
+        sdk = FakeSdkClient([tool_response(self.NEAR_MISS), tool_response(second)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        stats = evaluate_all(db, settings, client=client)
+
+        assert sdk.messages.call_count == 2
+        assert (stats.second_looks, stats.second_looks_kept) == (1, 1)
+        assert stats.input_tokens == 200  # both calls are paid for
+        assert db.get_evaluation_for_job(job.id).worth_applying is True
+
+    def test_a_less_favourable_second_look_is_discarded(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        job = seed_job(db, settings, company)
+        worse = {**self.NEAR_MISS, "verdict": "reject"}
+        client = AnthropicClient(api_key=None, model="test-model",
+                                 client=FakeSdkClient([tool_response(self.NEAR_MISS), tool_response(worse)]))
+
+        stats = evaluate_all(db, settings, client=client)
+
+        assert (stats.second_looks, stats.second_looks_kept) == (1, 0)
+        assert db.get_evaluation_for_job(job.id).verdict == Verdict.BORDERLINE
+
+    def test_a_clear_reject_gets_no_second_look(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+        reject = {**self.NEAR_MISS, "verdict": "reject"}
+        sdk = FakeSdkClient([tool_response(reject)])
+
+        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert sdk.messages.call_count == 1
+        assert stats.second_looks == 0
+
     def test_second_run_uses_cache_not_new_llm_call(self, db: Database, settings):
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)

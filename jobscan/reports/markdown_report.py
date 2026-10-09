@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jobscan.models import Evaluation, JobPosting, Verdict, WorkingHoursFit
+from jobscan.models import Evaluation, JobPosting, ScopeFit, Verdict, WorkingHoursFit
 from jobscan.reports.data import JobReportRow, ReportData, declined_reason, is_declined
 
 
@@ -138,8 +138,9 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
     lines = [
         "", "## Attractive Stretches", "",
         "_Strong technical overlap, but two or more unproven scope dimensions — or a hidden "
-        "staff-level/elite-startup expectation behind an ordinary-looking Senior title. Aspirational, "
-        "not a Best Bet._", "",
+        "staff-level/elite-startup expectation behind an ordinary-looking Senior title — or a good "
+        "fit that sits below your level or expects Eastern/Central hours. Worth a look, not a Best "
+        "Bet._", "",
     ]
     if not rows:
         lines.append("_None._")
@@ -148,11 +149,18 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
     for row in rows:
         job, company, ev = row.job, row.company, row.evaluation
         assert ev is not None
+        stretch = ev.growth_dimensions or [ev.primary_rejection_reason or ""]
+        # Roles that would otherwise be a Best or Growth Bet land here for their level or hours.
+        if ev.scope_fit == ScopeFit.BELOW_LEVEL:
+            stretch = ["below the candidate's level"] + stretch
+        if ev.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED:
+            stretch = ["expects Eastern/Central Time hours"] + stretch
+        stretch_text = "; ".join(item for item in stretch if item) or "(not specified)"
         lines += [
             f"### {_role(row)} ({ev.verdict.value}, {ev.scope_fit.value})",
             "",
             f"- Strong matching areas: {'; '.join(ev.required_matches) if ev.required_matches else '(none noted)'}",
-            f"- What makes this a stretch: {'; '.join(ev.growth_dimensions) if ev.growth_dimensions else (ev.primary_rejection_reason or '(not specified)')}",
+            f"- What makes this a stretch: {stretch_text}",
         ]
         lines += _hours_line(ev)
         if ev.hidden_staff_signals:

@@ -400,6 +400,10 @@ class EvaluateStats:
     # Skips the triage model asked for that its quoted evidence didn't support (see
     # jobscan.llm.triage.skip_is_substantiated) — sent on to the full evaluation instead. Not persisted.
     triage_overruled: int = 0
+    # Near-miss full evaluations given a second look, and how many of those the second one won
+    # (see jobscan.evaluate._is_near_miss). Not persisted; their tokens are in the counts above.
+    second_looks: int = 0
+    second_looks_kept: int = 0
     triage_input_tokens: int = 0
     triage_output_tokens: int = 0
     triage_cache_creation_input_tokens: int = 0

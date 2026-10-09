@@ -50,6 +50,8 @@ def cmd_evaluate(args: argparse.Namespace, settings: Settings) -> int:
     print(f"Companies newly classified: {stats.companies_classified}")
     print(f"Manual overrides applied: {stats.manual_overrides_applied}")
     print(f"Sent to LLM: {stats.sent_to_llm}  Cache hits: {stats.cache_hits}  Unverified: {stats.unverified}")
+    if stats.second_looks:
+        print(f"Near-miss second looks: {stats.second_looks}  (second evaluation more favourable: {stats.second_looks_kept})")
     if stats.triage_model:
         print(f"Triaged ({stats.triage_model}): {stats.triaged}  Skipped before full evaluation: {stats.triage_skipped}  "
               f"Skips overruled (not substantiated by the posting): {stats.triage_overruled}")

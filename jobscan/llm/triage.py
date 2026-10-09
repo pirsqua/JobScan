@@ -54,6 +54,9 @@ _EXCLUSION_RE = re.compile(r"except|exclud|not (eligible|available)|cannot|can't
 # "Remote based permanently in PST (Pacific Standard Time)" skipped as not_remote for a Seattle
 # candidate.
 _TIME_ZONE_RE = re.compile(r"time ?zone|\b(eastern|central|mountain|pacific)\b|\b[ecmp][sd]?t\b")
+# A location or hours preference ("core hours 9-5 EST preferred", "ideally ...") is a negative the
+# full evaluation weighs, not a disqualifier.
+_PREFERENCE_RE = re.compile(r"\b(ideally|prefer(red|ably)?|a plus|nice to have|bonus|where possible|if possible)\b")
 _TRANSLATE = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"', "‐": "-",
                             "‑": "-", "‒": "-", "–": "-", "—": "-", "−": "-",
                             " ": " ", " ": " ", "·": " ", "•": " "})
@@ -95,6 +98,8 @@ def skip_is_substantiated(
         return bool(_MANAGER_TITLE_RE.search(title))
     if result.disqualifier == "not_remote":
         quote = _normalize(result.disqualifier_quote)
+        if _PREFERENCE_RE.search(quote):
+            return False
         if _EXCLUSION_RE.search(quote):
             names_state = re.search(
                 rf"\b({re.escape(state_abbr)}|{re.escape(state_name)})\b(?!,? ?d\.? ?c\b)", quote, re.IGNORECASE

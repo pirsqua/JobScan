@@ -184,8 +184,9 @@ class TestRankingAndGrouping:
         assert len(data.growth_bets) == 0
         assert len(data.attractive_stretches) == 0
 
-    def test_below_level_strong_match_is_excluded_from_best_bets(self, db: Database, settings):
-        # Underusing experience isn't what "Best Bet" means, even with a strong verdict.
+    def test_below_level_strong_match_is_a_stretch_not_a_best_bet(self, db: Database, settings):
+        # Underusing experience isn't what "Best Bet" means, even with a strong verdict — but a
+        # below-Senior role with passing pay is wanted, so it must not vanish from every section.
         company = seed_company(db)
         job = seed_job(db, settings, company, "1", "Backend Engineer II", "x", 190000, 230000)
         db.save_evaluation(make_evaluation(job.id, Verdict.STRONG_MATCH, ScopeFit.BELOW_LEVEL))
@@ -193,6 +194,7 @@ class TestRankingAndGrouping:
         data = assemble_report_data(db, settings)
 
         assert len(data.best_bets) == 0
+        assert len(data.attractive_stretches) == 1
 
     def test_sorts_by_evidence_coverage_percent_within_section(self, db: Database, settings):
         company = seed_company(db)

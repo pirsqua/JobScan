@@ -118,7 +118,10 @@ def _report_section(evaluation: Evaluation | None) -> str:
         if evaluation.scope_fit == ScopeFit.ONE_STEP_UP and evaluation.verdict == Verdict.PLAUSIBLE_MATCH:
             return "growth_bets"
         if evaluation.scope_fit == ScopeFit.BELOW_LEVEL:
-            return "rejected_or_unverified"
+            # Not a Best Bet (it underuses the candidate), but never dropped: below-Senior roles
+            # with passing pay and backend work are wanted. These once vanished from every
+            # section, unlisted even among the rejects.
+            return "attractive_stretches"
     if not evaluation.worth_applying:
         return "rejected_or_unverified"
     # Anything else attractive-but-unconfident (borderline at any scope_fit, or a
