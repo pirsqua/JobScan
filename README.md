@@ -66,10 +66,11 @@ Open the newest `out\report_<timestamp>PT.md`. It has the run statistics, then:
 |---|---|
 | **Best Bets** | Strong or plausible match at your level |
 | **Growth Bets** | Plausible match one step up — no more than one material growth dimension |
-| **Attractive Stretches** | Real overlap but a genuine stretch, still judged worth applying to — or a good fit that expects Eastern/Central hours |
+| **Attractive Stretches** | Real overlap but a genuine stretch, still judged worth applying to — or a good fit below your level |
 | **Rejected or Unverified** | Everything else, each with its primary reason |
 
-A posting's own words on working hours are shown with the role whenever it states any.
+A posting's own words on working hours are shown with the role whenever it states any; Eastern or
+Central hours, required or preferred, reject it.
 
 Record each application in `data/applications.yaml` (company, title, posting URL, date). The report
 lists them under **Applications** with where each posting now stands — still shortlisted, rejected,

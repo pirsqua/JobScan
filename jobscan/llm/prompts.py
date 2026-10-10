@@ -303,8 +303,9 @@ at Senior ("Senior/Staff", "Senior or Staff").
 Tech-leading, or "leading engineers on the team" through a project, is ordinary senior work, not \
 this.
 - not_remote: the posting requires office or hybrid presence, or limits remote work to places, \
-time zones or states that exclude a Washington resident. A remote offer that doesn't list eligible \
-states is not a mismatch.
+time zones or states that exclude a Washington resident, or expects Eastern or Central Time \
+working hours — even as a preference ("ideally with the ability to work within Eastern Time \
+hours"). A remote offer that doesn't list eligible states is not a mismatch.
 - excluded_industry: the employer is in an industry the candidate's hard filters exclude.
 - not_engineering: not a software-engineering job at all — sales, support, solutions, developer \
 advocacy and the like under an engineering-sounding title.

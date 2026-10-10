@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jobscan.models import Evaluation, JobPosting, ScopeFit, Verdict, WorkingHoursFit
+from jobscan.models import Evaluation, JobPosting, ScopeFit, Verdict
 from jobscan.reports.data import JobReportRow, ReportData, declined_reason, is_declined
 
 
@@ -85,7 +85,7 @@ def _hours_line(ev: Evaluation) -> list[str]:
     """The posting's own words on working hours, whenever it states any."""
     if not ev.working_hours_quote:
         return []
-    note = " — expects Eastern/Central hours" if ev.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED else ""
+    note = " — expects Eastern/Central hours" if ev.working_hours_fit and ev.working_hours_fit.disqualifies else ""
     return [f'- Working hours: "{ev.working_hours_quote}"{note}']
 
 
@@ -139,8 +139,7 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
         "", "## Attractive Stretches", "",
         "_Strong technical overlap, but two or more unproven scope dimensions — or a hidden "
         "staff-level/elite-startup expectation behind an ordinary-looking Senior title — or a good "
-        "fit that sits below your level or expects Eastern/Central hours. Worth a look, not a Best "
-        "Bet._", "",
+        "fit that sits below your level. Worth a look, not a Best Bet._", "",
     ]
     if not rows:
         lines.append("_None._")
@@ -150,11 +149,9 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
         job, company, ev = row.job, row.company, row.evaluation
         assert ev is not None
         stretch = ev.growth_dimensions or [ev.primary_rejection_reason or ""]
-        # Roles that would otherwise be a Best or Growth Bet land here for their level or hours.
+        # A match that would otherwise be a Best or Growth Bet lands here for its level.
         if ev.scope_fit == ScopeFit.BELOW_LEVEL:
             stretch = ["below the candidate's level"] + stretch
-        if ev.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED:
-            stretch = ["expects Eastern/Central Time hours"] + stretch
         stretch_text = "; ".join(item for item in stretch if item) or "(not specified)"
         lines += [
             f"### {_role(row)} ({ev.verdict.value}, {ev.scope_fit.value})",
@@ -201,7 +198,7 @@ def _render_rejected_or_unverified(data: ReportData) -> list[str]:
         reason = declined_reason(ev).replace("|", "\\|")
         if ev.verdict == Verdict.REJECT:
             verdict_label = "reject"
-        elif ev.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_REQUIRED:
+        elif ev.working_hours_fit and ev.working_hours_fit.disqualifies:
             verdict_label = f"{ev.verdict.value}, but hours fail"
         elif not ev.worth_applying:
             verdict_label = f"{ev.verdict.value}, not worth applying"

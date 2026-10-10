@@ -148,10 +148,14 @@ class WorkingHoursFit(str, Enum):
 
     COMPATIBLE = "compatible"
     # Stated as an expectation or preference ("ideally with the ability to work within Eastern Time
-    # hours"): a real negative, so never a Best or Growth Bet — see reports.data._report_section.
+    # hours"). Like a requirement, a hard-filter failure — see reports.data._report_section.
     EASTERN_OR_CENTRAL_PREFERRED = "eastern_or_central_preferred"
-    # Required hours or residence in those time zones: a hard-filter failure.
+    # Required hours or residence in those time zones.
     EASTERN_OR_CENTRAL_REQUIRED = "eastern_or_central_required"
+
+    @property
+    def disqualifies(self) -> bool:
+        return self is not WorkingHoursFit.COMPATIBLE
 
 
 class RequirementImportance(str, Enum):

@@ -24,7 +24,6 @@ from jobscan.models import (
     RequirementImportance,
     ScopeFit,
     Verdict,
-    WorkingHoursFit,
 )
 from jobscan.parsing import annualize
 from jobscan.timeutil import now_seattle
@@ -105,13 +104,11 @@ def _report_section(evaluation: Evaluation | None) -> str:
     to rejected_or_unverified instead, regardless of the nominal verdict/scope_fit label."""
     if evaluation is None or evaluation.verdict == Verdict.REJECT:
         return "rejected_or_unverified"
-    # Enforced here rather than trusted to the verdict: required Eastern/Central hours fail a hard
-    # filter, and a stated preference for them is a real negative for a Pacific-time candidate —
-    # observed live, a posting "ideally" wanting Eastern hours came out a strong-match Best Bet.
-    if evaluation.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_REQUIRED:
+    # Enforced here rather than trusted to the verdict: Eastern/Central hours, required or merely
+    # preferred, fail the candidate's hard filter — observed live, a posting "ideally" wanting
+    # Eastern hours came out a strong-match Best Bet.
+    if evaluation.working_hours_fit is not None and evaluation.working_hours_fit.disqualifies:
         return "rejected_or_unverified"
-    if evaluation.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED:
-        return "attractive_stretches" if evaluation.worth_applying else "rejected_or_unverified"
     if evaluation.verdict in (Verdict.STRONG_MATCH, Verdict.PLAUSIBLE_MATCH):
         if evaluation.scope_fit == ScopeFit.AT_LEVEL:
             return "best_bets"
@@ -203,8 +200,8 @@ def is_declined(evaluation: Evaluation) -> bool:
 
 
 def declined_reason(evaluation: Evaluation) -> str:
-    if evaluation.verdict != Verdict.REJECT and evaluation.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_REQUIRED:
-        return f'requires Eastern/Central Time hours: "{evaluation.working_hours_quote}"'
+    if evaluation.verdict != Verdict.REJECT and evaluation.working_hours_fit is not None and evaluation.working_hours_fit.disqualifies:
+        return f'expects Eastern/Central Time hours: "{evaluation.working_hours_quote}"'
     return evaluation.primary_rejection_reason or "no reason recorded"
 
 
