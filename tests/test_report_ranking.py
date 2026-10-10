@@ -265,6 +265,66 @@ class TestRankingAndGrouping:
         assert [r.job.title for r in data.growth_bets] == ["One Step Up Role"]
 
 
+class TestScopeFollowsRequirementEvidence:
+    # Samsara's Software Engineer II: identical evidence on consecutive days, labelled one_step_up
+    # then at_level — Growth Bet, then Best Bet.
+    @staticmethod
+    def _gap() -> RequirementEvidence:
+        return RequirementEvidence(
+            requirement="production Go", importance=RequirementImportance.CENTRAL,
+            evidence_classification=EvidenceClassification.NOT_DEMONSTRATED, candidate_evidence="none",
+            posting_evidence="5+ years of Go",
+        )
+
+    def _section(self, db, settings, evaluation) -> str:
+        data = assemble_report_data(db, settings)
+        for name in ("best_bets", "growth_bets", "attractive_stretches"):
+            if getattr(data, name):
+                return name
+        return "rejected"
+
+    def _seed(self, db, settings, verdict, scope_fit, **changes):
+        company = seed_company(db)
+        job = seed_job(db, settings, company, "1", "Software Engineer II", "x", 190000, 230000)
+        evaluation = dataclasses.replace(
+            make_evaluation(job.id, verdict, scope_fit, central_directly_demonstrated=2), **changes)
+        db.save_evaluation(evaluation)
+        return evaluation
+
+    def test_clean_evidence_labelled_one_step_up_is_at_level(self, db: Database, settings):
+        self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP)
+        assert self._section(db, settings, None) == "best_bets"
+
+    def test_an_undemonstrated_central_requirement_makes_at_level_one_step_up(self, db: Database, settings):
+        base = make_evaluation(1, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, central_directly_demonstrated=2)
+        self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL,
+                   requirement_evidence=base.requirement_evidence + [self._gap()])
+        data = assemble_report_data(db, settings)
+        assert [r.evaluation.verdict for r in data.growth_bets] == [Verdict.PLAUSIBLE_MATCH]
+
+    def test_insufficient_specialist_tenure_makes_at_level_one_step_up(self, db: Database, settings):
+        tenure = SpecialistTenureAssessment(
+            classification=SpecialistTenureClassification.INSUFFICIENT, specialty="data engineering", explanation="x")
+        self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.AT_LEVEL, specialist_tenure_assessment=tenure)
+        assert self._section(db, settings, None) == "growth_bets"
+
+    def test_staff_signals_block_a_raise(self, db: Database, settings):
+        self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP,
+                   hidden_staff_signals=["set technical direction across several teams"])
+        assert self._section(db, settings, None) == "growth_bets"
+
+    def test_staff_signals_never_force_a_drop(self, db: Database, settings):
+        # Standard Metrics: an at_level strong match whose staff list held "we do not have a QA team".
+        self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, hidden_staff_signals=["we do not have a QA team"])
+        assert self._section(db, settings, None) == "best_bets"
+
+    def test_other_labels_and_missing_evidence_are_left_alone(self, db: Database, settings):
+        company = seed_company(db)
+        job = seed_job(db, settings, company, "1", "Software Engineer II", "x", 190000, 230000)
+        db.save_evaluation(make_evaluation(job.id, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP))  # no evidence items
+        assert len(assemble_report_data(db, settings).growth_bets) == 1
+
+
 class TestWorkingHours:
     # Observed live: 1Password's "ideally with the ability to work within Eastern Time hours" came
     # out a strong-match Best Bet for a Pacific-time candidate.
