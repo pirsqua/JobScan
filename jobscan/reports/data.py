@@ -8,7 +8,7 @@ at-level "plausible_match", and compensation is a clamped tiebreaker, not an unb
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from jobscan.applications import Application, load_applications, normalize_url
 from jobscan.config import Settings
@@ -23,6 +23,7 @@ from jobscan.models import (
     JobPosting,
     RequirementImportance,
     ScopeFit,
+    SpecialistTenureClassification,
     Verdict,
 )
 from jobscan.parsing import annualize
@@ -88,6 +89,35 @@ def _still_passes_factual_filters(row: JobReportRow, settings: Settings) -> bool
     if row.evaluation is not None and row.evaluation.model_name == "manual_override":
         return True
     return apply_factual_filters(row.job, row.company, settings.min_base_salary).passed
+
+
+def settle_scope(evaluation: Evaluation) -> Evaluation:
+    """Draw the at_level / one_step_up line from the evaluation's own structured requirement
+    evidence instead of its one-word label, which is sampled and flips. Observed: Samsara's
+    Software Engineer II, evaluated on consecutive days with the same evidence — no central
+    requirement undemonstrated, specialist tenure not applicable, no staff signals — was labelled
+    one_step_up, then at_level: Growth Bet one day, Best Bet the next.
+
+    Raised to at_level only on clean evidence: no central requirement not_demonstrated, specialist
+    tenure meets or not applicable, no hidden staff signals. Lowered to one_step_up when a central
+    requirement is not_demonstrated or specialist tenure is insufficient (a strong_match then caps
+    at plausible_match — strong_match requires at_level). The staff-signal list is loose (it has
+    held "we do not have a QA team"), so it can block a raise but never forces a drop. Other
+    labels, and evaluations without central requirement evidence, are left as the model gave them."""
+    if evaluation.scope_fit not in (ScopeFit.AT_LEVEL, ScopeFit.ONE_STEP_UP):
+        return evaluation
+    central = [item for item in evaluation.requirement_evidence if item.importance == RequirementImportance.CENTRAL]
+    if not central:
+        return evaluation
+    tenure = evaluation.specialist_tenure_assessment.classification
+    gap = any(item.evidence_classification == EvidenceClassification.NOT_DEMONSTRATED for item in central)
+    if gap or tenure == SpecialistTenureClassification.INSUFFICIENT:
+        verdict = Verdict.PLAUSIBLE_MATCH if evaluation.verdict == Verdict.STRONG_MATCH else evaluation.verdict
+        return replace(evaluation, scope_fit=ScopeFit.ONE_STEP_UP, verdict=verdict)
+    clean_tenure = tenure in (SpecialistTenureClassification.MEETS, SpecialistTenureClassification.NOT_APPLICABLE)
+    if clean_tenure and not evaluation.hidden_staff_signals:
+        return replace(evaluation, scope_fit=ScopeFit.AT_LEVEL)
+    return evaluation
 
 
 def _report_section(evaluation: Evaluation | None) -> str:
@@ -187,6 +217,7 @@ def _application_standing(db: Database, job: JobPosting | None, settings: Settin
     evaluation = db.get_evaluation_for_job(job.id)
     if evaluation is None:
         return "Not evaluated yet"
+    evaluation = settle_scope(evaluation)
     section = _report_section(evaluation)
     if section in _SECTION_LABELS:
         return _SECTION_LABELS[section]
@@ -229,6 +260,8 @@ def assemble_report_data(
         if company is None:
             continue
         evaluation = db.get_evaluation_for_job(job.id)
+        if evaluation is not None:
+            evaluation = settle_scope(evaluation)
         rows.append(JobReportRow(
             job=job, company=company, evaluation=evaluation,
             applied_on=applied_on.get(normalize_url(job.posting_url)) if job.posting_url else None,
