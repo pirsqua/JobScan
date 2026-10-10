@@ -168,8 +168,21 @@ class TestLocation:
     @pytest.mark.parametrize("quote", [
         "This is a remote opportunity within Canada and the US, ideally with the ability to work within Eastern Time hours.",  # 1Password
         "Core hours 9-5 EST preferred.",
+        "Fully remote, working Central Time business hours.",
     ])
-    def test_a_stated_preference_is_not_a_disqualifier(self, quote):
+    def test_eastern_or_central_hours_disqualify_even_as_a_preference(self, quote):
+        assert skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+
+    @pytest.mark.parametrize("quote", [
+        "Preferred locations: New York or San Francisco.",
+        "Mountain Time hours preferred.",
+        "Overlap with both Pacific and Eastern time zones is required.",
+    ])
+    def test_other_preferences_and_the_candidates_own_zone_are_not_disqualifiers(self, quote):
+        assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+
+    def test_a_state_list_with_ct_is_not_central_time(self):
+        quote = "This role will be remote, but is not eligible to be hired in CA, CT, NJ, NY, PA."
         assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote))
 
     def test_the_candidates_state_is_a_parameter(self):

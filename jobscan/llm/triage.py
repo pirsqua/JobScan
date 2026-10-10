@@ -55,8 +55,15 @@ _EXCLUSION_RE = re.compile(r"except|exclud|not (eligible|available)|cannot|can't
 # "Remote based permanently in PST (Pacific Standard Time)" skipped as not_remote for a Seattle
 # candidate.
 _TIME_ZONE_RE = re.compile(r"time ?zone|\b(eastern|central|mountain|pacific)\b|\b[ecmp][sd]?t\b")
-# A location or hours preference ("core hours 9-5 EST preferred", "ideally ...") is a negative the
-# full evaluation weighs, not a disqualifier.
+# Eastern or Central Time hours disqualify, required or merely preferred ("ideally with the ability
+# to work within Eastern Time hours"). Bare "ET"/"CT" only next to hours or time, so a "CA, CT, NJ"
+# state list isn't read as Central Time.
+_EASTERN_CENTRAL_RE = re.compile(
+    r"\b(eastern|central)\b[^.]{0,30}\b(time|hours)\b|\b[ec][sd]t\b|\b(et|ct)\s+(time|hours|business)|"
+    r"\bhours\b[^.]{0,15}\b(et|ct)\b"
+)
+# Any other location preference ("Preferred locations: New York or San Francisco") is a negative
+# the full evaluation weighs, not a disqualifier.
 _PREFERENCE_RE = re.compile(r"\b(ideally|prefer(red|ably)?|a plus|nice to have|bonus|where possible|if possible)\b")
 _TRANSLATE = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"', "‐": "-",
                             "‑": "-", "‒": "-", "–": "-", "—": "-", "−": "-",
@@ -107,6 +114,12 @@ def skip_is_substantiated(
         return not names_software_role(job.title)
     if result.disqualifier == "not_remote":
         quote = _normalize(result.disqualifier_quote)
+        if _TIME_ZONE_RE.search(quote):
+            zone = time_zone.lower()
+            if re.search(rf"\b({re.escape(zone)}|{re.escape(zone[0])}[sd]?t)\b", quote):
+                return False
+            if _EASTERN_CENTRAL_RE.search(quote):
+                return True
         if _PREFERENCE_RE.search(quote):
             return False
         if _EXCLUSION_RE.search(quote):
@@ -114,10 +127,6 @@ def skip_is_substantiated(
                 rf"\b({re.escape(state_abbr)}|{re.escape(state_name)})\b(?!,? ?d\.? ?c\b)", quote, re.IGNORECASE
             )
             if not names_state:
-                return False
-        if _TIME_ZONE_RE.search(quote):
-            zone = time_zone.lower()
-            if re.search(rf"\b({re.escape(zone)}|{re.escape(zone[0])}[sd]?t)\b", quote):
                 return False
         return bool(_NOT_REMOTE_RE.search(quote)) and not _REMOTE_OFFERED_RE.search(quote)
     return True

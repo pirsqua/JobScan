@@ -137,11 +137,10 @@ class JobEvaluationResult(BaseModel):
     working_hours_fit: WorkingHoursFit = Field(
         description="Those words against the candidate's Pacific Time working day. "
         "eastern_or_central_required: the posting requires working Eastern or Central Time hours, "
-        "or living in those time zones — a hard-filter failure, so the verdict is reject. "
-        "eastern_or_central_preferred: it states Eastern or Central hours as an expectation or "
-        "preference (\"ideally with the ability to work within Eastern Time hours\", \"core hours "
-        "9-5 ET preferred\") — a real negative for this candidate: say so in minor_caveats, and "
-        "the role is not a strong_match. compatible: nothing stated, flexible hours, Pacific "
+        "or living in those time zones. eastern_or_central_preferred: it states Eastern or Central "
+        "hours as an expectation or preference (\"ideally with the ability to work within Eastern "
+        "Time hours\", \"core hours 9-5 ET preferred\"). Both fail the candidate's hard filter, so "
+        "the verdict is reject. compatible: nothing stated, flexible hours, Pacific or Mountain "
         "hours, or an overlap a Pacific day meets (\"within ±4 hours of Pacific Time\", \"at "
         "least 4 hours of overlap with Eastern Time\")."
     )

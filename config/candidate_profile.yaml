@@ -198,11 +198,11 @@ hard_filters:
     arrangement. Once remote work is offered, Washington is presumed eligible unless the posting
     excludes it or limits remote work to specific states or regions that leave it out; a remote
     offer that doesn't name eligible states is not a failure by itself
-  - Working hours that fit a Pacific Time day. A role that requires working Eastern or Central
-    Time hours, or living in those time zones, fails this filter. A stated preference for Eastern
-    or Central hours ("ideally with the ability to work within Eastern Time hours") is not a
-    failure, but it is a real negative for this candidate — weigh it against the role. Overlap a
-    Pacific day meets ("within ±4 hours of Pacific Time") is fine.
+  - Working hours that fit a Pacific Time day. A role that requires or prefers working Eastern or
+    Central Time hours, or living in those time zones, fails this filter — a stated preference
+    ("ideally with the ability to work within Eastern Time hours") fails it too. Overlap a Pacific
+    day meets ("within ±4 hours of Pacific Time", "at least 4 hours of overlap with Eastern Time")
+    is fine, and so are Mountain Time hours.
   - Full-time employee position
   - Employer principally builds and operates its own product or platform (not a consulting,
     staffing or outsourcing firm; not client-delivery/billable work)

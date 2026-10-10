@@ -13,6 +13,8 @@ import dataclasses
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import pytest
+
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.llm.client import AnthropicClient
@@ -276,31 +278,21 @@ class TestWorkingHours:
             working_hours_quote=self.QUOTE, working_hours_fit=fit,
         ))
 
-    def test_preferred_eastern_hours_is_never_a_best_bet(self, db: Database, settings):
-        self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED)
-
-        data = assemble_report_data(db, settings)
-
-        assert data.best_bets == []
-        assert len(data.attractive_stretches) == 1
-        assert self.QUOTE in render_markdown(data)
-
-    def test_preferred_eastern_hours_is_never_a_growth_bet(self, db: Database, settings):
-        self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP, WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED)
-
-        data = assemble_report_data(db, settings)
-
-        assert data.growth_bets == []
-        assert len(data.attractive_stretches) == 1
-
-    def test_required_eastern_hours_is_rejected_whatever_the_verdict(self, db: Database, settings):
-        self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, WorkingHoursFit.EASTERN_OR_CENTRAL_REQUIRED)
+    @pytest.mark.parametrize("verdict, scope_fit", [
+        (Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL),
+        (Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP),
+        (Verdict.BORDERLINE, ScopeFit.ONE_STEP_UP),
+    ])
+    @pytest.mark.parametrize("fit", [WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED, WorkingHoursFit.EASTERN_OR_CENTRAL_REQUIRED])
+    def test_eastern_hours_required_or_preferred_reject_whatever_the_verdict(self, db: Database, settings, verdict, scope_fit, fit):
+        self._seed(db, settings, verdict, scope_fit, fit)
 
         data = assemble_report_data(db, settings)
 
         assert data.best_bets == data.growth_bets == data.attractive_stretches == []
         markdown = render_markdown(data)
-        assert "requires Eastern/Central Time hours" in markdown
+        assert "expects Eastern/Central Time hours" in markdown
+        assert self.QUOTE in markdown
 
     def test_compatible_hours_change_nothing(self, db: Database, settings):
         self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, WorkingHoursFit.COMPATIBLE)
