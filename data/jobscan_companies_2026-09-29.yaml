@@ -1262,6 +1262,7 @@
   compensation_signal: likely_170k_path
   evidence_level: current_board_verified
   discovery_source: curated_dotnet_azure_demand_2026
+  applied: true
   notes: "Backup/data-protection products use substantial C#/.NET and cloud integrations. Screen out deep systems/C++ roles. [Verified 2026-09-29: Greenhouse board id is 'veeamsoftware' (not 'veeam'), confirmed live via direct API, 240 jobs.] [Verified 2026-09-30: describes itself as remote-first, 67% recommend, 3.7 WLB/culture — respectable, not top-tier.]"
 
 - name: Workiva
