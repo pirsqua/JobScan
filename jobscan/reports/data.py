@@ -48,6 +48,19 @@ class ApplicationRow:
 
 
 @dataclass
+class PoolStats:
+    """The current state of every active posting at an active company, computed at report time —
+    as opposed to a run's own work (CrawlRunStats, EvaluateStats.new_verdict_counts). The three
+    groups partition the pool: factually rejected, evaluated, awaiting evaluation."""
+
+    active_postings: int = 0
+    factually_rejected: int = 0
+    evaluated: int = 0
+    awaiting_evaluation: int = 0
+    verdict_counts: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
 class ReportData:
     generated_at: str
     crawl_stats: CrawlRunStats | None
@@ -57,7 +70,7 @@ class ReportData:
     growth_bets: list[JobReportRow]
     attractive_stretches: list[JobReportRow]
     all_evaluated: list[JobReportRow]
-    unverified_count: int
+    pool: PoolStats
     applications: list[ApplicationRow] = field(default_factory=list)
 
 
@@ -257,7 +270,7 @@ def assemble_report_data(
     rows: list[JobReportRow] = []
     for job in db.get_active_jobs():
         company = db.get_company(job.company_id)
-        if company is None:
+        if company is None or not company.active:
             continue
         evaluation = db.get_evaluation_for_job(job.id)
         if evaluation is not None:
@@ -277,7 +290,16 @@ def assemble_report_data(
         sections[key].sort(key=lambda r: _rank_key(r, settings))
 
     evaluated = [r for r in rows if r.evaluation is not None]
-    unverified_count = sum(1 for r in rows if r.evaluation is None)
+    pool = PoolStats(active_postings=len(rows))
+    for row in rows:
+        if not _still_passes_factual_filters(row, settings):
+            pool.factually_rejected += 1
+        elif row.evaluation is None:
+            pool.awaiting_evaluation += 1
+        else:
+            pool.evaluated += 1
+            verdict = row.evaluation.verdict.value
+            pool.verdict_counts[verdict] = pool.verdict_counts.get(verdict, 0) + 1
 
     estimated_cost = evaluate_stats.estimated_cost_usd(settings) if evaluate_stats else None
 
@@ -290,6 +312,6 @@ def assemble_report_data(
         growth_bets=sections["growth_bets"],
         attractive_stretches=sections["attractive_stretches"],
         all_evaluated=evaluated,
-        unverified_count=unverified_count,
+        pool=pool,
         applications=_application_rows(db, applications, settings),
     )

@@ -383,6 +383,10 @@ class CrawlRunStats:
 
 @dataclass
 class EvaluateStats:
+    # Every run re-checks every active posting, so jobs_considered, factual_rejected, cache_hits,
+    # verdict_counts and unverified describe the whole pool at the time of the run, not this run's
+    # work. newly_filtered and new_verdict_counts below are this run's own results — reports keep
+    # the two apart (observed: "0 new postings" printed beside "1744 factually rejected").
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     jobs_considered: int = 0
     factual_rejected: int = 0
@@ -392,6 +396,10 @@ class EvaluateStats:
     manual_overrides_applied: int = 0
     verdict_counts: dict[str, int] = field(default_factory=dict)
     unverified: int = 0
+    # Postings that failed a factual filter for the first time this run (a newly logged reason).
+    newly_filtered: int = 0
+    # Verdicts made this run — triage screen-outs and full evaluations — not reused from cache.
+    new_verdict_counts: dict[str, int] = field(default_factory=dict)
     llm_errors: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
@@ -459,3 +467,7 @@ class EvaluateStats:
 
     def _bump_verdict(self, verdict: str) -> None:
         self.verdict_counts[verdict] = self.verdict_counts.get(verdict, 0) + 1
+
+    def _bump_new_verdict(self, verdict: str) -> None:
+        self._bump_verdict(verdict)
+        self.new_verdict_counts[verdict] = self.new_verdict_counts.get(verdict, 0) + 1

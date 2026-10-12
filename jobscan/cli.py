@@ -13,7 +13,7 @@ from jobscan.crawl import crawl_all
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.logging_setup import configure_logging, get_logger
-from jobscan.models import ManualOverride
+from jobscan.models import EvaluateStats, ManualOverride
 from jobscan.reports.csv_report import write_csv_report
 from jobscan.reports.data import assemble_report_data
 from jobscan.reports.json_report import write_json_report
@@ -45,26 +45,22 @@ def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
 def cmd_evaluate(args: argparse.Namespace, settings: Settings) -> int:
     with _open_db(settings) as db:
         stats = evaluate_all(db, settings, limit=args.limit, refresh_stale=args.refresh_stale)
-    print(f"Jobs considered: {stats.jobs_considered}")
-    print(f"Rejected by factual filters: {stats.factual_rejected}")
-    print(f"Companies newly classified: {stats.companies_classified}")
-    print(f"Manual overrides applied: {stats.manual_overrides_applied}")
-    print(f"Sent to LLM: {stats.sent_to_llm}  Cache hits: {stats.cache_hits}  Unverified: {stats.unverified}")
-    if stats.second_looks:
-        print(f"Near-miss second looks: {stats.second_looks}  (second evaluation more favourable: {stats.second_looks_kept})")
-    if stats.triage_model:
-        print(f"Triaged ({stats.triage_model}): {stats.triaged}  Skipped before full evaluation: {stats.triage_skipped}  "
-              f"Skips overruled (not substantiated by the posting): {stats.triage_overruled}")
-    print(f"Verdicts: {stats.verdict_counts}")
-    cost = stats.estimated_cost_usd(settings)
-    print(f"Tokens: {stats.input_tokens} in / {stats.output_tokens} out "
-          f"(+ {stats.cache_creation_input_tokens} cache-write / {stats.cache_read_input_tokens} cache-read); "
-          f"est. cost: {'$%.4f' % cost if cost is not None else 'n/a'}")
-    if stats.triage_model and (stats.triage_input_tokens or stats.triage_output_tokens):
-        print(f"Triage tokens: {stats.triage_input_tokens} in / {stats.triage_output_tokens} out "
-              f"(+ {stats.triage_cache_creation_input_tokens} cache-write / "
-              f"{stats.triage_cache_read_input_tokens} cache-read)")
+    _print_evaluation_run(stats, settings)
+    print(f"Pool: {stats.jobs_considered} active postings, {stats.factual_rejected} rejected by factual filters, "
+          f"{sum(stats.verdict_counts.values())} evaluated, {stats.unverified} awaiting evaluation")
     return 0
+
+
+def _print_evaluation_run(stats: EvaluateStats, settings: Settings) -> None:
+    """This run's own work only — the pool-wide counts are printed separately."""
+    triage = (f"{stats.triaged} triaged ({stats.triage_skipped} skipped, {stats.triage_overruled} skips overruled), "
+              if stats.triage_model else "")
+    second = f", {stats.second_looks} second looks ({stats.second_looks_kept} better)" if stats.second_looks else ""
+    cost = stats.estimated_cost_usd(settings)
+    print(f"This run: {stats.newly_filtered} newly rejected by factual filters, {triage}"
+          f"{stats.sent_to_llm} full evaluations{second}, {stats.llm_errors} LLM errors; "
+          f"cost {'$%.2f' % cost if cost is not None else 'n/a'}")
+    print(f"New verdicts: {stats.new_verdict_counts or 'none'}")
 
 
 def cmd_report(args: argparse.Namespace, settings: Settings) -> int:
@@ -102,14 +98,15 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
     write_csv_report(data, csv_path)
     write_json_report(data, json_path)
 
-    print(f"Companies: {crawl_stats.companies_succeeded}/{crawl_stats.companies_attempted} crawled "
-          f"({len(crawl_stats.boards_failed)} failed)")
-    print(f"Postings: {crawl_stats.postings_fetched} fetched, {crawl_stats.postings_out_of_family} "
-          f"outside the software-engineering job family (skipped), {crawl_stats.new_postings} new, "
-          f"{crawl_stats.changed_postings} changed, {crawl_stats.closed_postings} closed")
-    print(f"Evaluated: {eval_stats.sent_to_llm} sent to LLM, {eval_stats.cache_hits} cache hits, "
-          f"{eval_stats.unverified} unverified, {eval_stats.factual_rejected} factually rejected")
-    print(f"Verdicts: {eval_stats.verdict_counts}")
+    print(f"Crawl: {crawl_stats.companies_succeeded}/{crawl_stats.companies_attempted} companies "
+          f"({len(crawl_stats.boards_failed)} failed); {crawl_stats.new_postings} new, "
+          f"{crawl_stats.changed_postings} changed, {crawl_stats.closed_postings} closed postings")
+    _print_evaluation_run(eval_stats, settings)
+    pool = data.pool
+    print(f"Pool: {pool.active_postings} active postings — {pool.factually_rejected} rejected by factual filters, "
+          f"{pool.evaluated} evaluated, {pool.awaiting_evaluation} awaiting evaluation")
+    print(f"Shortlist: {len(data.best_bets)} Best Bets, {len(data.growth_bets)} Growth Bets, "
+          f"{len(data.attractive_stretches)} Attractive Stretches")
     print(f"Report: {md_path}")
     return 0
 

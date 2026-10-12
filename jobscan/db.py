@@ -237,6 +237,8 @@ class Database:
         self._add_column_if_missing("evaluations", "rubric_version", "TEXT")
         self._add_column_if_missing("evaluations", "working_hours_quote", "TEXT")
         self._add_column_if_missing("evaluations", "working_hours_fit", "TEXT")
+        self._add_column_if_missing("evaluation_runs", "newly_filtered", "INTEGER")
+        self._add_column_if_missing("evaluation_runs", "new_verdict_counts", "TEXT")
         # Triage screen-outs used to carry a two_plus_steps_up placeholder for scope_fit.
         self.conn.execute(
             "UPDATE evaluations SET scope_fit = 'not_assessed' "
@@ -860,7 +862,7 @@ class Database:
                cache_creation_input_tokens=?, cache_read_input_tokens=?, triaged=?,
                triage_skipped=?, triage_input_tokens=?, triage_output_tokens=?,
                triage_cache_creation_input_tokens=?, triage_cache_read_input_tokens=?,
-               triage_model=?
+               triage_model=?, newly_filtered=?, new_verdict_counts=?
                WHERE id=?""",
             (
                 _dt(stats.finished_at or _now()), stats.jobs_considered, stats.factual_rejected,
@@ -871,6 +873,7 @@ class Database:
                 stats.triaged, stats.triage_skipped, stats.triage_input_tokens,
                 stats.triage_output_tokens, stats.triage_cache_creation_input_tokens,
                 stats.triage_cache_read_input_tokens, stats.triage_model,
+                stats.newly_filtered, json.dumps(stats.new_verdict_counts),
                 run_id,
             ),
         )
@@ -903,4 +906,6 @@ class Database:
             triage_cache_creation_input_tokens=row["triage_cache_creation_input_tokens"] or 0,
             triage_cache_read_input_tokens=row["triage_cache_read_input_tokens"] or 0,
             triage_model=row["triage_model"],
+            newly_filtered=row["newly_filtered"] or 0,
+            new_verdict_counts=json.loads(row["new_verdict_counts"] or "{}"),
         )

@@ -3,10 +3,12 @@ Growth Bets, Attractive Stretches, and a summary of what was rejected or left un
 already applied to are starred (★) wherever they appear."""
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from jobscan.models import Evaluation, JobPosting, ScopeFit, Verdict
 from jobscan.reports.data import JobReportRow, ReportData, declined_reason, is_declined
+from jobscan.timeutil import SEATTLE_TZ
 
 
 def _freshness(job: JobPosting) -> str:
@@ -23,55 +25,66 @@ def _salary_line(job: JobPosting) -> str:
     return f"{lo} - {hi} / {job.salary_period or 'year'} (source: {job.salary_source.value})"
 
 
+_VERDICT_ORDER = ("strong_match", "plausible_match", "borderline", "reject")
+
+
+def _verdicts(counts: dict[str, int]) -> str:
+    parts = [f"{counts[v]} {v.replace('_', ' ')}" for v in _VERDICT_ORDER if counts.get(v)]
+    return ", ".join(parts) or "none"
+
+
+def _seattle_time(when: datetime | None) -> str:
+    return when.astimezone(SEATTLE_TZ).strftime("%Y-%m-%d %H:%M PT") if when else "unknown time"
+
+
 def _render_stats(data: ReportData) -> list[str]:
-    lines = ["## Run statistics", ""]
-    cs = data.crawl_stats
-    es = data.evaluate_stats
+    """Two blocks that must not be mixed: what the latest run did, and the state of the whole pool.
+    Evaluation re-checks every active posting each run, so its pool-wide counts (all factual
+    rejections, every cached verdict) once sat beside "0 new postings" as if they were the run's."""
+    cs, es = data.crawl_stats, data.evaluate_stats
+    lines = ["## Run statistics", "", "### Latest run", ""]
     if cs:
+        failed = f" — failed: {'; '.join(cs.boards_failed)}" if cs.boards_failed else ""
         lines += [
-            f"- Companies attempted: **{cs.companies_attempted}**",
-            f"- Companies successfully crawled: **{cs.companies_succeeded}**",
-            f"- Failed boards: **{len(cs.boards_failed)}**" + (f" — {', '.join(cs.boards_failed)}" if cs.boards_failed else ""),
-            f"- Total postings fetched this crawl (all departments): **{cs.postings_fetched}**",
-            f"- Skipped as outside the software-engineering job family (never stored): **{cs.postings_out_of_family}**",
-            f"- New postings: **{cs.new_postings}**",
-            f"- Changed postings: **{cs.changed_postings}**",
-            f"- Closed postings: **{cs.closed_postings}**",
+            f"- Crawl ({_seattle_time(cs.started_at)}): **{cs.companies_succeeded}** of {cs.companies_attempted} "
+            f"companies crawled{failed}",
+            f"- Postings fetched: {cs.postings_fetched} across all departments, {cs.postings_out_of_family} of them "
+            "outside software engineering (never stored)",
+            f"- **{cs.new_postings}** new, **{cs.changed_postings}** changed, **{cs.closed_postings}** closed",
         ]
     else:
-        lines.append("- No crawl was run in this invocation (reporting on existing database state).")
-
+        lines.append("- No crawl on record.")
     if es:
-        rejected_n = es.verdict_counts.get("reject", 0)
-        lines += [
-            f"- Postings sent to the LLM this run: **{es.sent_to_llm}** (cache hits reused: {es.cache_hits})",
-            f"- Rejected by safe factual filters: **{es.factual_rejected}**",
-            f"- Companies newly classified: **{es.companies_classified}**",
-            f"- Manual overrides applied: **{es.manual_overrides_applied}**",
-            f"- Best Bets: **{len(data.best_bets)}**",
-            f"- Growth Bets: **{len(data.growth_bets)}**",
-            f"- Attractive Stretches: **{len(data.attractive_stretches)}**",
-            f"- Rejected by LLM: **{rejected_n}**",
-            f"- Unverified (no evaluation obtained, e.g. missing API key or LLM error): **{es.unverified}**",
-        ]
+        lines.append(f"- Evaluation ({_seattle_time(es.started_at)}): **{es.newly_filtered}** newly rejected by factual filters")
+        if es.triage_model:
+            lines.append(f"- Triage: **{es.triaged}** screened, {es.triage_skipped} skipped before a full evaluation")
+        lines.append(f"- Full evaluations: **{es.sent_to_llm}**")
+        if es.second_looks:
+            lines.append(f"- Near-miss second looks: {es.second_looks} ({es.second_looks_kept} came out better)")
+        if es.companies_classified:
+            lines.append(f"- Companies newly classified: {es.companies_classified}")
+        if es.llm_errors:
+            lines.append(f"- LLM errors (left awaiting evaluation): {es.llm_errors}")
+        lines.append(f"- New verdicts: {_verdicts(es.new_verdict_counts)}")
         if data.estimated_cost_usd is not None:
-            lines.append(
-                f"- Estimated LLM cost this run: **${data.estimated_cost_usd:,.4f}** "
-                f"({es.input_tokens:,} input / {es.output_tokens:,} output tokens)"
-            )
-        else:
-            lines.append(
-                f"- LLM tokens used this run: {es.input_tokens:,} input / {es.output_tokens:,} output "
-                "(cost n/a — model not in pricing table)"
-            )
+            lines.append(f"- Cost: **${data.estimated_cost_usd:,.2f}**")
     else:
-        lines += [
-            "- No evaluation was run in this invocation (reporting on existing database state).",
-            f"- Best Bets: **{len(data.best_bets)}**  Growth Bets: **{len(data.growth_bets)}**  "
-            f"Attractive Stretches: **{len(data.attractive_stretches)}**",
-            f"- Postings with no evaluation on record: **{data.unverified_count}**",
-        ]
+        lines.append("- No evaluation on record.")
 
+    pool = data.pool
+    lines += [
+        "",
+        "### Current pool",
+        "",
+        "_Every active posting at an active company, as of this report._",
+        "",
+        f"- Active postings: **{pool.active_postings}**",
+        f"- Rejected by factual filters (salary, remote, employment type, consulting): **{pool.factually_rejected}**",
+        f"- Evaluated: **{pool.evaluated}** — {_verdicts(pool.verdict_counts)}",
+        f"- Awaiting evaluation: **{pool.awaiting_evaluation}**",
+        f"- Shortlist: **{len(data.best_bets)}** Best Bets, **{len(data.growth_bets)}** Growth Bets, "
+        f"**{len(data.attractive_stretches)}** Attractive Stretches",
+    ]
     return lines
 
 
@@ -175,11 +188,10 @@ def _render_rejected_or_unverified(data: ReportData) -> list[str]:
     # silently dropped from every section (see reports.data._report_section).
     llm_declined = [r for r in data.all_evaluated if r.evaluation and is_declined(r.evaluation)]
 
-    es = data.evaluate_stats
-    summary = [f"- Unverified (no evaluation on record): **{data.unverified_count}**"]
-    if es:
-        summary.insert(0, f"- Rejected by safe factual filters this run: **{es.factual_rejected}**")
-    lines += summary
+    lines += [
+        f"- Rejected by factual filters: **{data.pool.factually_rejected}**",
+        f"- Awaiting evaluation: **{data.pool.awaiting_evaluation}**",
+    ]
     lines.append(
         f"- Rejected or not realistically worth applying per the LLM: **{len(llm_declined)}** "
         "(listed below; run `python -m jobscan audit` for the complete factual-filter and "

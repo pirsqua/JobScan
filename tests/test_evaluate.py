@@ -277,6 +277,35 @@ class TestEvaluateAll:
         assert recovered.input_tokens == stats.input_tokens
         assert recovered.finished_at is not None
 
+    def test_this_runs_work_is_counted_apart_from_the_pool(self, db: Database, settings):
+        # Observed: a run with no new postings reported "1744 factually rejected" — the whole pool.
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company, source_job_id="1")
+        seed_job(db, settings, company, source_job_id="2", description="No salary mentioned here at all.")
+        sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        client = AnthropicClient(api_key=None, model="test-model", client=sdk)
+
+        first = evaluate_all(db, settings, client=client)
+        second = evaluate_all(db, settings, client=client)
+
+        assert (first.newly_filtered, first.new_verdict_counts) == (1, {"strong_match": 1})
+        assert (second.newly_filtered, second.new_verdict_counts) == (0, {})
+        # The pool-wide counts are the same both runs.
+        assert (second.factual_rejected, second.verdict_counts) == (1, {"strong_match": 1})
+        recovered = db.latest_evaluation_run()
+        assert (recovered.newly_filtered, recovered.new_verdict_counts) == (0, {})
+
+    def test_a_deactivated_companys_postings_leave_the_pool(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        seed_job(db, settings, company)
+        db.conn.execute("UPDATE companies SET active = 0 WHERE id = ?", (company.id,))
+        sdk = FakeSdkClient([])
+
+        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert stats.jobs_considered == 0
+        assert sdk.messages.call_count == 0
+
     def test_limit_caps_real_llm_calls_not_free_work(self, db: Database, settings):
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         for i in range(3):

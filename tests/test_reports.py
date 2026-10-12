@@ -114,3 +114,42 @@ class TestReports:
         write_csv_report(data, csv_path)
         assert csv_path.exists()
         assert "Acme Corp" in csv_path.read_text(encoding="utf-8")
+
+    def test_pool_is_partitioned_and_kept_apart_from_the_latest_run(self, db: Database, settings):
+        company, raw = seed_evaluated_job(db, settings)
+        no_salary = RawPosting(
+            source_job_id="2", title="Backend Engineer", location_raw="Remote - US", employment_type_raw="Full-time",
+            description_html="<p>No salary here.</p>", description_text=None,
+            posting_url="https://acme.example.com/jobs/2", apply_url=None,
+        )
+        db.upsert_job(normalize_posting(no_salary, company, settings))
+        evaluate_all(db, settings, client=strong_match_client())
+        awaiting = RawPosting(**{**vars(raw), "source_job_id": "3", "description_html": "<p>$190,000 - $230,000 per year.</p>",
+                                 "posting_url": "https://acme.example.com/jobs/3"})
+        db.upsert_job(normalize_posting(awaiting, company, settings))
+        second = evaluate_all(db, settings)  # no key: the new posting stays awaiting evaluation
+
+        data = assemble_report_data(db, settings, evaluate_stats=second)
+
+        pool = data.pool
+        assert (pool.active_postings, pool.factually_rejected, pool.evaluated, pool.awaiting_evaluation) == (3, 1, 1, 1)
+        assert pool.verdict_counts == {"strong_match": 1}
+        markdown = render_markdown(data)
+        latest = markdown[markdown.index("### Latest run"):markdown.index("### Current pool")]
+        assert "**0** newly rejected by factual filters" in latest
+        assert "New verdicts: none" in latest
+        current = markdown[markdown.index("### Current pool"):]
+        assert "Rejected by factual filters (salary, remote, employment type, consulting): **1**" in current
+        assert "Awaiting evaluation: **1**" in current
+        assert build_json_report(data)["pool"]["evaluated"] == 1
+
+    def test_a_deactivated_companys_postings_leave_the_report(self, db: Database, settings):
+        company, _ = seed_evaluated_job(db, settings)
+        evaluate_all(db, settings, client=strong_match_client())
+        db.conn.execute("UPDATE companies SET active = 0 WHERE id = ?", (company.id,))
+
+        data = assemble_report_data(db, settings)
+
+        assert data.best_bets == []
+        assert data.pool.active_postings == 0
+

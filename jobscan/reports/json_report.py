@@ -77,6 +77,7 @@ def build_json_report(data: ReportData) -> dict:
     return {
         "generated_at": data.generated_at,
         "crawl_stats": vars(data.crawl_stats) if data.crawl_stats else None,
+        "pool": vars(data.pool),
         "evaluate_stats": {
             "jobs_considered": data.evaluate_stats.jobs_considered,
             "factual_rejected": data.evaluate_stats.factual_rejected,
@@ -85,6 +86,8 @@ def build_json_report(data: ReportData) -> dict:
             "cache_hits": data.evaluate_stats.cache_hits,
             "manual_overrides_applied": data.evaluate_stats.manual_overrides_applied,
             "verdict_counts": data.evaluate_stats.verdict_counts,
+            "newly_filtered": data.evaluate_stats.newly_filtered,
+            "new_verdict_counts": data.evaluate_stats.new_verdict_counts,
             "unverified": data.evaluate_stats.unverified,
             "input_tokens": data.evaluate_stats.input_tokens,
             "output_tokens": data.evaluate_stats.output_tokens,

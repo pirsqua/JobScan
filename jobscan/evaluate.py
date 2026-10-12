@@ -180,10 +180,12 @@ def evaluate_all(
             if limit is not None and (stats.sent_to_llm + stats.companies_classified + stats.triaged) >= limit:
                 break
 
-            stats.jobs_considered += 1
             company = db.get_company(job.company_id)
-            if company is None:
+            if company is None or not company.active:
+                # A deactivated company's postings keep their history but leave the pool: nothing
+                # re-crawls its board to close them, so they'd otherwise be re-checked forever.
                 continue
+            stats.jobs_considered += 1
 
             job_overrides = db.get_manual_overrides("job", job.id)
             if "verdict" in job_overrides:
@@ -232,6 +234,7 @@ def evaluate_all(
                     db.record_filter_log(
                         FilterLogEntry(job.id, "factual_filter", filter_result.reason, filter_result.detail, _now())
                     )
+                    stats.newly_filtered += 1
                 stats.factual_rejected += 1
                 continue
 
@@ -269,6 +272,7 @@ def evaluate_all(
                             f"{company.name} classified as consulting after review", _now(),
                         )
                     )
+                    stats.newly_filtered += 1
                 stats.factual_rejected += 1
                 continue
 
@@ -323,7 +327,7 @@ def evaluate_all(
                             job, company, triage_result, triage_client.model, triage_rubric
                         )
                         db.save_evaluation(skip_evaluation)
-                        stats._bump_verdict(skip_evaluation.verdict.value)
+                        stats._bump_new_verdict(skip_evaluation.verdict.value)
                         continue
 
             try:
@@ -351,7 +355,7 @@ def evaluate_all(
 
             db.save_evaluation(evaluation)
             stats.sent_to_llm += 1
-            stats._bump_verdict(evaluation.verdict.value)
+            stats._bump_new_verdict(evaluation.verdict.value)
 
     stats.finished_at = _now()
     db.finish_evaluation_run(run_id, stats)
