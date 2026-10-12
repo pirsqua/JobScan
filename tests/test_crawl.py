@@ -95,6 +95,32 @@ class TestCrawlOrchestration:
         assert len(db.get_active_jobs()) == 1
 
     @respx.mock
+    def test_a_posting_whose_detail_page_failed_is_not_closed(self, db: Database, settings):
+        # Observed live: five Siemens postings whose detail pages failed transiently were marked
+        # closed. Only a posting missing from a complete fetch may be closed.
+        db.upsert_company(make_company("FMX", "fmx", ats_type=AtsType.WORKABLE))
+        list_url = "https://apply.workable.com/api/v3/accounts/fmx/jobs"
+        detail_url = "https://apply.workable.com/api/v2/accounts/fmx/jobs/{}"
+        both = {"results": [{"shortcode": "A", "title": "Software Developer"}, {"shortcode": "B", "title": "Software Developer"}]}
+        detail = {"workplace": "remote", "type": "full", "title": "Software Developer",
+                  "locations": [{"country": "United States"}], "description": "<p>$180,000 - $220,000</p>"}
+        respx.post(list_url).mock(side_effect=[
+            httpx.Response(200, json=both), httpx.Response(200, json=both),
+            httpx.Response(200, json={"results": [{"shortcode": "A", "title": "Software Developer"}]}),
+        ])
+        respx.get(detail_url.format("A")).mock(return_value=httpx.Response(200, json={**detail, "shortcode": "A"}))
+        respx.get(detail_url.format("B")).mock(side_effect=[
+            httpx.Response(200, json={**detail, "shortcode": "B"}), httpx.Response(500), httpx.Response(500),  # fails twice, retry included
+        ])
+        companies = db.list_companies(active_only=True)
+
+        assert crawl_all(db, settings, companies=companies).new_postings == 2
+        assert crawl_all(db, settings, companies=companies).closed_postings == 0  # B's detail failed
+        assert len(db.get_active_jobs()) == 2
+        assert crawl_all(db, settings, companies=companies).closed_postings == 1  # B really gone
+        assert [j.source_job_id for j in db.get_active_jobs()] == ["A"]
+
+    @respx.mock
     def test_non_engineering_postings_are_never_persisted(self, db: Database, settings):
         company = make_company("Acme", "acme")
         db.upsert_company(company)

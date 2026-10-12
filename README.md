@@ -150,7 +150,7 @@ anything absent (reversible; history kept). `--delete` permanently removes absen
 their job and evaluation history.
 
 **Crawled platforms (`ats_type`):** `greenhouse`, `ashby`, `lever`, `workday`, `jobvite`,
-`smartrecruiters`, `avature`, `rippling`, `jazzhr`, `icims` (classic portal) and `esri`. `board_id`
+`smartrecruiters`, `avature`, `rippling`, `jazzhr`, `icims` (classic portal), `workable` and `esri`. `board_id`
 is the company's token in that platform's public URL (Workday uses `tenant/cluster/site`, and
 Workday, SmartRecruiters and Avature accept the platform's own server-side filters as a query
 string — see each adapter's docstring). `taleo`, `phenom`, `eightfold`, `successfactors` and

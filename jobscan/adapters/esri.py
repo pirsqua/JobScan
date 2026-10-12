@@ -136,6 +136,7 @@ class EsriAdapter(SourceAdapter):
             description = self._renderer.render(url)
         except Exception as exc:  # noqa: BLE001 - Playwright raises its own exception types
             logger.warning("esri job detail render failed", extra=log_extra(board_id=board_id, url=url, error=str(exc)))
+            self.incomplete = True
             return None
 
         meta = hit.doc.metaFields

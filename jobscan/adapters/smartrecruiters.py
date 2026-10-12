@@ -80,7 +80,7 @@ class SmartRecruitersAdapter(SourceAdapter):
         self, list_url: str, brief: SmartRecruitersPostingBrief, board_id: str
     ) -> RawPosting | None:
         try:
-            response = self.client.get(f"{list_url}/{brief.id}")
+            response = self._get_detail(f"{list_url}/{brief.id}")
             response.raise_for_status()
             detail = SmartRecruitersPostingDetail.model_validate(response.json())
         except (httpx.HTTPError, ValueError, ValidationError) as exc:
@@ -89,6 +89,7 @@ class SmartRecruitersAdapter(SourceAdapter):
                 "smartrecruiters job detail fetch failed",
                 extra=log_extra(board_id=board_id, posting_id=brief.id, error=str(exc)),
             )
+            self.incomplete = True
             return None
 
         sections = detail.jobAd.sections if detail.jobAd else None

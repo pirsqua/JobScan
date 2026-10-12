@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class AtsType(str, Enum):
-    """Greenhouse/Ashby/Lever/Workday/Jobvite/Esri/SmartRecruiters/Avature/Rippling/JazzHR have
+    """Greenhouse/Ashby/Lever/Workday/Jobvite/Esri/SmartRecruiters/Avature/Rippling/JazzHR/iCIMS/Workable have
     real adapters (see jobscan.adapters.ADAPTERS). The rest are recorded-but-not-yet-crawlable — a
     registry curator can note that a company uses e.g. Taleo without the import failing, and
     jobscan.crawl already skips any company whose ats_type has no entry in ADAPTERS (reported as
@@ -53,7 +53,11 @@ class AtsType(str, Enum):
     ICIMS is iCIMS's classic server-rendered job portal ({portal}.icims.com) plus a JobPosting
     JSON-LD block per detail page (see jobscan.adapters.icims); confirmed live with no bot-gating
     on some customers' portals. Others list nothing there because their jobs are served through
-    iCIMS's newer career-site front end instead, which has no adapter."""
+    iCIMS's newer career-site front end instead, which has no adapter.
+
+    WORKABLE is Workable's hosted job board (apply.workable.com/{account}), read through the JSON
+    API that board itself calls (see jobscan.adapters.workable); confirmed live with structured
+    salary and no bot-gating."""
 
     GREENHOUSE = "greenhouse"
     ASHBY = "ashby"
@@ -66,6 +70,7 @@ class AtsType(str, Enum):
     JAZZHR = "jazzhr"
     AVATURE = "avature"
     ICIMS = "icims"
+    WORKABLE = "workable"
     TALEO = "taleo"
     PHENOM = "phenom"
     EIGHTFOLD = "eightfold"

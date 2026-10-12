@@ -77,7 +77,15 @@ def crawl_all(db: Database, settings: Settings, companies: list[Company] | None 
                 elif changed:
                     stats.changed_postings += 1
 
-            closed = db.close_missing_jobs(company.id, seen_ids, when=now)
+            if adapter.incomplete:
+                # Some listed postings couldn't be read this run; absence isn't evidence of closing.
+                closed = 0
+                logger.warning(
+                    "board fetched incompletely — closing nothing on it this run",
+                    extra=log_extra(company=company.name, ats_type=company.ats_type.value, board_id=company.board_id),
+                )
+            else:
+                closed = db.close_missing_jobs(company.id, seen_ids, when=now)
             stats.closed_postings += closed
             db.touch_company_crawled(company.id, when=now)
             stats.companies_succeeded += 1

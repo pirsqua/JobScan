@@ -62,13 +62,14 @@ class JazzHRAdapter(SourceAdapter):
         self, detail_url: str, brief_title: str, location_text: str | None, board_id: str
     ) -> RawPosting | None:
         try:
-            response = self.client.get(detail_url)
+            response = self._get_detail(detail_url)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning(
                 "jazzhr job detail fetch failed",
                 extra=log_extra(board_id=board_id, detail_url=detail_url, error=str(exc)),
             )
+            self.incomplete = True
             return None
 
         detail = extract_job_posting_json_ld(response.text)
@@ -76,7 +77,10 @@ class JazzHRAdapter(SourceAdapter):
             # Observed live (iManage): some detail pages carry only an Organization ld+json block.
             # The same page still renders the full description, so read it from the HTML rather
             # than silently dropping the posting.
-            return _posting_from_html(response.text, detail_url, brief_title, location_text, board_id)
+            posting = _posting_from_html(response.text, detail_url, brief_title, location_text, board_id)
+            if posting is None:
+                self.incomplete = True
+            return posting
 
         return RawPosting(
             source_job_id=_job_id(detail_url),

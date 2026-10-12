@@ -104,7 +104,7 @@ class WorkdayAdapter(SourceAdapter):
     def _fetch_detail(self, detail_base: str, brief: WorkdayJobBrief, board_id: str) -> RawPosting | None:
         url = f"{detail_base}{brief.externalPath}"
         try:
-            response = self.client.get(url)
+            response = self._get_detail(url)
             response.raise_for_status()
             detail = WorkdayJobDetailResponse.model_validate(response.json())
         except (httpx.HTTPError, ValueError, ValidationError) as exc:
@@ -114,6 +114,7 @@ class WorkdayAdapter(SourceAdapter):
                 "workday job detail fetch failed",
                 extra=log_extra(board_id=board_id, external_path=brief.externalPath, error=str(exc)),
             )
+            self.incomplete = True
             return None
 
         info = detail.jobPostingInfo

@@ -22,6 +22,24 @@ class SourceAdapter(ABC):
 
     def __init__(self, client: httpx.Client):
         self.client = client
+        # Set when a posting the board lists couldn't be read (a failed or malformed detail
+        # page), so it's missing from fetch_postings' result. The crawl then closes nothing on
+        # this board for the run: observed live, five Siemens postings whose detail pages failed
+        # transiently were marked closed and vanished from the report until the next crawl.
+        self.incomplete = False
+
+    def _get_detail(self, url: str, **kwargs) -> httpx.Response:
+        """GET one posting's detail, retried once after a timeout, dropped connection or 5xx.
+        Observed live: Siemens' Avature board times out on ~5% of parallel detail requests — a
+        different handful each run — which, with ``incomplete``, would otherwise keep the board from
+        ever closing a posting. A second failure goes to the caller's usual handling."""
+        try:
+            response = self.client.get(url, **kwargs)
+            if response.status_code < 500:
+                return response
+        except httpx.TransportError:
+            pass
+        return self.client.get(url, **kwargs)
 
     @abstractmethod
     def fetch_postings(self, board_id: str) -> Iterable[RawPosting]:

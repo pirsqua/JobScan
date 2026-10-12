@@ -367,3 +367,53 @@ class RipplingJobPost(BaseModel):
     employmentType: RipplingEmploymentType | None = None
     createdOn: str | None = None
     url: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Workable hosted job board (apply.workable.com/{account}):
+#   POST https://apply.workable.com/api/v3/accounts/{account}/jobs   (list, token-paged)
+#   GET  https://apply.workable.com/api/v2/accounts/{account}/jobs/{shortcode}   (detail)
+# ---------------------------------------------------------------------------
+
+
+class WorkableLocation(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    city: str | None = None
+    region: str | None = None
+    country: str | None = None
+    hidden: bool = False
+
+
+class WorkableJobSummary(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    shortcode: str
+    title: str = ""
+
+
+class WorkableJobsPage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    results: list[WorkableJobSummary] = []
+    nextPage: str | None = None
+
+
+class WorkableJobDetail(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    shortcode: str
+    title: str = ""
+    remote: bool | None = None
+    # "remote", "hybrid" or "on_site".
+    workplace: str | None = None
+    location: WorkableLocation | None = None
+    locations: list[WorkableLocation] = []
+    published: str | None = None
+    # "full", "part", "contract", "temporary", "internship", ...
+    type: str | None = None
+    department: list[str] = []
+    description: str | None = None
+    requirements: str | None = None
+    benefits: str | None = None
+    salary_from: float | None = None
+    salary_to: float | None = None
+    salary_currency_iso_code: str | None = None
+    # "year", "month", "hour", ...
+    salary_frequency: str | None = None

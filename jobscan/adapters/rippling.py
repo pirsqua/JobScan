@@ -111,7 +111,7 @@ class RipplingAdapter(SourceAdapter):
     def _fetch_detail(self, data_base: str, brief: RipplingJobBrief, board_id: str) -> RawPosting | None:
         job_id = brief.id
         try:
-            response = self.client.get(
+            response = self._get_detail(
                 f"{data_base}/jobs/{job_id}.json", params={"jobBoardSlug": board_id, "jobId": job_id}
             )
             response.raise_for_status()
@@ -120,11 +120,13 @@ class RipplingAdapter(SourceAdapter):
             logger.warning(
                 "rippling job detail fetch failed", extra=log_extra(board_id=board_id, job_id=job_id, error=str(exc))
             )
+            self.incomplete = True
             return None
 
         raw_post = (payload.get("pageProps") or {}).get("apiData", {}).get("jobPost")
         if raw_post is None:
             logger.warning("rippling job detail missing jobPost", extra=log_extra(board_id=board_id, job_id=job_id))
+            self.incomplete = True
             return None
         try:
             post = RipplingJobPost.model_validate(raw_post)
@@ -133,6 +135,7 @@ class RipplingAdapter(SourceAdapter):
                 "rippling job detail unexpected shape",
                 extra=log_extra(board_id=board_id, job_id=job_id, error=str(exc)),
             )
+            self.incomplete = True
             return None
 
         return RawPosting(

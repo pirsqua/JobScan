@@ -78,13 +78,14 @@ class ICIMSAdapter(SourceAdapter):
 
     def _fetch_detail(self, brief: _Brief, board_id: str) -> RawPosting | None:
         try:
-            response = self.client.get(brief.detail_url)
+            response = self._get_detail(brief.detail_url)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning(
                 "icims job detail fetch failed",
                 extra=log_extra(board_id=board_id, detail_url=brief.detail_url, error=str(exc)),
             )
+            self.incomplete = True
             return None
 
         detail = extract_job_posting_json_ld(response.text)
@@ -93,6 +94,7 @@ class ICIMSAdapter(SourceAdapter):
                 "icims job detail missing a JobPosting JSON-LD block",
                 extra=log_extra(board_id=board_id, detail_url=brief.detail_url),
             )
+            self.incomplete = True
             return None
 
         # The listing's href asks for the bare iframe body; the canonical page drops that query.

@@ -60,12 +60,13 @@ class JobviteAdapter(SourceAdapter):
     ) -> RawPosting | None:
         url = f"https://jobs.jobvite.com{path}"
         try:
-            response = self.client.get(url)
+            response = self._get_detail(url)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning(
                 "jobvite job detail fetch failed", extra=log_extra(board_id=board_id, path=path, error=str(exc))
             )
+            self.incomplete = True
             return None
 
         detail = extract_job_posting_json_ld(response.text)
@@ -74,6 +75,7 @@ class JobviteAdapter(SourceAdapter):
                 "jobvite job detail missing a JobPosting JSON-LD block",
                 extra=log_extra(board_id=board_id, path=path),
             )
+            self.incomplete = True
             return None
 
         source_job_id = path.rstrip("/").rsplit("/", 1)[-1]

@@ -9,6 +9,7 @@ from jobscan.adapters.jobvite import JobviteAdapter
 from jobscan.adapters.lever import LeverAdapter
 from jobscan.adapters.rippling import RipplingAdapter
 from jobscan.adapters.smartrecruiters import SmartRecruitersAdapter
+from jobscan.adapters.workable import WorkableAdapter
 from jobscan.adapters.workday import WorkdayAdapter
 from jobscan.models import AtsType
 
@@ -24,10 +25,11 @@ ADAPTERS: dict[AtsType, type[SourceAdapter]] = {
     AtsType.RIPPLING: RipplingAdapter,
     AtsType.JAZZHR: JazzHRAdapter,
     AtsType.ICIMS: ICIMSAdapter,
+    AtsType.WORKABLE: WorkableAdapter,
 }
 
 __all__ = [
     "SourceAdapter", "GreenhouseAdapter", "AshbyAdapter", "LeverAdapter", "WorkdayAdapter",
     "JobviteAdapter", "EsriAdapter", "SmartRecruitersAdapter", "AvatureAdapter", "RipplingAdapter",
-    "JazzHRAdapter", "ICIMSAdapter", "ADAPTERS",
+    "JazzHRAdapter", "ICIMSAdapter", "WorkableAdapter", "ADAPTERS",
 ]
