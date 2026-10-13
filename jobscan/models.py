@@ -15,7 +15,8 @@ if TYPE_CHECKING:
 
 
 class AtsType(str, Enum):
-    """Greenhouse/Ashby/Lever/Workday/Jobvite/Esri/SmartRecruiters/Avature/Rippling/JazzHR/iCIMS/Workable have
+    """Greenhouse/Ashby/Lever/Workday/Jobvite/Esri/SmartRecruiters/Avature/Rippling/JazzHR/iCIMS/Workable/
+    Jibe/Oracle/DirectEmployers/Pinpoint have
     real adapters (see jobscan.adapters.ADAPTERS). The rest are recorded-but-not-yet-crawlable — a
     registry curator can note that a company uses e.g. Taleo without the import failing, and
     jobscan.crawl already skips any company whose ats_type has no entry in ADAPTERS (reported as
@@ -57,7 +58,15 @@ class AtsType(str, Enum):
 
     WORKABLE is Workable's hosted job board (apply.workable.com/{account}), read through the JSON
     API that board itself calls (see jobscan.adapters.workable); confirmed live with structured
-    salary and no bot-gating."""
+    salary and no bot-gating.
+
+    JIBE is iCIMS's career-site product (formerly Jibe), the front end serving GitHub's, DocuSign's
+    and Schneider Electric's jobs when their classic iCIMS portals list nothing; ORACLE is Oracle
+    Recruiting Cloud (Fusion HCM Candidate Experience); DIRECTEMPLOYERS is DirectEmployers
+    Association's member career microsites; PINPOINT is Pinpoint's public postings feed. Each reads
+    the JSON the board's own front end reads (see the adapter docstrings); all confirmed live
+    without bot-gating on 2026-10-12. Dayforce's own recruiting portal is not among them: its job
+    search answers 403 behind Cloudflare bot management."""
 
     GREENHOUSE = "greenhouse"
     ASHBY = "ashby"
@@ -71,6 +80,10 @@ class AtsType(str, Enum):
     AVATURE = "avature"
     ICIMS = "icims"
     WORKABLE = "workable"
+    JIBE = "jibe"
+    ORACLE = "oracle"
+    DIRECTEMPLOYERS = "directemployers"
+    PINPOINT = "pinpoint"
     TALEO = "taleo"
     PHENOM = "phenom"
     EIGHTFOLD = "eightfold"

@@ -417,3 +417,159 @@ class WorkableJobDetail(BaseModel):
     salary_currency_iso_code: str | None = None
     # "year", "month", "hour", ...
     salary_frequency: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# iCIMS career sites (formerly Jibe): GET https://{host}/api/jobs?page={n}&limit=100
+# ---------------------------------------------------------------------------
+
+
+class JibeJobData(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    req_id: str
+    title: str = ""
+    description: str | None = None
+    responsibilities: str | None = None
+    qualifications: str | None = None
+    location_name: str | None = None
+    full_location: str | None = None
+    employment_type: str | None = None
+    posted_date: str | None = None
+    apply_url: str | None = None
+    department: str | None = None
+    # Strings on the wire ("0", "None", "150000"); read through _salary in the adapter.
+    salary_min_value: str | float | None = None
+    salary_max_value: str | float | None = None
+
+
+class JibeJob(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    data: JibeJobData
+
+
+class JibeJobsPage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    jobs: list[JibeJob] = []
+    totalCount: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Oracle Recruiting Cloud (Fusion HCM Candidate Experience):
+#   GET https://{host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions        (list)
+#   GET https://{host}/hcmRestApi/resources/latest/recruitingCEJobRequisitionDetails  (detail)
+# ---------------------------------------------------------------------------
+
+
+class OracleRequisitionBrief(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    Id: str
+    Title: str = ""
+
+
+class OracleSearchResult(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    TotalJobsCount: int = 0
+    requisitionList: list[OracleRequisitionBrief] = []
+
+
+class OracleSearchResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    items: list[OracleSearchResult] = []
+
+
+class OracleRequisitionDetail(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    Id: str
+    Title: str = ""
+    ExternalDescriptionStr: str | None = None
+    ExternalResponsibilitiesStr: str | None = None
+    ExternalQualificationsStr: str | None = None
+    CorporateDescriptionStr: str | None = None
+    PrimaryLocation: str | None = None
+    # "Remote", "Hybrid", "On-site" — with WorkplaceTypeCode ORA_REMOTE/ORA_HYBRID/ORA_ON_SITE.
+    WorkplaceType: str | None = None
+    JobSchedule: str | None = None
+    JobType: str | None = None
+    Department: str | None = None
+    ExternalPostedStartDate: str | None = None
+
+
+class OracleDetailResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    items: list[OracleRequisitionDetail] = []
+
+
+# ---------------------------------------------------------------------------
+# DirectEmployers career microsites:
+#   GET https://prod-search-api.jobsyn.org/api/v1/solr/search?page={n}  (header x-origin: {host})
+# ---------------------------------------------------------------------------
+
+
+class DirectEmployersJob(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    guid: str
+    title_exact: str = ""
+    description: str | None = None
+    location_exact: str | None = None
+    job_type: str | None = None
+    date_new: str | None = None
+
+
+class DirectEmployersPagination(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    has_more_pages: bool = False
+
+
+class DirectEmployersSearchResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    jobs: list[DirectEmployersJob] = []
+    pagination: DirectEmployersPagination = DirectEmployersPagination()
+
+
+# ---------------------------------------------------------------------------
+# Pinpoint: GET https://{company}.pinpointhq.com/postings.json  (every posting, one response)
+# ---------------------------------------------------------------------------
+
+
+class PinpointLocation(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str | None = None
+    city: str | None = None
+    province: str | None = None
+
+
+class PinpointDepartment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str | None = None
+
+
+class PinpointJob(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    department: PinpointDepartment | None = None
+
+
+class PinpointPosting(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    title: str = ""
+    url: str | None = None
+    description: str | None = None
+    key_responsibilities: str | None = None
+    skills_knowledge_expertise: str | None = None
+    benefits: str | None = None
+    location: PinpointLocation | None = None
+    # "remote", "hybrid" or "onsite".
+    workplace_type: str | None = None
+    employment_type_text: str | None = None
+    compensation_visible: bool = False
+    compensation_minimum: float | None = None
+    compensation_maximum: float | None = None
+    compensation_currency: str | None = None
+    # "year", "month", "hour", ...
+    compensation_frequency: str | None = None
+    job: PinpointJob | None = None
+
+
+class PinpointPostingsResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    data: list[PinpointPosting] = []
