@@ -30,6 +30,11 @@ from jobscan.models import Company, JobPosting
 
 _TITLE_ABOVE_SENIOR_RE = re.compile(r"\b(staff|principal|distinguished|director|head of|vice president|vp)\b")
 _DUAL_LEVEL_TITLE_RE = re.compile(r"\bsenior\s*(/|or|and|,)\s*staff\b|\bstaff\s*(/|or|and|,)\s*senior\b")
+# A Staff-titled posting whose text hires at Senior too. Observed live: Twilio's "Staff Software
+# Engineer, Fraud" ("Hiring at either the Senior or Staff level") and GitLab's "Staff Backend
+# Engineer" ("As a Senior or Staff Backend Engineer"). Only "or" and "/": "mentor Senior and Staff
+# engineers" is common and says nothing about the level being hired.
+_HIRES_AT_SENIOR_TOO_RE = re.compile(r"\bsenior\s*(/|or)\s*staff\b|\bstaff\s*(/|or)\s*senior\b")
 # Observed live: "leading engineers on your team" (a Senior role) claimed as people management.
 _MANAGER_TITLE_RE = re.compile(r"\b(manager|head of|director)\b")
 _NOT_REMOTE_RE = re.compile(
@@ -95,8 +100,11 @@ def skip_is_substantiated(
         return False
     title = _normalize(job.title)
     if result.disqualifier == "staff_or_higher_title":
-        # Decided by the title alone — deterministic, whatever line the model chose to quote.
-        return bool(_TITLE_ABOVE_SENIOR_RE.search(title)) and not _DUAL_LEVEL_TITLE_RE.search(title)
+        # Decided by the title — deterministic, whatever line the model chose to quote — unless the
+        # posting says it also hires at Senior.
+        if not _TITLE_ABOVE_SENIOR_RE.search(title) or _DUAL_LEVEL_TITLE_RE.search(title):
+            return False
+        return not _HIRES_AT_SENIOR_TOO_RE.search(_normalize(job.description_text or ""))
     posting = _normalize(" ".join(filter(None, [
         job.title, job.location_raw, job.workplace_type.value if job.workplace_type else None, job.description_text,
     ])))

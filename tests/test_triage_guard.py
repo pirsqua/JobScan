@@ -95,6 +95,21 @@ class TestTitles:
         assert not skip_is_substantiated(skip("people_management", quote), job(description=quote))
 
 
+class TestStaffTitleThatAlsoHiresAtSenior:
+    @pytest.mark.parametrize("text", [
+        "Leveling & Ownership: Hiring at either the Senior or Staff level.",  # Twilio
+        "As a Senior or Staff Backend Engineer with the Database Excellence group, you'll build automation.",  # GitLab
+        "This is a Senior/Staff level role.",
+    ])
+    def test_a_staff_title_skip_is_overruled_when_the_posting_hires_at_senior_too(self, text):
+        posting = job(title="Staff Software Engineer, Fraud", description=text)
+        assert not skip_is_substantiated(skip("staff_or_higher_title", "Staff Software Engineer"), posting)
+
+    def test_mentoring_senior_and_staff_engineers_says_nothing_about_the_level_hired(self):
+        posting = job(title="Senior Staff Machine Learning Engineer", description="Mentor and grow Senior and Staff engineers.")
+        assert skip_is_substantiated(skip("staff_or_higher_title", "Senior Staff Machine Learning Engineer"), posting)
+
+
 class TestHardRequirement:
     def test_a_skill_skip_the_model_itself_calls_not_a_hard_requirement_is_overruled(self):
         # GitLab: skipped quoting "Exposure to, or strong interest in, ..." — the very example its
