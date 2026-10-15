@@ -169,6 +169,9 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
         lines += [
             f"### {_role(row)} ({ev.verdict.value}, {ev.scope_fit.value})",
             "",
+            f"- Salary: {_salary_line(job)}",
+            f"- Apply: {job.apply_url or job.posting_url or 'n/a'}",
+            f"- Freshness: {_freshness(job)}",
             f"- Strong matching areas: {'; '.join(ev.required_matches) if ev.required_matches else '(none noted)'}",
             f"- What makes this a stretch: {stretch_text}",
         ]

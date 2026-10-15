@@ -690,3 +690,5 @@ class TestRegressionFixtures:
         assert best_bets_index < stretches_index
         assert best_bets_index < goodfit_index < stretches_index
         assert stretches_index < revenuecat_index
+        # Every shortlisted role carries its link, Stretches included (they once had none).
+        assert "- Apply: https://acme.example.com/jobs/c6d43e21" in markdown[stretches_index:]
