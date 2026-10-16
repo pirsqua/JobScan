@@ -16,9 +16,9 @@ crawl ──► title gate ──► factual filters ──► triage (Haiku) �
 ```
 
 1. **Crawl.** One adapter per job-board platform fetches every active company's current
-   postings. A title gate (`jobscan/job_family.py`) drops anything that isn't a software, data or
-   platform engineering role before it's stored. New, changed and closed postings are tracked;
-   nothing is deleted.
+   postings, a few boards at a time. A title gate (`jobscan/job_family.py`) drops anything that
+   isn't a software, data or platform engineering role before it's stored. New, changed and
+   closed postings are tracked; nothing is deleted.
 2. **Factual filters (code).** A posting is rejected without any LLM call when its published
    salary range tops out below `min_base_salary`, or it publishes no salary; when it isn't remote
    (on-site, hybrid, or never mentions remote work) or excludes the candidate's state; when it
@@ -27,13 +27,16 @@ crawl ──► title gate ──► factual filters ──► triage (Haiku) �
    reasons — Staff-or-above title, people management, not remote, excluded industry, not an
    engineering job, a required unfamiliar language, a required specialty — and must quote the
    posting's own words for it. Code checks the quote is really there, decides Staff+ from the title
-   and management from a manager title, and rejects location quotes that actually offer remote
-   work. Anything else goes to the full evaluation.
+   (unless the posting says it hires at Senior too) and management from a manager title, and
+   overrules location quotes that offer remote work or don't actually exclude the candidate's state
+   or time zone. Anything else goes to the full evaluation.
 4. **Full evaluation (main model).** One structured call per posting, against
    `config/candidate_profile.yaml`: requirement by requirement (required vs. preferred, by the
-   posting's own wording), growth dimensions, hidden staff-level scope, compensation and remote
-   eligibility, then scope fit, verdict and a yes/no on whether it's worth applying. Companies of
-   unknown type get one separate, cached product-vs-consulting call.
+   posting's own wording), growth dimensions, hidden staff-level scope, compensation, remote
+   eligibility and working hours, then scope fit, verdict and a yes/no on whether it's worth
+   applying. The model isn't deterministic, so a borderline result judged not worth applying gets
+   one more evaluation and the more favourable one is kept. Companies of unknown type get one
+   separate, cached product-vs-consulting call.
 5. **Report.** Markdown, CSV and JSON in `out/`, timestamped in Seattle time.
 
 Verdicts are cached by description text: a posting is re-judged only when its text changes, or on
@@ -48,11 +51,12 @@ for the evaluate step; crawling and reporting work without one.
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1          # if blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 pip install -e ".[dev]"
-playwright install chromium           # one adapter (Esri) renders pages in a headless browser
-
 Copy-Item .env.example .env           # then set ANTHROPIC_API_KEY=sk-ant-...
 python -m jobscan companies import data/jobscan_companies_2026-09-29.yaml
 ```
+
+Only the `esri` adapter renders pages in a headless browser, and no company in the registry uses
+it; if you add one, also run `playwright install chromium`.
 
 ## Daily use
 
@@ -90,6 +94,7 @@ To see why postings were filtered out — useful for spotting a wrongly rejected
 | `audit [--out DIR]` | Every filtered posting and the reason (factual filter, triage or full evaluation) |
 | `companies import <file> [--replace\|--delete]` | Add/update companies from a YAML or CSV registry file |
 | `companies list [--all]` | List companies (active only unless `--all`) |
+| `companies probe <ats_type> <board_id>` | Dry-run one board through the real adapter and factual filters — what would reach evaluation, nothing stored, no LLM calls. Use it before adding a company |
 | `overrides set job <id> verdict <value> [--reason TEXT]` | Force a job's verdict; bypasses filters and the LLM |
 | `overrides set company <id> classification <value>` | Force a company's product/consulting classification |
 
@@ -130,7 +135,8 @@ everything.
 
 - **`.env`** — `ANTHROPIC_API_KEY` (never in a YAML file).
 - **`config/settings.yaml`** — main and triage model, pricing for cost estimates,
-  `min_base_salary`, the candidate's state, database and output paths.
+  `min_base_salary`, the candidate's state and time zone, crawl concurrency (`crawl_workers`) and
+  HTTP settings, database and output paths.
 - **`config/candidate_profile.yaml`** — skills, accomplishments, target roles, roles to avoid,
   qualification-interpretation rules, the compensation rule and hard filters, sent with every
   evaluation. This is where to tune what gets recommended.
@@ -138,12 +144,27 @@ everything.
 ## The employer registry
 
 `data/jobscan_companies_2026-09-29.yaml` is the list of companies to search. Code reads `name`,
-`domain`, `careers_url`, `ats_type`, `board_id`, `classification`, `active`, `applied`,
+`domain`, `careers_url`, `ats_type`, `board_id`, `classification`, `active`, `applied` (a label
+shown by `companies list`; individual applications go in `data/applications.yaml`),
 `discovery_source` and `notes`; the rest (`priority`, `fit_lanes`, `remote_signal`,
-`compensation_signal`, `evidence_level`) is research metadata for you. Priorities follow a simple
-evidence scale: **A-** has a role on the current shortlist, **B+** roles regularly reach
-evaluation but none fit yet, **B** few reach evaluation, **C** low-yield watch (nearly every
-posting non-remote, excluding your state, or unpriced).
+`compensation_signal`, `evidence_level`) is research metadata for you.
+
+JobScan doesn't judge employer culture. Each company's `notes` carry dated evidence instead —
+recent engineering-review scores, layoffs, remote policy, what its postings actually ask for — and
+its `priority` grades all of it:
+
+| Priority | Meaning |
+|---|---|
+| **A** | Excellent: good recent engineering culture, your stack, remote-US roles at the target pay, and it has produced a Best Bet |
+| **A-** | Same bar, producing Growth Bets or Stretches, or posting in-stack roles regularly |
+| **B+** | Good culture and in-stack remote roles reach evaluation, but nothing shortlisted yet — or a strong shortlist record with mixed culture |
+| **B** | Decent, with one real question mark: thin culture evidence, infrequent in-stack roles, or mixed culture |
+| **C** | A good company that rarely posts remote roles in your stack — a watch |
+| **D** | Active but weak: mixed-to-poor culture or a poor fit, kept for a specific reason (you applied, or it still produces roles) |
+| **F** | Inactive: the note says why — culture, no remote roles, wrong stack, or no crawlable board (kept for manual checks) |
+
+Before adding a company, run `companies probe <ats_type> <board_id>` to see what its live postings
+would send to evaluation.
 
 `companies import` is additive. `--replace` makes the file the complete active set, deactivating
 anything absent (reversible; history kept). `--delete` permanently removes absent companies and all
@@ -155,9 +176,10 @@ their job and evaluation history.
 is the company's token in that platform's public URL (Workday uses `tenant/cluster/site`, and
 Workday, SmartRecruiters, Avature and Jibe accept the platform's own server-side filters as a query
 string — see each adapter's docstring). `taleo`, `phenom`, `eightfold`, `successfactors` and
-`custom` can be recorded but have no adapter; keep those companies `active: false`. JobScan never
-works around a deliberate anti-bot measure — boards that block automated access (Dayforce's,
-Eightfold tenants, some Avature tenants) stay inactive, to check by hand.
+`custom` can be recorded but have no adapter; a company worth watching on one of those is kept
+`active: false`, for manual checks. JobScan never works around a deliberate anti-bot measure —
+boards that block automated access (Dayforce's, Eightfold tenants, some Avature tenants) stay
+inactive too, to check by hand.
 
 ## Data
 
@@ -175,7 +197,7 @@ The tests use mocked HTTP and a stub Anthropic client — they never touch the n
 money. To support a new job board, implement `jobscan.adapters.base.SourceAdapter`, register it in
 `jobscan/adapters/__init__.py`, and add tests built from the board's real responses.
 `CLAUDE.md` has the working conventions (cost checks, where code may and may not judge postings,
-schema field order, line endings).
+schema field order, the crawl's threading rule).
 
 ## Limitations
 

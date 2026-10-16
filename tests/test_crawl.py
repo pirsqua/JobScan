@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import threading
+from dataclasses import replace
+
 import httpx
 import respx
 
@@ -190,3 +193,48 @@ class TestCrawlOrchestration:
         assert len(stats.boards_failed) == 1
         assert "Taleo Co" in stats.boards_failed[0]
         assert "no adapter registered" in stats.boards_failed[0]
+
+
+def _greenhouse_board(job_id: int, title: str = "Senior Backend Engineer") -> dict:
+    return {"jobs": [{"id": job_id, "title": title, "location": {"name": "Remote - US"},
+                      "absolute_url": f"https://example.com/jobs/{job_id}", "content": "<p>$180,000 - $220,000</p>",
+                      "metadata": [], "departments": []}]}
+
+
+class TestParallelFetch:
+    @respx.mock
+    def test_boards_are_fetched_concurrently(self, db: Database, settings):
+        # Each board's response waits for the other's request to arrive: fetched one at a time,
+        # the barrier times out and both boards fail.
+        barrier = threading.Barrier(2, timeout=5)
+
+        def meet_then_respond(job_id):
+            def respond(request):
+                barrier.wait()
+                return httpx.Response(200, json=_greenhouse_board(job_id))
+            return respond
+
+        for i, board in enumerate(["one", "two"], start=1):
+            db.upsert_company(make_company(f"Co {board}", board))
+            respx.get(f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs").mock(side_effect=meet_then_respond(i))
+
+        stats = crawl_all(db, replace(settings, crawl_workers=2), companies=db.list_companies(active_only=True))
+
+        assert stats.boards_failed == []
+        assert stats.new_postings == 2
+
+    @respx.mock
+    def test_results_keep_registry_order_and_failures_stay_isolated(self, db: Database, settings):
+        for board in ["alpha", "bravo", "charlie"]:
+            db.upsert_company(make_company(f"Co {board}", board))
+        respx.get("https://boards-api.greenhouse.io/v1/boards/alpha/jobs").mock(return_value=httpx.Response(200, json=_greenhouse_board(1)))
+        respx.get("https://boards-api.greenhouse.io/v1/boards/bravo/jobs").mock(return_value=httpx.Response(500))
+        respx.get("https://boards-api.greenhouse.io/v1/boards/charlie/jobs").mock(return_value=httpx.Response(200, json=_greenhouse_board(3)))
+
+        companies = db.list_companies(active_only=True)
+        stats = crawl_all(db, replace(settings, crawl_workers=3), companies=companies)
+
+        assert stats.companies_attempted == 3
+        assert stats.companies_succeeded == 2
+        assert [failure.split(" (")[0] for failure in stats.boards_failed] == ["Co bravo"]
+        assert db.count_jobs() == 2

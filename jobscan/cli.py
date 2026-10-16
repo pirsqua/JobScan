@@ -6,6 +6,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
+
+from jobscan.adapters import ADAPTERS
+from jobscan.adapters.base import AdapterError
 from jobscan.audit import build_audit_rows, write_audit_csv, write_audit_markdown
 from jobscan.companies import RegistryImportError, import_registry
 from jobscan.config import Settings, load_settings
@@ -13,9 +17,10 @@ from jobscan.crawl import crawl_all
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.logging_setup import configure_logging, get_logger
-from jobscan.models import EvaluateStats, ManualOverride
+from jobscan.models import AtsType, EvaluateStats, ManualOverride
+from jobscan.probe import probe_board
 from jobscan.reports.csv_report import write_csv_report
-from jobscan.reports.data import assemble_report_data
+from jobscan.reports.data import ReportData, assemble_report_data
 from jobscan.reports.json_report import write_json_report
 from jobscan.reports.markdown_report import write_markdown_report
 from jobscan.timeutil import filename_timestamp
@@ -63,19 +68,23 @@ def _print_evaluation_run(stats: EvaluateStats, settings: Settings) -> None:
     print(f"New verdicts: {stats.new_verdict_counts or 'none'}")
 
 
+def _write_reports(data: ReportData, out_dir: Path) -> tuple[Path, Path, Path]:
+    """The Markdown, CSV and JSON reports for one snapshot, sharing a Seattle-time stamp."""
+    stamp = filename_timestamp()
+    paths = (out_dir / f"report_{stamp}.md", out_dir / f"report_{stamp}.csv", out_dir / f"report_{stamp}.json")
+    write_markdown_report(data, paths[0])
+    write_csv_report(data, paths[1])
+    write_json_report(data, paths[2])
+    return paths
+
+
 def cmd_report(args: argparse.Namespace, settings: Settings) -> int:
     out_dir = Path(args.out) if args.out else settings.output_dir
     with _open_db(settings) as db:
         crawl_stats = db.latest_crawl_run()
         eval_stats = db.latest_evaluation_run()
         data = assemble_report_data(db, settings, crawl_stats=crawl_stats, evaluate_stats=eval_stats)
-    stamp = filename_timestamp()
-    md_path = out_dir / f"report_{stamp}.md"
-    csv_path = out_dir / f"report_{stamp}.csv"
-    json_path = out_dir / f"report_{stamp}.json"
-    write_markdown_report(data, md_path)
-    write_csv_report(data, csv_path)
-    write_json_report(data, json_path)
+    md_path, csv_path, json_path = _write_reports(data, out_dir)
     print(f"Markdown: {md_path}")
     print(f"CSV:      {csv_path}")
     print(f"JSON:     {json_path}")
@@ -90,13 +99,7 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
         data = assemble_report_data(db, settings, crawl_stats=crawl_stats, evaluate_stats=eval_stats)
 
     out_dir = Path(args.out) if args.out else settings.output_dir
-    stamp = filename_timestamp()
-    md_path = out_dir / f"report_{stamp}.md"
-    csv_path = out_dir / f"report_{stamp}.csv"
-    json_path = out_dir / f"report_{stamp}.json"
-    write_markdown_report(data, md_path)
-    write_csv_report(data, csv_path)
-    write_json_report(data, json_path)
+    md_path, _, _ = _write_reports(data, out_dir)
 
     print(f"Crawl: {crawl_stats.companies_succeeded}/{crawl_stats.companies_attempted} companies "
           f"({len(crawl_stats.boards_failed)} failed); {crawl_stats.new_postings} new, "
@@ -138,6 +141,31 @@ def cmd_companies_list(args: argparse.Namespace, settings: Settings) -> int:
         applied_tag = " [APPLIED]" if c.applied else ""
         print(f"{c.id:>4}  {c.name:<30} {c.ats_type.value:<10} {c.board_id:<20} "
               f"{c.classification.value:<10} active={c.active} last_crawled={crawled}{applied_tag}")
+    return 0
+
+
+def cmd_companies_probe(args: argparse.Namespace, settings: Settings) -> int:
+    try:
+        ats_type = AtsType(args.ats_type)
+    except ValueError:
+        print(f"Unknown ats_type {args.ats_type!r}", file=sys.stderr)
+        return 1
+    if ats_type not in ADAPTERS:
+        print(f"No adapter for {ats_type.value} — such a company can only be recorded inactive, for manual checks.",
+              file=sys.stderr)
+        return 1
+    with httpx.Client(timeout=settings.http_timeout_seconds, headers={"User-Agent": settings.http_user_agent}) as client:
+        try:
+            result = probe_board(settings, ats_type, args.board_id, client)
+        except AdapterError as exc:
+            print(f"Board fetch failed: {exc}", file=sys.stderr)
+            return 1
+    filtered = ", ".join(f"{reason} {count}" for reason, count in result.rejected.most_common()) or "none"
+    print(f"{ats_type.value}/{args.board_id}: {result.postings} postings, {result.engineering} engineering, "
+          f"{len(result.passing)} would reach evaluation (filtered: {filtered})")
+    for job in result.passing:
+        pay = f"${job.salary_min:,.0f}-${(job.salary_max or job.salary_min):,.0f}" if job.salary_min else "pay n/a"
+        print(f"  {job.title} | {job.location_raw or '-'} | {pay} | {job.posting_url or '-'}")
     return 0
 
 
@@ -230,6 +258,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_companies_list = companies_sub.add_parser("list", help="List registered companies.")
     p_companies_list.add_argument("--all", action="store_true", help="Include inactive companies.")
     p_companies_list.set_defaults(func=cmd_companies_list)
+
+    p_companies_probe = companies_sub.add_parser(
+        "probe", help="Dry-run one board through the real adapter and factual filters — nothing stored, no LLM calls.",
+    )
+    p_companies_probe.add_argument("ats_type", help="e.g. greenhouse, ashby, lever, workday")
+    p_companies_probe.add_argument("board_id", help="The board's id, exactly as a registry row would give it")
+    p_companies_probe.set_defaults(func=cmd_companies_probe)
 
     p_overrides = sub.add_parser("overrides", help="Manage manual overrides.")
     overrides_sub = p_overrides.add_subparsers(dest="overrides_command", required=True)

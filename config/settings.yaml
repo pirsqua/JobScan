@@ -39,4 +39,7 @@ log_level: INFO
 
 # HTTP behavior for source adapters.
 http_timeout_seconds: 30
+# Boards fetched at once during a crawl (each adapter also runs its own small detail-page pool).
+# Many boards share a host (Greenhouse's API, Workday clusters), so keep this modest.
+crawl_workers: 4
 http_user_agent: "JobScan/0.5 (+personal job search tool)"

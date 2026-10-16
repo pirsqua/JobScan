@@ -82,6 +82,10 @@ check there may only turn a skip into a full evaluation — never the reverse.
   qualification language or job family — only salary/remote/employment-type facts and confirmed
   consulting employers. If a check requires reading and interpreting the posting's prose, it
   belongs in the LLM path (`jobscan/llm/`), not here.
+- The crawl fetches boards in worker threads (`crawl_workers`), but only the fetching:
+  normalizing, `db.upsert_job` and closing stay on the calling thread, in registry order. The
+  `Database` is one SQLite connection — never touch it from a worker thread, in the crawl or in an
+  adapter.
 - Never describe registry coverage as "comprehensive" — always report the exact
   companies/postings actually processed (this is a hard requirement from the original spec, not
   a style preference).

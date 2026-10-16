@@ -125,6 +125,41 @@ def _build_triage_skip_evaluation(
     )
 
 
+def _manual_override_evaluation(job: JobPosting, company: Company, verdict: Verdict) -> Evaluation:
+    """The candidate's own verdict on a posting, stored like an evaluation so the report treats
+    it uniformly; it bypasses the factual filters and every LLM call."""
+    return Evaluation(
+        job_id=job.id,
+        description_hash=job.description_hash,
+        verdict=verdict,
+        confidence=1.0,
+        scope_fit=ScopeFit.AT_LEVEL,
+        evidence_coverage_percent=100,
+        specialist_tenure_assessment=SpecialistTenureAssessment(
+            classification=SpecialistTenureClassification.NOT_APPLICABLE,
+            specialty="",
+            explanation="Manually overridden by candidate; not LLM-assessed.",
+        ),
+        requirement_evidence=[],
+        growth_dimensions=[],
+        hidden_staff_signals=[],
+        compensation_assessment="manual override",
+        remote_employment_verification="manual override",
+        required_matches=[],
+        required_gaps=[],
+        preferred_only_gaps=[],
+        minor_caveats=[],
+        evidence=["manually overridden"],
+        credibility_assessment="Manually overridden by candidate.",
+        why_this_is_or_is_not_gettable="Manually overridden by candidate.",
+        is_product_company=company.classification == CompanyClassification.PRODUCT,
+        primary_rejection_reason=None,
+        worth_applying=True,
+        model_name="manual_override",
+        created_at=_now(),
+    )
+
+
 def evaluate_all(
     db: Database,
     settings: Settings,
@@ -190,36 +225,7 @@ def evaluate_all(
             job_overrides = db.get_manual_overrides("job", job.id)
             if "verdict" in job_overrides:
                 stats.manual_overrides_applied += 1
-                evaluation = Evaluation(
-                    job_id=job.id,
-                    description_hash=job.description_hash,
-                    verdict=Verdict(job_overrides["verdict"]),
-                    confidence=1.0,
-                    scope_fit=ScopeFit.AT_LEVEL,
-                    evidence_coverage_percent=100,
-                    specialist_tenure_assessment=SpecialistTenureAssessment(
-                        classification=SpecialistTenureClassification.NOT_APPLICABLE,
-                        specialty="",
-                        explanation="Manually overridden by candidate; not LLM-assessed.",
-                    ),
-                    requirement_evidence=[],
-                    growth_dimensions=[],
-                    hidden_staff_signals=[],
-                    compensation_assessment="manual override",
-                    remote_employment_verification="manual override",
-                    required_matches=[],
-                    required_gaps=[],
-                    preferred_only_gaps=[],
-                    minor_caveats=[],
-                    evidence=["manually overridden"],
-                    credibility_assessment="Manually overridden by candidate.",
-                    why_this_is_or_is_not_gettable="Manually overridden by candidate.",
-                    is_product_company=company.classification == CompanyClassification.PRODUCT,
-                    primary_rejection_reason=None,
-                    worth_applying=True,
-                    model_name="manual_override",
-                    created_at=_now(),
-                )
+                evaluation = _manual_override_evaluation(job, company, Verdict(job_overrides["verdict"]))
                 db.save_evaluation(evaluation)
                 stats._bump_verdict(evaluation.verdict.value)
                 continue

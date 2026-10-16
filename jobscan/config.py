@@ -44,6 +44,7 @@ class Settings:
     profile_path: Path = DEFAULT_PROFILE_PATH
     applications_path: Path = DEFAULT_APPLICATIONS_PATH
     candidate_time_zone: str = "Pacific"
+    crawl_workers: int = 4
 
     def pricing_for(self, model_name: str) -> ModelPricing | None:
         return self.anthropic_pricing.get(model_name)
@@ -102,6 +103,7 @@ def load_settings(
         log_level=env_or("JOBSCAN_LOG_LEVEL", raw.get("log_level", "INFO")),
         http_timeout_seconds=int(raw.get("http_timeout_seconds", 30)),
         http_user_agent=raw.get("http_user_agent", "JobScan/0.1"),
+        crawl_workers=int(raw.get("crawl_workers", 4)),
         anthropic_api_key=env_or("ANTHROPIC_API_KEY", None),
         profile_path=Path(env_or("JOBSCAN_PROFILE_PATH", DEFAULT_PROFILE_PATH)),
         applications_path=Path(env_or("JOBSCAN_APPLICATIONS_PATH", DEFAULT_APPLICATIONS_PATH)),
