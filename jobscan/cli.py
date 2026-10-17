@@ -11,7 +11,7 @@ import httpx
 from jobscan.adapters import ADAPTERS
 from jobscan.adapters.base import AdapterError
 from jobscan.audit import build_audit_rows, write_audit_csv, write_audit_markdown
-from jobscan.backup import backup_database
+from jobscan.backup import BackupError, backup_database
 from jobscan.companies import RegistryImportError, import_registry
 from jobscan.config import Settings, load_settings
 from jobscan.crawl import crawl_all
@@ -112,8 +112,21 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
     print(f"Shortlist: {len(data.best_bets)} Best Bets, {len(data.growth_bets)} Growth Bets, "
           f"{len(data.attractive_stretches)} Attractive Stretches")
     print(f"Report: {md_path}")
+    # The daily command, so its end is where the database gets backed up.
     if settings.backup_dir is not None:
-        print(f"Database backup: {backup_database(settings.db_path, settings.backup_dir)}")
+        return _report_backup(settings, settings.backup_dir)
+    return 0
+
+
+def _report_backup(settings: Settings, target: Path) -> int:
+    """Snapshot and verify the database; printed to stdout either way, so a failure is never
+    hidden behind a silenced stderr."""
+    try:
+        snapshot = backup_database(settings.db_path, target)
+    except BackupError as exc:
+        print(f"Database backup FAILED: {exc}")
+        return 1
+    print(f"Database backup: {snapshot} ({snapshot.stat().st_size / 1e6:.1f} MB compressed, integrity check passed)")
     return 0
 
 
@@ -122,13 +135,7 @@ def cmd_backup(args: argparse.Namespace, settings: Settings) -> int:
     if target is None:
         print("No backup folder given and JOBSCAN_BACKUP_DIR is not set.", file=sys.stderr)
         return 1
-    try:
-        snapshot = backup_database(settings.db_path, target)
-    except FileNotFoundError as exc:
-        print(f"Backup failed: {exc}", file=sys.stderr)
-        return 1
-    print(f"Database backup: {snapshot} ({snapshot.stat().st_size / 1e6:.0f} MB)")
-    return 0
+    return _report_backup(settings, target)
 
 
 def cmd_companies_import(args: argparse.Namespace, settings: Settings) -> int:

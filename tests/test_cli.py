@@ -1,8 +1,8 @@
 """CLI-level tests: argument parsing, command dispatch, and printed output.
 
-Deliberately avoids `evaluate`/`run` here — `main()` always builds a real AnthropicClient from
-settings/env with no injection seam, so LLM-touching behavior is covered at the `evaluate_all()`
-level in test_evaluate.py instead of faking a client through the CLI layer.
+`main()` builds a real AnthropicClient from settings/env with no injection seam, so LLM-touching
+behavior is covered at the `evaluate_all()` level in test_evaluate.py instead of faking a client
+through the CLI layer. The `run` tests below set an empty API key, so no client is built at all.
 """
 from __future__ import annotations
 
@@ -151,3 +151,45 @@ class TestCrawlCommand:
         assert "Companies successfully crawled: 1" in out
         assert "Postings fetched (all departments): 1" in out
         assert "Skipped as outside the software-engineering job family: 0" in out
+
+
+class TestRunBackup:
+    """`run` — the daily command — ends with a verified database backup when a folder is set."""
+
+    @pytest.fixture(autouse=True)
+    def _no_llm(self, monkeypatch):
+        # main() builds a real client from the environment; an empty key means none is built,
+        # so `run` filters and reports without any LLM call.
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+
+    def test_run_ends_with_a_verified_backup(self, settings_path, tmp_path, monkeypatch, capsys):
+        backups = tmp_path / "drive"
+        monkeypatch.setenv("JOBSCAN_BACKUP_DIR", str(backups))
+
+        assert main(["--settings", str(settings_path), "run"]) == 0
+
+        assert (backups / "jobscan.db.gz").exists()
+        assert "integrity check passed" in capsys.readouterr().out
+
+    def test_other_commands_do_not_back_up(self, settings_path, tmp_path, monkeypatch):
+        backups = tmp_path / "drive"
+        monkeypatch.setenv("JOBSCAN_BACKUP_DIR", str(backups))
+        csv_path = tmp_path / "companies.csv"
+        csv_path.write_text(COMPANIES_CSV, encoding="utf-8")
+
+        assert main(["--settings", str(settings_path), "companies", "import", str(csv_path)]) == 0
+
+        assert not backups.exists()
+
+    def test_a_failed_backup_is_reported_on_stdout_and_fails_the_run(self, settings_path, tmp_path, monkeypatch, capsys):
+        from jobscan import backup
+        monkeypatch.setenv("JOBSCAN_BACKUP_DIR", str(tmp_path / "drive"))
+        monkeypatch.setattr(backup, "_integrity_problem", lambda path: "malformed")
+
+        assert main(["--settings", str(settings_path), "run"]) == 1
+
+        assert "Database backup FAILED" in capsys.readouterr().out
+
+    def test_no_backup_folder_means_no_backup(self, settings_path, capsys):
+        assert main(["--settings", str(settings_path), "run"]) == 0
+        assert "Database backup" not in capsys.readouterr().out

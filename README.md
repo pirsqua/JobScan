@@ -86,7 +86,8 @@ Copy-Item .env.example .env
 
 Set `ANTHROPIC_API_KEY`, and `JOBSCAN_PROFILE_PATH`, `JOBSCAN_REGISTRY_PATH` and
 `JOBSCAN_APPLICATIONS_PATH` to the three files. Set `JOBSCAN_BACKUP_DIR` too (the same folder is
-fine) and every `run` snapshots the database there. Without the path variables JobScan falls back
+fine): every `run` then ends by backing up the database there (see [Data](#data)).
+Without the path variables JobScan falls back
 to `config/candidate_profile.yaml` and `data/applications.yaml` inside the repo — both are in
 `.gitignore`, but they aren't backed up.
 
@@ -104,7 +105,7 @@ adapter renders pages in a headless browser; if you add a company on it, also ru
 ## Daily use
 
 ```powershell
-python -m jobscan run        # crawl + evaluate + report (+ database backup)
+python -m jobscan run        # crawl + evaluate + report, then a verified database backup
 ```
 
 Open the newest `out\report_<timestamp>PT.md`. It has the run statistics, then:
@@ -133,9 +134,9 @@ To see why postings were filtered out — useful for spotting a wrongly rejected
 | `crawl` | Fetch current postings for every active company |
 | `evaluate [--limit N] [--refresh-stale]` | Filter and screen new/changed postings. `--limit` caps real LLM calls; `--refresh-stale` also re-screens verdicts made under an older rubric |
 | `report [--out DIR]` | Write the Markdown/CSV/JSON report from the current database |
-| `run [--out DIR] [--limit N] [--refresh-stale]` | `crawl`, `evaluate` and `report` in sequence, then a database backup if `JOBSCAN_BACKUP_DIR` is set |
+| `run [--out DIR] [--limit N] [--refresh-stale]` | `crawl`, `evaluate` and `report` in sequence, then a verified database backup if `JOBSCAN_BACKUP_DIR` is set |
 | `audit [--out DIR]` | Every filtered posting and the reason (factual filter, triage or full evaluation) |
-| `backup [--to DIR]` | Snapshot the database (default folder: `JOBSCAN_BACKUP_DIR`) |
+| `backup [--to DIR]` | Snapshot and verify the database now (default folder: `JOBSCAN_BACKUP_DIR`) — `run` already does this at its end |
 | `companies import [file] [--replace\|--delete]` | Add/update companies from a YAML or CSV registry file (default: `JOBSCAN_REGISTRY_PATH`) |
 | `companies list [--all]` | List companies (active only unless `--all`) |
 | `companies probe <ats_type> <board_id>` | Dry-run one board through the real adapter and factual filters — what would reach evaluation, nothing stored, no LLM calls. Use it before adding a company |
@@ -230,10 +231,21 @@ some Avature tenants) stay inactive too, to check by hand.
 
 The database is `data/jobscan.db` (SQLite, never committed): every crawled posting and every
 evaluation. Closed postings are marked closed, never deleted, and a posting's previous text is
-snapshotted whenever it changes, so `crawl` is always safe to re-run. It stays on the local disk —
-a sync client working on a live SQLite file can capture it mid-write — and `backup` (run after
-every `run` when `JOBSCAN_BACKUP_DIR` is set) writes a consistent snapshot to your backup folder
-instead. Your profile, registry and applications live wherever `.env` points.
+snapshotted whenever it changes, so `crawl` is always safe to re-run.
+
+The database stays on the local disk — a sync client working on a live SQLite file can capture it
+mid-write — and is backed up instead. When `JOBSCAN_BACKUP_DIR` is set, every `run` ends by
+writing a consistent snapshot, running SQLite's integrity check on it, and saving it compressed as
+`jobscan.db.gz` in that folder (about an eighth of the database's size), so the backup is at most
+one run behind; `backup` takes one on demand. Only a snapshot that passes replaces the previous
+one; a failure keeps the last good backup and prints `Database backup FAILED` (the command then
+exits non-zero). To restore, decompress it over the database:
+
+```powershell
+python -c "import gzip, shutil; shutil.copyfileobj(gzip.open(r'<backup folder>\jobscan.db.gz'), open(r'data\jobscan.db', 'wb'))"
+``` A synced folder such as Google Drive
+also keeps earlier versions of the file. Your profile, registry and applications live wherever
+`.env` points.
 
 ## Development
 
