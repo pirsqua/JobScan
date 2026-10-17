@@ -2,8 +2,6 @@
 with nothing persisted — what `companies probe` prints before a company is added."""
 from __future__ import annotations
 
-from pathlib import Path
-
 import httpx
 import pytest
 import respx
@@ -43,8 +41,6 @@ def test_probe_surfaces_a_board_that_cannot_be_fetched(settings):
         probe_board(settings, AtsType.GREENHOUSE, "acme", client)
 
 
-def test_cli_rejects_an_ats_without_an_adapter(capsys, monkeypatch):
-    # main() loads real settings; point it at the committed example so this runs on a fresh clone.
-    monkeypatch.setenv("JOBSCAN_PROFILE_PATH", str(Path(__file__).resolve().parent.parent / "config" / "candidate_profile.example.yaml"))
+def test_cli_rejects_an_ats_without_an_adapter(capsys):
     assert main(["companies", "probe", "taleo", "acme"]) == 1
     assert "No adapter for taleo" in capsys.readouterr().err

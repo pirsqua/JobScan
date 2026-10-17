@@ -10,6 +10,21 @@ from jobscan.db import Database
 from jobscan.models import AtsType, Company
 
 
+EXAMPLE_PROFILE = Path(__file__).resolve().parent.parent / "config" / "candidate_profile.example.yaml"
+
+
+@pytest.fixture(autouse=True)
+def _isolate_personal_paths(monkeypatch, tmp_path: Path) -> None:
+    """No test reads the owner's personal files or writes a backup: .env never overrides a
+    variable that's already set, so pinning these keeps every test — including ones that call
+    jobscan.cli.main, which loads real settings — on the committed example and temp paths, and
+    makes a fresh clone with no .env behave the same."""
+    monkeypatch.setenv("JOBSCAN_PROFILE_PATH", str(EXAMPLE_PROFILE))
+    monkeypatch.setenv("JOBSCAN_APPLICATIONS_PATH", str(tmp_path / "applications.yaml"))
+    monkeypatch.setenv("JOBSCAN_REGISTRY_PATH", "")
+    monkeypatch.setenv("JOBSCAN_BACKUP_DIR", "")
+
+
 @pytest.fixture()
 def settings(tmp_path: Path) -> Settings:
     return Settings(
@@ -33,7 +48,7 @@ def settings(tmp_path: Path) -> Settings:
         http_user_agent="JobScan-Test/0.1",
         anthropic_api_key=None,
         # The committed example, never the candidate's real (private) profile.
-        profile_path=Path(__file__).resolve().parent.parent / "config" / "candidate_profile.example.yaml",
+        profile_path=EXAMPLE_PROFILE,
         # Never the real applications file — tests that need applications write their own.
         applications_path=tmp_path / "applications.yaml",
     )
