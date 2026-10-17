@@ -31,8 +31,8 @@ class TestLoading:
         assert application.applied_on == dt.date(2026, 9, 24)
 
     def test_url_variants_of_the_same_posting_match(self):
-        # Observed: recorded links with a trailing slash, or without one before the
-        # query string, where the crawled posting_url didn't / did.
+        # Observed: recorded links with a trailing slash, or without one before the query string,
+        # where the crawled posting_url didn't / did.
         assert normalize_url("https://job-boards.greenhouse.io/acme/jobs/1234567/") == \
             normalize_url("https://job-boards.greenhouse.io/acme/jobs/1234567")
         assert normalize_url("https://acme.example.com/job-detail?gh_jid=7654321") == \

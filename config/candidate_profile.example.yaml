@@ -1,0 +1,113 @@
+# Example candidate profile — a fictional candidate showing every key the pipeline reads. Copy it
+# somewhere outside the repository, make it yours, and point JOBSCAN_PROFILE_PATH at it (see
+# .env.example). It's fed to the LLM for job screening; the tests also use this file.
+# New top-level keys need a line in jobscan.llm.prompts.render_profile_text to reach the model.
+
+headline: >
+  Backend-focused software engineer with approximately 10 years of experience building Python
+  services and data pipelines on AWS — APIs, integrations and relational databases, from design
+  through deployment and production support. Targeting properly scoped Senior Engineer roles.
+
+location: Denver, CO (remote) — works a Mountain Time day
+
+education:
+  - B.S. in Computer Science — Example State University (2015)
+
+certifications:
+  - "AWS Certified Developer – Associate"
+
+work_history:
+  - Example Logistics (Denver) — Senior Software Engineer, 2020 to present.
+  - Example Retail Co. — Software Engineer, 2015 to 2020.
+
+strongest_skills:
+  - Approximately 10 years of general software-engineering experience
+  - Strong Python, PostgreSQL, REST API and AWS experience
+  - Backend services, integrations, database work, automated testing and CI/CD
+  - Rebuilt a shipment-tracking API, cutting p95 latency from 2 seconds to 200 milliseconds
+
+accomplishments:
+  - "Shipment tracking (Python, FastAPI, PostgreSQL): rebuilt the tracking API used by carrier
+    partners, cutting p95 latency from 2 seconds to 200 milliseconds."
+  - "Carrier integrations: built and ran event-driven integrations with a dozen carrier APIs over
+    SQS, including retries, idempotency and monitoring."
+  - "Example Retail Co.: maintained order-processing services and raised automated test coverage
+    above 80%."
+
+# Listed on the resume without a project bullet above showing depth — credit as working
+# familiarity (credibly transferable), not as demonstrated production tenure.
+additional_skills:
+  - "Python web: Django, Flask"
+  - "AWS: Lambda, SQS, RDS, S3, CloudWatch"
+  - "Containers: Docker"
+  - "Testing: unit, integration and load testing"
+
+# Specialty areas outside current focus — read together with non_inflation_rules below: no direct
+# demonstrated evidence, so don't credit a posting's overlap with these as if it were proven.
+specialty_areas_outside_current_focus:
+  - Deep, sustained ownership of extremely large-scale distributed systems
+  - Production LLM, AI-agent, retrieval-augmented-generation or vector-database systems
+  - Deep professional React, Angular or TypeScript ownership
+  - Extensive formal people-management responsibility
+
+non_inflation_rules:
+  - Do not treat ~10 years of general software engineering as 10 years of experience in every
+    specialty a posting happens to mention.
+  - Do not infer repeated experience, massive production scale, or organization-wide influence
+    without direct evidence in the profile above.
+
+target_roles_prioritized:
+  - Senior Software Engineer
+  - Senior Backend Engineer
+  - Senior Python Engineer
+  - Software Engineer III or IV
+  - Backend-heavy full-stack roles where frontend development is genuinely secondary
+
+favored_work:
+  - Python
+  - REST APIs and integrations
+  - SQL and relational databases
+  - AWS, or cloud roles where AWS experience is accepted alongside Azure/GCP
+  - Testing, CI/CD, observability and production troubleshooting
+  - Owning services or features within an established team
+
+# Not "do not target" — genuinely one-step-up categories.
+stretch_categories:
+  - Lead Software Engineer (only when scope reads as ordinary senior work, not org-wide ownership)
+
+do_not_target:
+  - Staff-level roles and above (Staff, Senior Staff, Principal, Distinguished). A dual-level
+    posting that also hires at Senior ("Senior/Staff", "Senior or Staff") is fine, at the Senior
+    level.
+  - Engineering-management roles requiring substantial direct-report experience
+  - Frontend-heavy roles
+
+company_preferences:
+  - Prefer mature product companies with established engineering organizations.
+
+qualification_interpretation_rules:
+  - '"AWS or Azure" is compatible.'
+  - "React familiarity is acceptable."
+  - "Strong React/TypeScript ownership is outside current fit."
+  - "Required production LLM or AI-agent integration is outside current fit."
+  - "A language the posting calls helpful, preferred or a plus is a growth area, not a disqualifier."
+
+min_base_salary: 160000
+# Read by code (factual filters and the triage guard), not shown to the model as such.
+candidate_state: CO
+candidate_state_name: Colorado
+candidate_time_zone: Mountain
+compensation_rule: >
+  Reject when the published maximum is below $160,000. Pass when the midpoint is at least
+  $160,000, or when $160,000 sits no higher than about 80% of the way from the range's minimum to
+  its maximum. Distinguish base salary from total compensation when a posting blends them.
+
+hard_filters:
+  - U.S. remote, available to an employee living in Colorado. A role tied to an office with no
+    remote option, or a hybrid arrangement, fails this filter.
+  - Working hours that fit a Mountain Time day.
+  - Full-time employee position
+  - Employer principally builds and operates its own product or platform (not a consulting,
+    staffing or outsourcing firm)
+  - Current official posting that still accepts applications
+  - Published base-salary range with a credible path to at least $160,000

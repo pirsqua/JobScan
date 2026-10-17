@@ -1,0 +1,28 @@
+# Example employer registry. Keep your real one outside the repository and point
+# JOBSCAN_REGISTRY_PATH at it, so `python -m jobscan companies import` picks it up (see README,
+# "The employer registry", for every field and the priority scale). Probe a board before adding
+# it: python -m jobscan companies probe <ats_type> <board_id>
+- name: Acme
+  domain: acme.example.com
+  careers_url: https://job-boards.greenhouse.io/acme
+  ats_type: greenhouse
+  board_id: acme
+  classification: product
+  active: true
+  priority: B
+  fit_lanes: [python, apis]
+  remote_signal: remote_first
+  compensation_signal: verified_170k_path
+  evidence_level: current_board_verified
+  discovery_source: example
+  notes: "Dated evidence goes here: what its postings ask for, engineering-review scores, layoffs, remote policy."
+
+- name: Example Corp
+  domain: example.com
+  careers_url: https://example.com/careers
+  ats_type: custom
+  board_id: ""
+  classification: product
+  active: false
+  priority: F
+  notes: "No crawlable board — kept inactive, for manual checks."

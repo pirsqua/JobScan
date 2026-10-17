@@ -1,0 +1,8 @@
+# Example applications file. Keep your real one outside the repository and point
+# JOBSCAN_APPLICATIONS_PATH at it (see .env.example). Reports match `url` against crawled postings
+# (case and trailing slashes don't matter) and star each applied role wherever it now stands.
+applications:
+  - company: Acme
+    title: Senior Software Engineer, Backend
+    url: https://job-boards.greenhouse.io/acme/jobs/1234567
+    applied_on: 2026-01-15

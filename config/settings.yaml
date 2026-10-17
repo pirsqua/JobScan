@@ -26,14 +26,9 @@ anthropic_pricing:
     input_per_million: 1.00
     output_per_million: 5.00
 
-# Compensation rule.
-min_base_salary: 170000
-
-# Candidate's employment-eligible state, used for remote-location screening.
-candidate_state: WA
-candidate_state_name: Washington
-# The candidate's own time zone, so a triage skip on time-zone wording that names it is overruled.
-candidate_time_zone: Pacific
+# The candidate's salary floor, employment-eligible state and time zone are read from the
+# candidate profile (min_base_salary, candidate_state, candidate_state_name, candidate_time_zone),
+# which lives outside the repository — see config/candidate_profile.example.yaml.
 
 log_level: INFO
 

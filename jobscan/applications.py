@@ -1,13 +1,13 @@
-"""The candidate's job applications: one entry per posting applied to, kept in a hand-editable,
-version-controlled YAML file (``Settings.applications_path``, default ``data/applications.yaml``)
+"""The candidate's job applications: one entry per posting applied to, kept in a hand-editable
+YAML file outside the repository (``Settings.applications_path``, from ``JOBSCAN_APPLICATIONS_PATH``)
 and matched to crawled postings by URL, so a report can mark each applied role wherever it now
-stands — shortlisted, rejected, or closed since.
+stands — shortlisted, rejected, or closed since. See data/applications.example.yaml.
 
     applications:
       - company: Acme
         title: Senior Software Engineer
-        url: https://acme.example.com/job-detail/?gh_jid=7654321
-        applied_on: 2026-10-06
+        url: https://acme.example.com/job-detail/?gh_jid=1234567
+        applied_on: 2026-01-15
 """
 from __future__ import annotations
 

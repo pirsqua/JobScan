@@ -7,3 +7,8 @@ __pycache__/
 *.db
 *.db-journal
 /out/
+
+# Personal data lives outside the repository (paths in .env); never commit it here.
+config/candidate_profile.yaml
+data/applications.yaml
+data/jobscan_companies_*.yaml

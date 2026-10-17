@@ -7,6 +7,12 @@ fresh session needs before touching code, that reading the code alone won't make
 
 - Windows, PowerShell primary; venv at `.venv` (`.\.venv\Scripts\Activate.ps1`).
 - Python 3.14. Run the suite before considering any change done: `python -m pytest -q`.
+- The owner's personal data — candidate profile, applications, employer registry — lives outside
+  the repository, at the paths `.env` sets (`JOBSCAN_PROFILE_PATH`, `JOBSCAN_APPLICATIONS_PATH`,
+  `JOBSCAN_REGISTRY_PATH`); edit it there. Never commit it, never copy it into the repo, and never
+  put a real application, posting URL or profile detail into code, tests or docs — use the
+  `.example` files and example.com URLs. Tests read `config/candidate_profile.example.yaml`.
+- Commit messages carry no `Co-Authored-By` or "Generated with" trailers.
 
 ## Cost awareness — `evaluate` and `run` spend real money
 
@@ -22,9 +28,10 @@ without `--limit` against the full registry:
    for demos/samples instead of burning through the whole registry.
 4. After a real run, report the *actual* cost from `EvaluateStats.estimated_cost_usd()`, not the
    pre-run estimate.
-5. A change to the prompts (`jobscan/llm/prompts.py`), the tool schemas or
-   `config/candidate_profile.yaml` changes the rubric version but does NOT re-judge cached
-   verdicts — only `evaluate --refresh-stale` does. Full evaluations and triage screen-outs carry
+5. A change to the prompts (`jobscan/llm/prompts.py`), the tool schemas or the rendered
+   candidate profile changes the rubric version but does NOT re-judge cached verdicts — only
+   `evaluate --refresh-stale` does. (Profile keys the renderer doesn't read, such as the
+   code-only `candidate_state`, don't change it.) Full evaluations and triage screen-outs carry
    separate versions: a profile change re-screens everything, a `JOB_EVAL_SYSTEM`/schema change
    only full evaluations, a `TRIAGE_SYSTEM` change only triage screen-outs. The per-posting
    message templates (`build_*_user_message`) are NOT fingerprinted — a material change there

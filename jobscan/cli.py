@@ -11,6 +11,7 @@ import httpx
 from jobscan.adapters import ADAPTERS
 from jobscan.adapters.base import AdapterError
 from jobscan.audit import build_audit_rows, write_audit_csv, write_audit_markdown
+from jobscan.backup import backup_database
 from jobscan.companies import RegistryImportError, import_registry
 from jobscan.config import Settings, load_settings
 from jobscan.crawl import crawl_all
@@ -111,11 +112,30 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
     print(f"Shortlist: {len(data.best_bets)} Best Bets, {len(data.growth_bets)} Growth Bets, "
           f"{len(data.attractive_stretches)} Attractive Stretches")
     print(f"Report: {md_path}")
+    if settings.backup_dir is not None:
+        print(f"Database backup: {backup_database(settings.db_path, settings.backup_dir)}")
+    return 0
+
+
+def cmd_backup(args: argparse.Namespace, settings: Settings) -> int:
+    target = Path(args.to) if args.to else settings.backup_dir
+    if target is None:
+        print("No backup folder given and JOBSCAN_BACKUP_DIR is not set.", file=sys.stderr)
+        return 1
+    try:
+        snapshot = backup_database(settings.db_path, target)
+    except FileNotFoundError as exc:
+        print(f"Backup failed: {exc}", file=sys.stderr)
+        return 1
+    print(f"Database backup: {snapshot} ({snapshot.stat().st_size / 1e6:.0f} MB)")
     return 0
 
 
 def cmd_companies_import(args: argparse.Namespace, settings: Settings) -> int:
-    path = Path(args.path)
+    if args.path is None and settings.registry_path is None:
+        print("No registry file given and JOBSCAN_REGISTRY_PATH is not set.", file=sys.stderr)
+        return 1
+    path = Path(args.path) if args.path else settings.registry_path
     if not path.exists():
         print(f"File not found: {path}", file=sys.stderr)
         return 1
@@ -235,6 +255,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--refresh-stale", action="store_true", help=_REFRESH_STALE_HELP)
     p_run.set_defaults(func=cmd_run)
 
+    p_backup = sub.add_parser("backup", help="Snapshot the database to a backup folder (default: JOBSCAN_BACKUP_DIR).")
+    p_backup.add_argument("--to", default=None, help="Backup folder (default: JOBSCAN_BACKUP_DIR)")
+    p_backup.set_defaults(func=cmd_backup)
+
     p_audit = sub.add_parser("audit", help="Report every filtered posting and its reason.")
     p_audit.add_argument("--out", default=None, help="Output directory (default: ./out)")
     p_audit.set_defaults(func=cmd_audit)
@@ -243,7 +267,10 @@ def build_parser() -> argparse.ArgumentParser:
     companies_sub = p_companies.add_subparsers(dest="companies_command", required=True)
 
     p_companies_import = companies_sub.add_parser("import", help="Import companies from a CSV or YAML file.")
-    p_companies_import.add_argument("path", help="Path to a .csv or .yaml employer registry file.")
+    p_companies_import.add_argument(
+        "path", nargs="?", default=None,
+        help="Path to a .csv or .yaml employer registry file (default: JOBSCAN_REGISTRY_PATH).",
+    )
     p_companies_import_scope = p_companies_import.add_mutually_exclusive_group()
     p_companies_import_scope.add_argument(
         "--replace", action="store_true",

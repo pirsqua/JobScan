@@ -105,7 +105,7 @@ def _hours_line(ev: Evaluation) -> list[str]:
 def _render_applications(data: ReportData) -> list[str]:
     lines = ["", "## Applications", ""]
     if not data.applications:
-        lines.append("_None recorded — add them to `data/applications.yaml`._")
+        lines.append("_None recorded — add them to your applications file (`JOBSCAN_APPLICATIONS_PATH`)._")
         return lines
     lines += ["| Applied | Role | Where it stands |", "|---|---|---|"]
     for row in data.applications:
