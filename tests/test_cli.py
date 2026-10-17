@@ -23,11 +23,9 @@ Acme Corp,acme.example.com,greenhouse,acme,product
 @pytest.fixture(autouse=True)
 def _clean_jobscan_env(monkeypatch):
     # main() loads settings from the real environment/.env — strip anything that could make
-    # these tests depend on the host machine's ambient configuration.
-    for key in (
-        "JOBSCAN_DB_PATH", "JOBSCAN_OUTPUT_DIR", "JOBSCAN_ANTHROPIC_MODEL",
-        "JOBSCAN_LOG_LEVEL", "JOBSCAN_PROFILE_PATH",
-    ):
+    # these tests depend on the host machine's ambient configuration. (The personal-file paths
+    # are pinned to the example and temp paths by conftest's _isolate_personal_paths.)
+    for key in ("JOBSCAN_DB_PATH", "JOBSCAN_OUTPUT_DIR", "JOBSCAN_ANTHROPIC_MODEL", "JOBSCAN_LOG_LEVEL"):
         monkeypatch.delenv(key, raising=False)
 
 
