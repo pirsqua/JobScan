@@ -48,7 +48,9 @@ _OTHER_PROFESSION_RE = re.compile(
     r"developer\s+(relations|advocate|advocacy|evangelis\w+)|developer\s+success\s+engineer\w*|"
     r"(product|ux|ui|visual|graphic|interaction)\s+designer|"
     r"(product|program|project)\s+manager|technical\s+writer|account\s+(executive|manager)|"
-    r"technician|recruit\w*|sourcer"
+    r"technician|recruit\w*|sourcer|"
+    # HR partners to an engineering org: "Senior People Business Partner, Engineering" (GitLab).
+    r"(people|hr|human\s+resources|talent)\s+business\s+partner"
     r")\b",
     re.IGNORECASE,
 )

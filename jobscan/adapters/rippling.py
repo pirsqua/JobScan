@@ -25,7 +25,7 @@ import httpx
 from pydantic import ValidationError
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
-from jobscan.adapters.schemas import RipplingJobBrief, RipplingJobPost, RipplingJobPostsPage
+from jobscan.adapters.schemas import RipplingJobBrief, RipplingJobPost, RipplingJobPostsPage, RipplingPayRange
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
 from jobscan.models import AtsType, RawPosting, SalarySource, WorkplaceType
@@ -80,9 +80,12 @@ class RipplingAdapter(SourceAdapter):
             )
 
         postings = []
+        seen: set[str] = set()
         for brief in briefs:
-            if not is_engineering_title(brief.name):
+            # Observed live (InRule): the list repeats a posting once per work location.
+            if brief.id in seen or not is_engineering_title(brief.name):
                 continue
+            seen.add(brief.id)
             posting = self._fetch_detail(data_base, brief, board_id)
             if posting is not None:
                 postings.append(posting)
@@ -138,6 +141,7 @@ class RipplingAdapter(SourceAdapter):
             self.incomplete = True
             return None
 
+        pay = _pay_range(post.payRangeDetails)
         return RawPosting(
             source_job_id=post.uuid or job_id,
             title=(post.name or brief.name).strip(),
@@ -149,9 +153,35 @@ class RipplingAdapter(SourceAdapter):
             apply_url=post.url,
             department=post.department.name if post.department else None,
             published_at=post.createdOn,
-            salary_source=SalarySource.NONE,
+            salary_min=pay[0] if pay else None,
+            salary_max=pay[1] if pay else None,
+            salary_currency=pay[2] if pay else None,
+            salary_period=pay[3] if pay else None,
+            salary_source=SalarySource.STRUCTURED if pay else SalarySource.NONE,
             workplace_type=_workplace_type(brief),
         )
+
+
+def _pay_range(ranges: list[RipplingPayRange]) -> tuple[float | None, float | None, str, str] | None:
+    """(min, max, currency, period) from Rippling's per-location pay bands, or None. The remote band
+    is the one a remote hire gets, so it wins when there is one; among the rest, the highest-paying
+    band — like the description parser, ambiguity resolves toward keeping a posting the salary
+    filter would otherwise reject. Observed live: InRule publishes its bands only here, so without
+    reading them every posting failed as "no salary published"."""
+    usable = []
+    for band in ranges:
+        if band.rangeStart is None and band.rangeEnd is None:
+            continue
+        frequency = (band.frequency or "YEAR").upper()
+        scale, period = {"YEAR": (1, "year"), "MONTH": (12, "year"), "HOUR": (1, "hour")}.get(frequency, (None, None))
+        if scale is None:
+            continue
+        low = band.rangeStart * scale if band.rangeStart is not None else None
+        high = band.rangeEnd * scale if band.rangeEnd is not None else None
+        usable.append((band.isRemote, high if high is not None else low, (low, high, (band.currency or "USD").upper(), period)))
+    if not usable:
+        return None
+    return max(usable, key=lambda item: (item[0], item[1] or 0))[2]
 
 
 def _workplace_type(brief: RipplingJobBrief) -> WorkplaceType | None:

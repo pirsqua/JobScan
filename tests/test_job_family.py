@@ -62,6 +62,9 @@ class TestPositiveMatches:
         [
             "Senior Full-Stack Software Engineer, Developer Success",
             "Software Engineer, Support Tools",
+            "Staff Software Engineer, HR Experience",
+            "People Systems Engineer",
+            "Partner Engineer, Spain",
         ],
     )
     def test_software_role_wins_over_a_team_name(self, title: str):
@@ -107,6 +110,8 @@ class TestEngineerTitledButNotSoftware:
             "Senior Solutions Architect",
             "Senior Developer Advocate",
             "Developer Relations Engineer",
+            "Senior People Business Partner, Engineering",  # GitLab
+            "People Business Partner III, Engineering & Product",  # ZipRecruiter
         ],
     )
     def test_engineer_titled_non_software_roles_fail(self, title: str):

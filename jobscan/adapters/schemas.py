@@ -354,6 +354,18 @@ class RipplingEmploymentType(BaseModel):
     label: str | None = None
 
 
+class RipplingPayRange(BaseModel):
+    """One location's pay band. Observed live (InRule): a Chicago band and a "Remote (United
+    States)" band, frequency "YEAR", that appear nowhere in the description text."""
+    model_config = ConfigDict(extra="ignore")
+    location: str | None = None
+    currency: str | None = None
+    frequency: str | None = None
+    rangeStart: float | None = None
+    rangeEnd: float | None = None
+    isRemote: bool = False
+
+
 class RipplingJobPost(BaseModel):
     model_config = ConfigDict(extra="ignore")
     uuid: str | None = None
@@ -367,6 +379,7 @@ class RipplingJobPost(BaseModel):
     employmentType: RipplingEmploymentType | None = None
     createdOn: str | None = None
     url: str | None = None
+    payRangeDetails: list[RipplingPayRange] = []
 
 
 # ---------------------------------------------------------------------------

@@ -1631,6 +1631,49 @@ class TestRipplingAdapter:
         assert posting.published_at == "2026-09-01T00:00:00-07:00"
         assert posting.salary_source == SalarySource.NONE
 
+    def _detail_with_pay(self, pay_range_details: list[dict]) -> dict:
+        return rippling_job_detail({
+            "uuid": "job-1", "name": "Senior Software Engineer", "description": {"role": "<p>C# and .NET.</p>"},
+            "workLocations": ["Chicago, IL", "Remote (United States)"], "url": "https://ats.rippling.com/acme/jobs/job-1",
+            "payRangeDetails": pay_range_details,
+        })
+
+    def _crawl_one(self, http_client, detail: dict):
+        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.DATA_URL).mock(
+            return_value=httpx.Response(200, json=rippling_jobs_page([{"id": "job-1", "name": "Senior Software Engineer"}]))
+        )
+        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, json=detail))
+        return list(RipplingAdapter(http_client).fetch_postings("acme"))[0]
+
+    @respx.mock
+    def test_structured_pay_bands_are_read_preferring_the_remote_one(self, http_client):
+        # Shape observed live on InRule's board: the bands appear nowhere in the description, so
+        # ignoring them failed every posting as "no salary published".
+        posting = self._crawl_one(http_client, self._detail_with_pay([
+            {"location": "Acme Chicago", "currency": "USD", "frequency": "YEAR", "rangeStart": 160000, "rangeEnd": 200000, "isRemote": False},
+            {"location": "Remote (United States)", "currency": "USD", "frequency": "YEAR", "rangeStart": 150000, "rangeEnd": 180000, "isRemote": True},
+        ]))
+        assert (posting.salary_min, posting.salary_max, posting.salary_currency, posting.salary_period) == (150000, 180000, "USD", "year")
+        assert posting.salary_source == SalarySource.STRUCTURED
+
+    @respx.mock
+    def test_without_a_remote_band_the_highest_paying_band_is_used(self, http_client):
+        posting = self._crawl_one(http_client, self._detail_with_pay([
+            {"location": "Austin", "currency": "USD", "frequency": "YEAR", "rangeStart": 140000, "rangeEnd": 170000},
+            {"location": "New York", "currency": "USD", "frequency": "YEAR", "rangeStart": 160000, "rangeEnd": 210000},
+        ]))
+        assert (posting.salary_min, posting.salary_max) == (160000, 210000)
+
+    @respx.mock
+    def test_monthly_bands_are_annualized_and_empty_bands_ignored(self, http_client):
+        posting = self._crawl_one(http_client, self._detail_with_pay([
+            {"location": "Remote", "currency": "USD", "frequency": "MONTH", "rangeStart": 12500, "rangeEnd": 15000, "isRemote": True},
+        ]))
+        assert (posting.salary_min, posting.salary_max, posting.salary_period) == (150000, 180000, "year")
+        empty = self._crawl_one(http_client, self._detail_with_pay([{"location": "Remote", "isRemote": True}]))
+        assert empty.salary_source == SalarySource.NONE and empty.salary_max is None
+
     @respx.mock
     def test_pagination_follows_page_until_total_pages(self, http_client):
         respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
