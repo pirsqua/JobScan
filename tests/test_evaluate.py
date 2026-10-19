@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -16,7 +17,6 @@ from jobscan.llm.prompts import (
     render_profile_text,
     triage_rubric_version,
 )
-from jobscan.llm.schemas import JOB_EVALUATION_TOOL_NAME, TRIAGE_TOOL_NAME
 from jobscan.models import (
     AtsType,
     ClassificationSource,
@@ -46,6 +46,8 @@ VALID_EVAL_INPUT = {
     "is_product_company": True,
     "compensation_assessment": "Comfortably above $170,000.",
     "remote_employment_verification": "US remote, no restrictions noted.",
+    "day_to_day_work": "Building backend services.",
+    "work_fit": "in_lane",
     "working_hours_quote": "",
     "working_hours_fit": "compatible",
     "required_matches": ["C#", "Azure"],
@@ -77,13 +79,13 @@ class FakeSdkClient:
         self.messages = FakeMessages(responses)
 
 
-def tool_response(input_dict, input_tokens=100, output_tokens=50):
-    block = SimpleNamespace(type="tool_use", name=JOB_EVALUATION_TOOL_NAME, input=input_dict)
+def eval_response(input_dict, input_tokens=100, output_tokens=50):
+    block = SimpleNamespace(type="text", text=json.dumps(input_dict))
     usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
     return SimpleNamespace(content=[block], usage=usage)
 
 
-def triage_tool_response(
+def triage_response(
     skip_full_evaluation: bool, reason="test reason", input_tokens=30, output_tokens=10,
     disqualifier=None, quote=None,
 ):
@@ -93,12 +95,10 @@ def triage_tool_response(
         disqualifier = "excluded_industry" if skip_full_evaluation else "none"
     if quote is None:
         quote = "We build our own SaaS product." if skip_full_evaluation else ""
-    block = SimpleNamespace(
-        type="tool_use", name=TRIAGE_TOOL_NAME,
-        input={"disqualifier_quote": quote, "quote_is_hard_requirement": skip_full_evaluation,
-               "disqualifier": disqualifier,
-               "skip_full_evaluation": skip_full_evaluation, "reason": reason},
-    )
+    block = SimpleNamespace(type="text", text=json.dumps({
+        "disqualifier_quote": quote, "quote_is_hard_requirement": skip_full_evaluation,
+        "disqualifier": disqualifier, "skip_full_evaluation": skip_full_evaluation, "reason": reason,
+    }))
     usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
     return SimpleNamespace(content=[block], usage=usage)
 
@@ -145,7 +145,7 @@ class TestEvaluateAll:
     def test_llm_evaluation_happy_path(self, db: Database, settings):
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([tool_response(VALID_EVAL_INPUT)]))
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([eval_response(VALID_EVAL_INPUT)]))
 
         stats = evaluate_all(db, settings, client=client)
 
@@ -161,7 +161,7 @@ class TestEvaluateAll:
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         job = seed_job(db, settings, company)
         second = {**self.NEAR_MISS, "worth_applying": True}
-        sdk = FakeSdkClient([tool_response(self.NEAR_MISS), tool_response(second)])
+        sdk = FakeSdkClient([eval_response(self.NEAR_MISS), eval_response(second)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         stats = evaluate_all(db, settings, client=client)
@@ -176,7 +176,7 @@ class TestEvaluateAll:
         job = seed_job(db, settings, company)
         worse = {**self.NEAR_MISS, "verdict": "reject"}
         client = AnthropicClient(api_key=None, model="test-model",
-                                 client=FakeSdkClient([tool_response(self.NEAR_MISS), tool_response(worse)]))
+                                 client=FakeSdkClient([eval_response(self.NEAR_MISS), eval_response(worse)]))
 
         stats = evaluate_all(db, settings, client=client)
 
@@ -187,7 +187,7 @@ class TestEvaluateAll:
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)
         reject = {**self.NEAR_MISS, "verdict": "reject"}
-        sdk = FakeSdkClient([tool_response(reject)])
+        sdk = FakeSdkClient([eval_response(reject)])
 
         stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
 
@@ -197,7 +197,7 @@ class TestEvaluateAll:
     def test_second_run_uses_cache_not_new_llm_call(self, db: Database, settings):
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)
-        sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         evaluate_all(db, settings, client=client)
@@ -213,7 +213,7 @@ class TestEvaluateAll:
         seed_job(db, settings, company, source_job_id="1", description=same_description)
         seed_job(db, settings, company, source_job_id="2", title="Senior Backend Engineer II", description=same_description)
 
-        sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         stats = evaluate_all(db, settings, client=client)
@@ -265,7 +265,7 @@ class TestEvaluateAll:
         # most recent run's stats from the database rather than showing nothing.
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([tool_response(VALID_EVAL_INPUT)]))
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([eval_response(VALID_EVAL_INPUT)]))
 
         stats = evaluate_all(db, settings, client=client)
 
@@ -282,7 +282,7 @@ class TestEvaluateAll:
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company, source_job_id="1")
         seed_job(db, settings, company, source_job_id="2", description="No salary mentioned here at all.")
-        sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         first = evaluate_all(db, settings, client=client)
@@ -313,7 +313,7 @@ class TestEvaluateAll:
                 db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}",
                 description=f"We build our own SaaS product, role variant {i}. $180,000 - $220,000 per year.",
             )
-        sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT), tool_response(VALID_EVAL_INPUT)])
+        sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT), eval_response(VALID_EVAL_INPUT)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         stats = evaluate_all(db, settings, client=client, limit=2)
@@ -375,7 +375,7 @@ class TestTriageIntegration:
 
         full_eval_sdk = FakeSdkClient([])  # no responses queued — an unexpected call raises
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
-        triage_sdk = FakeSdkClient([triage_tool_response(skip_full_evaluation=True, reason="Requires 8+ years Rust.")])
+        triage_sdk = FakeSdkClient([triage_response(skip_full_evaluation=True, reason="Requires 8+ years Rust.")])
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
 
         stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
@@ -398,8 +398,8 @@ class TestTriageIntegration:
         # level is not a skip reason. A skip now needs an allowed category and a real quote.
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)
-        full_eval_sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
-        triage_sdk = FakeSdkClient([triage_tool_response(
+        full_eval_sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
+        triage_sdk = FakeSdkClient([triage_response(
             skip_full_evaluation=True, disqualifier="required_specialty", quote="would be overqualified",
         )])
 
@@ -416,7 +416,7 @@ class TestTriageIntegration:
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         job = seed_job(db, settings, company)
         triage_client = AnthropicClient(
-            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_tool_response(skip_full_evaluation=True)])
+            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_response(skip_full_evaluation=True)])
         )
 
         evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])),
@@ -428,9 +428,9 @@ class TestTriageIntegration:
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)
 
-        full_eval_sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        full_eval_sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
-        triage_sdk = FakeSdkClient([triage_tool_response(skip_full_evaluation=False, reason="Real overlap.")])
+        triage_sdk = FakeSdkClient([triage_response(skip_full_evaluation=False, reason="Real overlap.")])
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
 
         stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
@@ -446,7 +446,7 @@ class TestTriageIntegration:
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)
 
-        full_eval_sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        full_eval_sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
         triage_sdk = FakeSdkClient([SimpleNamespace(content=[], usage=SimpleNamespace(input_tokens=0, output_tokens=0))])
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
@@ -463,7 +463,7 @@ class TestTriageIntegration:
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)
 
-        full_eval_sdk = FakeSdkClient([tool_response(VALID_EVAL_INPUT)])
+        full_eval_sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
 
         stats = evaluate_all(db, settings, client=full_eval_client)
@@ -479,7 +479,7 @@ class TestTriageIntegration:
 
         full_eval_sdk = FakeSdkClient([])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
-        triage_sdk = FakeSdkClient([triage_tool_response(skip_full_evaluation=True)])
+        triage_sdk = FakeSdkClient([triage_response(skip_full_evaluation=True)])
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
 
         stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client, limit=1)
@@ -494,7 +494,7 @@ class TestTriageIntegration:
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
         triage_client = AnthropicClient(
             api_key=None, model="test-haiku-model",
-            client=FakeSdkClient([triage_tool_response(skip_full_evaluation=True, reason="No overlap.")]),
+            client=FakeSdkClient([triage_response(skip_full_evaluation=True, reason="No overlap.")]),
         )
 
         stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
@@ -511,6 +511,14 @@ def profile_text(settings) -> str:
     return render_profile_text(load_profile(settings.profile_path))
 
 
+def full_rubric(settings) -> str:
+    return evaluation_rubric_version(profile_text(settings), settings.anthropic_model, settings.anthropic_thinking)
+
+
+def triage_rubric(settings) -> str:
+    return triage_rubric_version(profile_text(settings), settings.triage_model or "", settings.triage_thinking)
+
+
 class TestRubricVersion:
     """The cache is keyed by description hash, so without a rubric stamp a fix to the prompts or
     profile would never reach a posting already judged (observed live: Posit's wrongful
@@ -519,7 +527,7 @@ class TestRubricVersion:
     def _evaluate_once(self, db, settings, input_dict=VALID_EVAL_INPUT):
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         job = seed_job(db, settings, company)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([tool_response(input_dict)]))
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([eval_response(input_dict)]))
         evaluate_all(db, settings, client=client)
         return job
 
@@ -529,24 +537,40 @@ class TestRubricVersion:
     def test_full_evaluation_records_the_current_rubric(self, db: Database, settings):
         job = self._evaluate_once(db, settings)
 
-        assert db.get_evaluation_for_job(job.id).rubric_version == evaluation_rubric_version(profile_text(settings))
+        assert db.get_evaluation_for_job(job.id).rubric_version == full_rubric(settings)
 
     def test_triage_skip_records_the_current_rubric(self, db: Database, settings):
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         job = seed_job(db, settings, company)
         triage_client = AnthropicClient(
-            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_tool_response(skip_full_evaluation=True)])
+            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_response(skip_full_evaluation=True)])
         )
         full_client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
 
         evaluate_all(db, settings, client=full_client, triage_client=triage_client)
 
-        assert db.get_evaluation_for_job(job.id).rubric_version == triage_rubric_version(profile_text(settings))
+        assert db.get_evaluation_for_job(job.id).rubric_version == triage_rubric(settings)
 
     def test_rubric_versions_change_with_the_profile_and_differ_by_kind(self):
-        assert evaluation_rubric_version("profile A") != evaluation_rubric_version("profile B")
-        assert evaluation_rubric_version("profile A") == evaluation_rubric_version("profile A")
-        assert triage_rubric_version("profile A") != evaluation_rubric_version("profile A")
+        assert evaluation_rubric_version("profile A", "m", None) != evaluation_rubric_version("profile B", "m", None)
+        assert evaluation_rubric_version("profile A", "m", None) == evaluation_rubric_version("profile A", "m", None)
+        assert triage_rubric_version("profile A", "m", None) != evaluation_rubric_version("profile A", "m", None)
+
+    def test_rubric_versions_change_with_the_model_and_its_thinking_setting(self):
+        # A new model judges the same prompt differently, so its verdicts are a different rubric.
+        base = evaluation_rubric_version("profile", "claude-sonnet-5", "disabled")
+        assert evaluation_rubric_version("profile", "claude-sonnet-5-5", "disabled") != base
+        assert evaluation_rubric_version("profile", "claude-sonnet-5", "adaptive") != base
+        assert triage_rubric_version("profile", "claude-haiku-5-5", None) != triage_rubric_version(
+            "profile", "claude-haiku-4-5", None)
+
+    def test_a_model_change_makes_its_verdicts_stale(self, db: Database, settings):
+        self._evaluate_once(db, settings)
+
+        stats = evaluate_all(db, dataclasses.replace(settings, anthropic_model="claude-next"), refresh_stale=True)
+
+        assert stats.unverified == 1
+        assert stats.cache_hits == 0
 
     def test_a_triage_prompt_change_leaves_full_evaluations_current(self, db: Database, settings, monkeypatch):
         # Observed live: a triage-only fix mid-refresh would otherwise have re-billed every full
@@ -566,7 +590,7 @@ class TestRubricVersion:
         company = seed_company(db, classification=CompanyClassification.PRODUCT)
         seed_job(db, settings, company)
         triage_client = AnthropicClient(
-            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_tool_response(skip_full_evaluation=True)])
+            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_response(skip_full_evaluation=True)])
         )
         evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])),
                      triage_client=triage_client)
@@ -591,7 +615,7 @@ class TestRubricVersion:
         job = self._evaluate_once(db, settings)
         self._age(db, job)
         rejected = dict(VALID_EVAL_INPUT, verdict="reject", worth_applying=False, primary_rejection_reason="Requires Rust.")
-        sdk = FakeSdkClient([tool_response(rejected)])
+        sdk = FakeSdkClient([eval_response(rejected)])
 
         stats = evaluate_all(
             db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
@@ -601,7 +625,7 @@ class TestRubricVersion:
         assert stats.sent_to_llm == 1
         refreshed = db.get_evaluation_for_job(job.id)
         assert refreshed.verdict == Verdict.REJECT
-        assert refreshed.rubric_version == evaluation_rubric_version(profile_text(settings))
+        assert refreshed.rubric_version == full_rubric(settings)
 
     def test_refresh_stale_leaves_current_verdicts_alone(self, db: Database, settings):
         self._evaluate_once(db, settings)

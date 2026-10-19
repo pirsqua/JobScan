@@ -22,9 +22,11 @@ from jobscan.models import (
     EvidenceClassification,
     JobPosting,
     RequirementImportance,
+    RequirementStrength,
     ScopeFit,
     SpecialistTenureClassification,
     Verdict,
+    WorkFit,
 )
 from jobscan.parsing import annualize
 from jobscan.timeutil import now_seattle
@@ -67,6 +69,7 @@ class ReportData:
     evaluate_stats: EvaluateStats | None
     estimated_cost_usd: float | None
     best_bets: list[JobReportRow]
+    good_fits: list[JobReportRow]
     growth_bets: list[JobReportRow]
     attractive_stretches: list[JobReportRow]
     all_evaluated: list[JobReportRow]
@@ -133,8 +136,29 @@ def settle_scope(evaluation: Evaluation) -> Evaluation:
     return evaluation
 
 
-def _report_section(evaluation: Evaluation | None) -> str:
-    """Which of the four report sections a row belongs in. Decoupled from _ranking_group: e.g. a
+def _missing_requirements(evaluation: Evaluation) -> int:
+    """Required qualifications the candidate essentially lacks: stated as required or strongly
+    implied, with evidence only weakly inferred or not demonstrated — whatever importance the model
+    gave them. Observed: Affirm's "experience shipping web apps using declarative UI frameworks like
+    React or Vue", filed as a secondary, weakly inferred requirement of a plausible_match at level,
+    made a Best Bet of a frontend stretch."""
+    return sum(
+        1 for item in evaluation.requirement_evidence
+        if item.stated_as in (RequirementStrength.REQUIRED, RequirementStrength.STRONGLY_IMPLIED)
+        and item.evidence_classification in (EvidenceClassification.WEAKLY_INFERRED, EvidenceClassification.NOT_DEMONSTRATED)
+    )
+
+
+def _central_transferable_count(evaluation: Evaluation) -> int:
+    return sum(
+        1 for item in evaluation.requirement_evidence
+        if item.importance == RequirementImportance.CENTRAL
+        and item.evidence_classification == EvidenceClassification.CREDIBLY_TRANSFERABLE
+    )
+
+
+def _section_from_verdict(evaluation: Evaluation | None) -> str:
+    """Which of the five report sections a row belongs in, before the work-fit cap. Decoupled from _ranking_group: e.g. a
     borderline verdict lands in "attractive_stretches" regardless of exactly which scope_fit it
     carries, since that's the section's whole purpose — group number only orders rows within it.
 
@@ -147,16 +171,22 @@ def _report_section(evaluation: Evaluation | None) -> str:
     to rejected_or_unverified instead, regardless of the nominal verdict/scope_fit label."""
     if evaluation is None or evaluation.verdict == Verdict.REJECT:
         return "rejected_or_unverified"
-    # Enforced here rather than trusted to the verdict: Eastern/Central hours, required or merely
-    # preferred, fail the candidate's hard filter — observed live, a posting "ideally" wanting
-    # Eastern hours came out a strong-match Best Bet.
+    # Enforced here rather than trusted to the verdict: hours that fail the profile's working-hours
+    # filter fail a hard filter — observed live, a posting "ideally" wanting hours the filter rules
+    # out came out a strong-match Best Bet.
     if evaluation.working_hours_fit is not None and evaluation.working_hours_fit.disqualifies:
         return "rejected_or_unverified"
     if evaluation.verdict in (Verdict.STRONG_MATCH, Verdict.PLAUSIBLE_MATCH):
+        # The tiers split on what the candidate lacks, read from the requirement-by-requirement
+        # evidence, not the one-word verdict alone: Sonnet 5.5 called far more postings plausible
+        # matches than Sonnet 5 had (Best Bets went from 23 to 61, too many to choose from).
+        missing = _missing_requirements(evaluation)
         if evaluation.scope_fit == ScopeFit.AT_LEVEL:
-            return "best_bets"
+            if missing == 0:
+                return "best_bets" if evaluation.verdict == Verdict.STRONG_MATCH else "good_fits"
+            return "growth_bets" if missing == 1 else "attractive_stretches"
         if evaluation.scope_fit == ScopeFit.ONE_STEP_UP and evaluation.verdict == Verdict.PLAUSIBLE_MATCH:
-            return "growth_bets"
+            return "growth_bets" if missing <= 1 else "attractive_stretches"
         if evaluation.scope_fit == ScopeFit.BELOW_LEVEL:
             # Not a Best Bet (it underuses the candidate), but never dropped: below-Senior roles
             # with passing pay and backend work are wanted. These once vanished from every
@@ -167,6 +197,22 @@ def _report_section(evaluation: Evaluation | None) -> str:
     # Anything else attractive-but-unconfident (borderline at any scope_fit, or a
     # verdict/scope_fit combination the prompt's own rules shouldn't produce) is a stretch.
     return "attractive_stretches"
+
+
+_SHORTLIST = ("best_bets", "good_fits", "growth_bets", "attractive_stretches")
+# Day-to-day work outside the candidate's lane caps the tier, however clean the qualifications list
+# reads. Observed: GitHub's npm team came out a plausible match because its list accepted C#.
+_WORK_FIT_CAP = {WorkFit.PARTLY_OUTSIDE: "growth_bets", WorkFit.OUTSIDE: "attractive_stretches"}
+
+
+def _report_section(evaluation: Evaluation | None) -> str:
+    """The report section a row belongs in: the verdict and evidence decide it, then the role's
+    day-to-day work (``work_fit``) can only push it down."""
+    section = _section_from_verdict(evaluation)
+    cap = _WORK_FIT_CAP.get(evaluation.work_fit) if evaluation is not None and evaluation.work_fit else None
+    if cap is not None and section in _SHORTLIST:
+        return max(section, cap, key=_SHORTLIST.index)
+    return section
 
 
 def _central_directly_demonstrated_count(evaluation: Evaluation) -> int:
@@ -203,6 +249,8 @@ def _rank_key(row: JobReportRow, settings: Settings) -> tuple:
     assert ev is not None
     return (
         _ranking_group(ev),
+        _missing_requirements(ev),
+        _central_transferable_count(ev),
         -ev.evidence_coverage_percent,
         -_central_directly_demonstrated_count(ev),
         len(ev.required_gaps),
@@ -212,7 +260,8 @@ def _rank_key(row: JobReportRow, settings: Settings) -> tuple:
 
 
 _SECTION_LABELS = {
-    "best_bets": "Best Bet", "growth_bets": "Growth Bet", "attractive_stretches": "Attractive Stretch",
+    "best_bets": "Best Bet", "good_fits": "Good Fit", "growth_bets": "Growth Bet",
+    "attractive_stretches": "Attractive Stretch",
 }
 
 
@@ -245,7 +294,7 @@ def is_declined(evaluation: Evaluation) -> bool:
 
 def declined_reason(evaluation: Evaluation) -> str:
     if evaluation.verdict != Verdict.REJECT and evaluation.working_hours_fit is not None and evaluation.working_hours_fit.disqualifies:
-        return f'expects Eastern/Central Time hours: "{evaluation.working_hours_quote}"'
+        return f'working hours fail the hours filter: "{evaluation.working_hours_quote}"'
     return evaluation.primary_rejection_reason or "no reason recorded"
 
 
@@ -280,10 +329,14 @@ def assemble_report_data(
             applied_on=applied_on.get(normalize_url(job.posting_url)) if job.posting_url else None,
         ))
 
-    sections: dict[str, list[JobReportRow]] = {"best_bets": [], "growth_bets": [], "attractive_stretches": []}
+    # A posting already applied to leaves the shortlist — the Applications table shows where it
+    # stands — so the sections hold only what still needs a decision.
+    sections: dict[str, list[JobReportRow]] = {
+        "best_bets": [], "good_fits": [], "growth_bets": [], "attractive_stretches": [],
+    }
     for row in rows:
         section = _report_section(row.evaluation)
-        if section in sections and _still_passes_factual_filters(row, settings):
+        if section in sections and row.applied_on is None and _still_passes_factual_filters(row, settings):
             sections[section].append(row)
 
     for key in sections:
@@ -309,6 +362,7 @@ def assemble_report_data(
         evaluate_stats=evaluate_stats,
         estimated_cost_usd=estimated_cost,
         best_bets=sections["best_bets"],
+        good_fits=sections["good_fits"],
         growth_bets=sections["growth_bets"],
         attractive_stretches=sections["attractive_stretches"],
         all_evaluated=evaluated,

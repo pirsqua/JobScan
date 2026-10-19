@@ -36,7 +36,8 @@ crawl ──► title gate ──► factual filters ──► triage (Haiku) �
    hours, then scope fit, verdict and a yes/no on whether it's worth applying. The model isn't
    deterministic, so a borderline result judged not worth applying gets one more evaluation and the
    more favourable one is kept. Companies of unknown type get one separate, cached
-   product-vs-consulting call.
+   product-vs-consulting call. A model that declines to answer (a safety refusal) leaves the
+   posting awaiting evaluation — never rejected.
 5. **Report.** Markdown, CSV and JSON in `out/`, timestamped in Seattle time.
 
 Verdicts are cached by description text: a posting is re-judged only when its text changes, or on
@@ -112,17 +113,24 @@ Open the newest `out\report_<timestamp>PT.md`. It has the run statistics, then:
 
 | Section | Meaning |
 |---|---|
-| **Best Bets** | Strong or plausible match at your level |
-| **Growth Bets** | Plausible match one step up — no more than one material growth dimension |
-| **Attractive Stretches** | Real overlap but a genuine stretch, still judged worth applying to — or a good fit below your level |
+| **Best Bets** | Strong match at your level, with every required qualification demonstrated or credibly transferable |
+| **Good Fits** | Plausible match at your level, with nothing required missing |
+| **Growth Bets** | One step up (no more than one material growth dimension), or at your level but missing one required qualification |
+| **Attractive Stretches** | Real overlap but a genuine stretch, still judged worth applying to — two or more required qualifications missing, or a good fit below your level |
 | **Rejected or Unverified** | Everything else, each with its primary reason |
 
-A posting's own words on working hours are shown with the role whenever it states any; Eastern or
-Central hours, required or preferred, reject it.
+The tiers are drawn from the evaluation's requirement-by-requirement evidence, not its one-word
+verdict alone. Each role also says what its engineers do day to day; work partly outside your lane
+(say, a real frontend half) caps the role at Growth Bet, and work outside it (a Node.js tool, a Go
+proxy) at Attractive Stretch, however well the qualifications list reads.
+
+A posting's own words on working hours are shown with the role whenever it states any; hours that
+fail the working-hours filter in your profile reject it.
 
 Record each application in your applications file (company, title, posting URL, date). The report
-lists them under **Applications** with where each posting now stands — still shortlisted, rejected,
-or closed — and stars (★) every applied role in its section.
+lists them under **Applications** with where each posting now stands — its tier, rejected, or
+closed — and leaves them out of the shortlist sections, which hold only what still needs a
+decision.
 
 To see why postings were filtered out — useful for spotting a wrongly rejected role — run
 `python -m jobscan audit`.
@@ -149,7 +157,7 @@ another settings file.
 ## Costs
 
 Only `evaluate` (and `run`) spend money. Crawling, reporting, auditing and cache hits are free,
-and both LLM calls cache the shared system prompt, tool schema and candidate profile. A daily run
+and both LLM calls cache the shared system prompt and candidate profile. A daily run
 sends only new or changed postings, so it usually costs cents; the first run over a new registry,
 and re-screening the whole cached set after a rubric change, are the expensive operations.
 
@@ -167,13 +175,14 @@ step with current model prices.
 
 ## Changing the rubric
 
-The screening rubric is the system prompts (`jobscan/llm/prompts.py`), the tool schemas
-(`jobscan/llm/schemas.py`) and your candidate profile. Every verdict records a fingerprint of the
-rubric it was made under — full evaluations and triage screen-outs separately. Editing any of them
-doesn't re-judge cached verdicts; it marks them stale. `evaluate --refresh-stale` re-screens the
-stale ones (a profile change marks everything stale, a triage-prompt change only triage
-screen-outs). The profile's code-only numbers (`candidate_state`, `candidate_time_zone`) aren't
-part of the fingerprint. Dry-run a refresh first, and validate a change on a handful of known
+The screening rubric is the system prompts (`jobscan/llm/prompts.py`), the output schemas
+(`jobscan/llm/schemas.py`), your candidate profile, and the model and thinking setting that read
+them (`config/settings.yaml`). Every verdict records a fingerprint of the rubric it was made
+under — full evaluations and triage screen-outs separately. Changing any of them doesn't re-judge
+cached verdicts; it marks them stale. `evaluate --refresh-stale` re-screens the stale ones (a
+profile change marks everything stale, a triage prompt or model change only triage
+screen-outs). The profile's code-only keys (`candidate_state`, `candidate_time_zone`,
+`excluded_time_zones`) aren't part of the fingerprint. Dry-run a refresh first, and validate a change on a handful of known
 postings — some that should pass, some that must stay rejected — before re-screening everything.
 
 ## Configuration

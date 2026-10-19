@@ -34,14 +34,12 @@ def seed_evaluated_job(db: Database, settings):
 
 
 def strong_match_client() -> AnthropicClient:
+    import json
     from types import SimpleNamespace
 
-    from jobscan.llm.schemas import JOB_EVALUATION_TOOL_NAME
-
     block = SimpleNamespace(
-        type="tool_use",
-        name=JOB_EVALUATION_TOOL_NAME,
-        input={
+        type="text",
+        text=json.dumps({
             "verdict": "strong_match",
             "confidence": 0.9,
             "scope_fit": "at_level",
@@ -53,6 +51,8 @@ def strong_match_client() -> AnthropicClient:
             "is_product_company": True,
             "compensation_assessment": "Well above $170,000.",
             "remote_employment_verification": "US remote.",
+            "day_to_day_work": "Building backend services.",
+            "work_fit": "in_lane",
             "working_hours_quote": "",
             "working_hours_fit": "compatible",
             "required_matches": ["C#", "Azure"],
@@ -64,7 +64,7 @@ def strong_match_client() -> AnthropicClient:
             "why_this_is_or_is_not_gettable": "At-level with strong direct evidence.",
             "primary_rejection_reason": None,
             "worth_applying": True,
-        },
+        }),
     )
     response = SimpleNamespace(content=[block], usage=SimpleNamespace(input_tokens=100, output_tokens=50))
 

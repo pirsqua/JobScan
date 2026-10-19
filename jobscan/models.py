@@ -161,15 +161,24 @@ class ScopeFit(str, Enum):
     NOT_ASSESSED = "not_assessed"
 
 
+class WorkFit(str, Enum):
+    """Whether a role's day-to-day work is in the candidate's lane — judged from what the team does,
+    not only from its qualifications list. Caps the report tier: see reports.data._report_section."""
+
+    IN_LANE = "in_lane"
+    PARTLY_OUTSIDE = "partly_outside"
+    OUTSIDE = "outside"
+
+
 class WorkingHoursFit(str, Enum):
-    """Whether the hours a posting expects suit the candidate's Pacific Time working day."""
+    """Whether the hours a posting states pass the working-hours filter in the candidate
+    profile's hard filters."""
 
     COMPATIBLE = "compatible"
-    # Stated as an expectation or preference ("ideally with the ability to work within Eastern Time
-    # hours"). Like a requirement, a hard-filter failure — see reports.data._report_section.
-    EASTERN_OR_CENTRAL_PREFERRED = "eastern_or_central_preferred"
-    # Required hours or residence in those time zones.
-    EASTERN_OR_CENTRAL_REQUIRED = "eastern_or_central_required"
+    # The stated hours, overlap or time zone fail that filter — required, or merely preferred when
+    # the filter says a preference fails it too. A hard-filter failure: see
+    # reports.data._report_section.
+    CONFLICTS = "conflicts"
 
     @property
     def disqualifies(self) -> bool:
@@ -352,10 +361,15 @@ class Evaluation:
     # cache is keyed by description hash alone, so without this a rubric fix would never reach a
     # posting already judged — see evaluate_all(refresh_stale=...).
     rubric_version: str | None = None
-    # The posting's own words on working hours or time zone, and how they fit a Pacific day. None
-    # when not assessed (triage screen-outs, manual overrides, evaluations from before the field).
+    # The posting's own words on working hours or time zone, and how they fit the profile's
+    # working-hours filter. None when not assessed (triage screen-outs, manual overrides,
+    # evaluations from before the field).
     working_hours_quote: str = ""
     working_hours_fit: WorkingHoursFit | None = None
+    # What the team's engineers do day to day, and how that work sits with the candidate's lane.
+    # None when not assessed, as above.
+    day_to_day_work: str = ""
+    work_fit: WorkFit | None = None
 
 
 @dataclass
@@ -417,7 +431,7 @@ class EvaluateStats:
     input_tokens: int = 0
     output_tokens: int = 0
     # Populated once prompt caching is in use (system prompt + tool schema + candidate profile
-    # are cached on every job-eval/company-eval call — see AnthropicClient.call_tool). Tracked
+    # are cached on every job-eval/company-eval call — see AnthropicClient.call_structured). Tracked
     # separately from input_tokens because Anthropic bills them at different rates: a cache write
     # costs more than a normal input token, a cache read costs much less.
     cache_creation_input_tokens: int = 0

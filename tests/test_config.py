@@ -10,6 +10,9 @@ SAMPLE_YAML = """
 db_path: custom/jobscan.db
 output_dir: custom_out
 anthropic_model: claude-test-model
+anthropic_thinking: between_tools
+triage_model: claude-test-small
+triage_thinking: disabled
 anthropic_max_retries: 5
 anthropic_timeout_seconds: 90
 anthropic_pricing:
@@ -27,6 +30,7 @@ min_base_salary: 150000
 candidate_state: OR
 candidate_state_name: Oregon
 candidate_time_zone: Pacific
+excluded_time_zones: [Eastern, Central]
 """
 
 
@@ -50,6 +54,7 @@ class TestLoadSettings:
         settings = load_settings(settings_path=settings_path, env=env, load_dotenv_file=False)
 
         assert settings.anthropic_model == "claude-test-model"
+        assert (settings.anthropic_thinking, settings.triage_thinking) == ("between_tools", "disabled")
         assert settings.anthropic_max_retries == 5
         assert settings.anthropic_timeout_seconds == 90
         assert settings.log_level == "DEBUG"
@@ -62,6 +67,14 @@ class TestLoadSettings:
         assert settings.min_base_salary == 150000
         assert (settings.candidate_state, settings.candidate_state_name, settings.candidate_time_zone) == \
             ("OR", "Oregon", "Pacific")
+        assert settings.candidate_excluded_time_zones == ("Eastern", "Central")
+
+    def test_excluded_time_zones_are_optional(self, settings_path: Path, tmp_path: Path):
+        profile = tmp_path / "bare_profile.yaml"
+        profile.write_text(PROFILE_YAML.replace("excluded_time_zones: [Eastern, Central]\n", ""), encoding="utf-8")
+        settings = load_settings(settings_path=settings_path, env={"JOBSCAN_PROFILE_PATH": str(profile)},
+                                 load_dotenv_file=False)
+        assert settings.candidate_excluded_time_zones == ()
 
     def test_an_older_settings_file_still_supplies_facts_the_profile_lacks(self, tmp_path: Path):
         settings_path = tmp_path / "settings.yaml"
@@ -107,7 +120,8 @@ class TestLoadSettings:
     def test_missing_settings_file_falls_back_to_defaults(self, tmp_path: Path, env: dict):
         settings = load_settings(settings_path=tmp_path / "does_not_exist.yaml", env=env, load_dotenv_file=False)
 
-        assert settings.anthropic_model == "claude-sonnet-5"
+        assert settings.anthropic_model == "claude-sonnet-5-5"
+        assert settings.anthropic_thinking is None  # the model's own default
         assert settings.registry_path is None
 
     def test_env_vars_override_yaml_values(self, settings_path: Path, env: dict):

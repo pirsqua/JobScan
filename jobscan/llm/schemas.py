@@ -1,8 +1,8 @@
-"""Pydantic models for the two structured LLM calls.
+"""Pydantic models for the structured LLM calls.
 
-These double as (a) the JSON Schema handed to Claude via forced tool-use, so the response is
-structurally guaranteed, and (b) the validator applied to whatever comes back, so a malformed or
-hallucinated response is rejected rather than silently cached.
+These double as (a) the JSON Schema handed to Claude as its structured-output format, so the
+response is structurally guaranteed, and (b) the validator applied to whatever comes back, so a
+malformed or hallucinated response is rejected rather than silently cached.
 """
 from __future__ import annotations
 
@@ -17,7 +17,8 @@ RequirementImportance = Literal["central", "secondary"]
 RequirementStrength = Literal["required", "strongly_implied", "preferred", "trait_or_interest"]
 EvidenceClassification = Literal["directly_demonstrated", "credibly_transferable", "weakly_inferred", "not_demonstrated"]
 SpecialistTenureClassification = Literal["meets", "adjacent", "insufficient", "not_applicable"]
-WorkingHoursFit = Literal["compatible", "eastern_or_central_preferred", "eastern_or_central_required"]
+WorkingHoursFit = Literal["compatible", "conflicts"]
+WorkFit = Literal["in_lane", "partly_outside", "outside"]
 
 _LIST_FIELDS = (
     "required_matches", "required_gaps", "preferred_only_gaps", "minor_caveats", "evidence",
@@ -85,13 +86,38 @@ class SpecialistTenureAssessment(BaseModel):
 
 
 class JobEvaluationResult(BaseModel):
-    # Field order is generation order — the tool call is forced and there's no separate thinking
-    # step, so this schema IS the model's reasoning sequence. Evidence and analysis come first and
-    # the verdict near the end. Observed live with the verdict first: the model committed to
+    # Field order is generation order — the model writes the JSON in schema order (verified live)
+    # with thinking off, so this schema IS the model's reasoning sequence. Evidence and analysis
+    # come first and the verdict near the end. Observed live with the verdict first: the model committed to
     # "reject" for Pilot, then wrote in primary_rejection_reason that it had no reason to reject
     # ("[correction: no healthcare issue here] ... This role should not be a reject"); and
     # rubric rules were rationalized past (preferred items listed as growth dimensions) to fit a
     # verdict already given.
+    #
+    # What the job's work is comes before any requirement. Observed (Sonnet 5.5): GitHub's npm team
+    # ("a full-stack software engineer" on "the open source tools that empower the JavaScript
+    # ecosystem") came out a plausible match because its qualifications list accepted C#, and the
+    # npm/Node.js work was filed as a preferred item and an interview risk.
+    day_to_day_work: str = Field(
+        description="Before any requirement: what this team's engineers actually spend their days "
+        "building or running, and in which stack or domain — read from the responsibilities and "
+        "the team's description, not the qualifications list alone, which is often generic (\"4+ "
+        "years in C#, Python, JavaScript, ...\"). One or two sentences, e.g. \"Maintaining and "
+        "extending npm, a JavaScript/Node.js open-source package manager, across its CLI and "
+        "registry services.\""
+    )
+    work_fit: WorkFit = Field(
+        description="That day-to-day work against the candidate's demonstrated lane (strongest "
+        "skills and favored work) and the specialty areas outside current focus. in_lane: the "
+        "work is mostly in stacks and domains the candidate has shown, or that the profile treats "
+        "as compatible; a minor frontend or tooling share is fine. partly_outside: a substantial "
+        "share of the work, roughly a third or more, is in a stack or specialty the candidate "
+        "lacks, such as a full-stack role whose UI-framework work is a real half of the job. "
+        "outside: the work centers on a stack or specialty the candidate lacks — maintaining a "
+        "JavaScript/Node.js tool, a Go proxy codebase, ML infrastructure, mobile apps — even when "
+        "the qualifications list accepts the candidate's languages. Judge the work, not whether "
+        "the written bar can be met."
+    )
     requirement_evidence: list[RequirementEvidenceItem] = Field(default_factory=list)
     specialist_tenure_assessment: SpecialistTenureAssessment
     required_matches: list[str] = Field(default_factory=list)
@@ -126,8 +152,8 @@ class JobEvaluationResult(BaseModel):
         "product or platform, false if it is client-delivery/billable consulting work."
     )
     remote_employment_verification: str = Field(
-        description="Assessment of whether the role is genuinely U.S. remote and open to a "
-        "Washington State resident."
+        description="Assessment of whether the role is genuinely U.S. remote and open to an "
+        "employee living in the candidate's state."
     )
     working_hours_quote: str = Field(
         description="The posting's own words about working hours, time-zone overlap or the time "
@@ -135,14 +161,13 @@ class JobEvaluationResult(BaseModel):
         "work within Eastern Time hours\". Empty string when the posting says nothing about hours."
     )
     working_hours_fit: WorkingHoursFit = Field(
-        description="Those words against the candidate's Pacific Time working day. "
-        "eastern_or_central_required: the posting requires working Eastern or Central Time hours, "
-        "or living in those time zones. eastern_or_central_preferred: it states Eastern or Central "
-        "hours as an expectation or preference (\"ideally with the ability to work within Eastern "
-        "Time hours\", \"core hours 9-5 ET preferred\"). Both fail the candidate's hard filter, so "
-        "the verdict is reject. compatible: nothing stated, flexible hours, Pacific or Mountain "
-        "hours, or an overlap a Pacific day meets (\"within ±4 hours of Pacific Time\", \"at "
-        "least 4 hours of overlap with Eastern Time\")."
+        description="Those words against the working-hours filter in the candidate's hard "
+        "filters, applied exactly as that filter words it. conflicts: the stated hours, overlap or "
+        "time zone fail that filter — as a requirement, or as an expectation or preference "
+        "(\"ideally with the ability to work within ... hours\", \"core hours 9-5 ... "
+        "preferred\") when the filter says a stated preference fails it too. A conflict fails a "
+        "hard filter, so the verdict is reject. compatible: nothing stated, flexible hours, or "
+        "hours and overlap the filter allows."
     )
     compensation_assessment: str = Field(
         description="Whether the published range passes the candidate's compensation rule — a "
@@ -157,7 +182,10 @@ class JobEvaluationResult(BaseModel):
         description="Whether the role's actual scope is at, one step above, two-plus steps "
         "above, or below demonstrated experience — independent of title or keyword overlap. "
         "below_level only when the work itself is junior (close supervision, early-career or "
-        "new-grad scope) — never because the stated requirements are modest or easy to meet. "
+        "new-grad scope) — never because the stated requirements are modest or easy to meet: a "
+        "\"Senior Software Engineer, Backend\" asking for \"3+ years\" to own APIs and services is "
+        "at_level for a candidate far past that bar, since the bar says who may apply, not what "
+        "the work is. "
         "below_level is never by itself a reason to reject: with passing pay and backend work, "
         "the verdict follows the evidence as for an at_level role."
     )
@@ -200,7 +228,7 @@ class JobEvaluationResult(BaseModel):
     @classmethod
     def _coerce_str_to_list(cls, value: object) -> object:
         """The model occasionally returns one string (e.g. a single paragraph) for these fields
-        instead of a list of short points, despite the enforced tool schema. Split it into lines
+        instead of a list of short points, despite the enforced schema. Split it into lines
         rather than failing validation and discarding an otherwise-good evaluation."""
         if isinstance(value, str):
             return [line.strip("-•* \t") for line in value.strip().splitlines() if line.strip()]
@@ -257,13 +285,7 @@ class JobEvaluationResult(BaseModel):
         return data
 
 
-JOB_EVALUATION_TOOL_NAME = "submit_job_evaluation"
-
-JOB_EVALUATION_TOOL_SCHEMA = {
-    "name": JOB_EVALUATION_TOOL_NAME,
-    "description": "Submit the structured evaluation of a single job posting against the candidate profile.",
-    "input_schema": JobEvaluationResult.model_json_schema(),
-}
+JOB_EVALUATION_SCHEMA = JobEvaluationResult.model_json_schema()
 
 
 TriageDisqualifier = Literal[
@@ -294,7 +316,10 @@ class TriageResult(BaseModel):
         "familiarity, exposure, interest or willingness to learn; when it offers an alternative "
         "the candidate meets (\"or another applicable backend language\", \"or a strong "
         "willingness to ramp quickly\", \"or strong interest in\"); when it is preferred, ideal "
-        "or a plus; or when the candidate's profile shows they meet it (e.g. hands-on use of AI "
+        "or a plus; when it asks for full-stack, end-to-end ownership whose backend is in one of "
+        "the candidate's languages (\"Own a feature end-to-end, from the React/TypeScript UI "
+        "through the C#/.NET API it calls\" for a C# candidate); or when the candidate's profile "
+        "shows they meet it (e.g. hands-on use of AI "
         "coding tools such as Claude Code). True for a quote that really rules the candidate out, "
         "and for the title and location categories. False when not skipping."
     )
@@ -311,13 +336,7 @@ class TriageResult(BaseModel):
     model_config = {"extra": "ignore"}
 
 
-TRIAGE_TOOL_NAME = "submit_triage"
-
-TRIAGE_TOOL_SCHEMA = {
-    "name": TRIAGE_TOOL_NAME,
-    "description": "Submit the fast lenient screening decision for whether a posting warrants a full evaluation.",
-    "input_schema": TriageResult.model_json_schema(),
-}
+TRIAGE_SCHEMA = TriageResult.model_json_schema()
 
 
 class CompanyClassificationResult(BaseModel):
@@ -328,10 +347,4 @@ class CompanyClassificationResult(BaseModel):
     model_config = {"extra": "ignore"}
 
 
-COMPANY_CLASSIFICATION_TOOL_NAME = "submit_company_classification"
-
-COMPANY_CLASSIFICATION_TOOL_SCHEMA = {
-    "name": COMPANY_CLASSIFICATION_TOOL_NAME,
-    "description": "Submit the classification of a company as a product company vs. a consulting/staffing/outsourcing firm.",
-    "input_schema": CompanyClassificationResult.model_json_schema(),
-}
+COMPANY_CLASSIFICATION_SCHEMA = CompanyClassificationResult.model_json_schema()

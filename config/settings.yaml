@@ -5,23 +5,36 @@ output_dir: out
 
 # Anthropic model used for both job evaluation and company classification.
 # Keep this here (not hard-coded) so it can be swapped without touching code.
-anthropic_model: claude-sonnet-5
+anthropic_model: claude-sonnet-5-5
+# thinking.type sent with its calls. The evaluation reasons in its answer's field order (see
+# CLAUDE.md), so thinking stays off; Sonnet 5.5 spells that between_tools (disabled is a 400 there,
+# and between_tools is a 400 on every other model). Blank leaves the model's default.
+anthropic_thinking: between_tools
 anthropic_max_retries: 3
 anthropic_timeout_seconds: 60
 
 # Cheap first-pass screen (jobscan.llm.triage) run before the full job evaluation: a fast, lenient
 # yes/no on whether a posting is worth the expensive full evaluation at all, using a smaller/
-# cheaper model. Validated against 692 historical evaluations before enabling: 0 false negatives
-# on the 3 known genuine matches, ~89% of real rejects correctly flagged skippable. Leave unset
-# (blank/removed) to disable triage entirely and send every posting straight to full evaluation.
-triage_model: claude-haiku-4-5-20251001
+# cheaper model. A skip only stands when it quotes the posting for an allowed category (see
+# CLAUDE.md). Leave unset (blank/removed) to disable triage entirely and send every posting
+# straight to full evaluation.
+triage_model: claude-haiku-5-5
+# Thinking on would need a larger triage max_tokens (thinking counts toward it).
+triage_thinking: disabled
 
-# USD list price per 1M tokens (checked 2026-10-07), used only to estimate run cost in reports.
-# Update if pricing changes; unrecognized models report cost as "n/a".
+# USD list price per 1M tokens (checked 2026-10-18), used only to estimate run cost in reports.
+# Update if pricing changes; unrecognized models report cost as "n/a". Haiku 5.5's rate is for
+# prompts of 100K tokens or fewer (every call here); longer prompts cost 5x.
 anthropic_pricing:
+  claude-sonnet-5-5:
+    input_per_million: 2.00
+    output_per_million: 10.00
   claude-sonnet-5:
     input_per_million: 2.00
     output_per_million: 10.00
+  claude-haiku-5-5:
+    input_per_million: 0.10
+    output_per_million: 0.50
   claude-haiku-4-5-20251001:
     input_per_million: 1.00
     output_per_million: 5.00

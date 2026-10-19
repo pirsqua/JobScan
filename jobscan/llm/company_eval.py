@@ -8,11 +8,7 @@ from pydantic import ValidationError
 
 from jobscan.llm.client import AnthropicClient, LlmCallError
 from jobscan.llm.prompts import COMPANY_EVAL_SYSTEM, build_company_eval_user_message
-from jobscan.llm.schemas import (
-    COMPANY_CLASSIFICATION_TOOL_NAME,
-    COMPANY_CLASSIFICATION_TOOL_SCHEMA,
-    CompanyClassificationResult,
-)
+from jobscan.llm.schemas import COMPANY_CLASSIFICATION_SCHEMA, CompanyClassificationResult
 
 MAX_HOMEPAGE_CHARS = 3000
 MAX_JOB_TEXT_CHARS = 2000
@@ -49,14 +45,13 @@ def classify_company(
     user_message = build_company_eval_user_message(
         company_name, domain, homepage_text, sample_job_text[:MAX_JOB_TEXT_CHARS]
     )
-    result = client.call_tool(
+    result = client.call_structured(
         system=COMPANY_EVAL_SYSTEM,
         user_message=user_message,
-        tool_schema=COMPANY_CLASSIFICATION_TOOL_SCHEMA,
-        tool_name=COMPANY_CLASSIFICATION_TOOL_NAME,
+        schema=COMPANY_CLASSIFICATION_SCHEMA,
     )
     try:
-        parsed = CompanyClassificationResult.model_validate(result.input)
+        parsed = CompanyClassificationResult.model_validate(result.data)
     except ValidationError as exc:
         raise LlmCallError(f"company classification response failed schema validation: {exc}") from exc
     return (

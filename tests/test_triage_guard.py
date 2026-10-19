@@ -23,6 +23,10 @@ def job(title="Senior Software Engineer", description="", location="Remote - US"
     )
 
 
+# A Pacific candidate who rules out Eastern and Central hours.
+PACIFIC = {"time_zone": "Pacific", "excluded_time_zones": ("Eastern", "Central")}
+
+
 def skip(disqualifier: str, quote: str, hard: bool = True) -> TriageResult:
     return TriageResult(disqualifier_quote=quote, quote_is_hard_requirement=hard, disqualifier=disqualifier,
                         skip_full_evaluation=True, reason="r")
@@ -178,15 +182,21 @@ class TestLocation:
         "Note this role is remote for candidates residing in US within EST or CST time zone",  # Genesys
     ])
     def test_time_zone_quote_that_leaves_the_candidate_out_is_honoured(self, quote):
-        assert skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+        assert skip_is_substantiated(skip("not_remote", quote), job(description=quote), **PACIFIC)
 
     @pytest.mark.parametrize("quote", [
         "This is a remote opportunity within Canada and the US, ideally with the ability to work within Eastern Time hours.",  # 1Password
         "Core hours 9-5 EST preferred.",
         "Fully remote, working Central Time business hours.",
     ])
-    def test_eastern_or_central_hours_disqualify_even_as_a_preference(self, quote):
-        assert skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+    def test_hours_in_an_excluded_zone_disqualify_even_as_a_preference(self, quote):
+        assert skip_is_substantiated(skip("not_remote", quote), job(description=quote), **PACIFIC)
+
+    def test_hours_in_a_zone_the_profile_does_not_exclude_are_only_a_preference(self):
+        # The excluded zones are the candidate's own rule, read from the profile: with none, a
+        # stated preference for Eastern hours is something the full evaluation weighs.
+        quote = "This is a remote opportunity within Canada and the US, ideally with the ability to work within Eastern Time hours."
+        assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote))
 
     @pytest.mark.parametrize("quote", [
         "Preferred locations: New York or San Francisco.",
@@ -194,7 +204,7 @@ class TestLocation:
         "Overlap with both Pacific and Eastern time zones is required.",
     ])
     def test_other_preferences_and_the_candidates_own_zone_are_not_disqualifiers(self, quote):
-        assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote))
+        assert not skip_is_substantiated(skip("not_remote", quote), job(description=quote), **PACIFIC)
 
     def test_a_state_list_with_ct_is_not_central_time(self):
         quote = "This role will be remote, but is not eligible to be hired in CA, CT, NJ, NY, PA."

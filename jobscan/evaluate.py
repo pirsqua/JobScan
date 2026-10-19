@@ -173,7 +173,7 @@ def evaluate_all(
     free and unaffected. Useful for bounding spend on a single invocation.
 
     ``refresh_stale`` re-screens postings whose cached verdict was made under a different rubric
-    (the prompt, tool schema or candidate profile behind that kind of verdict — see
+    (the prompt, schema, candidate profile or model behind that kind of verdict — see
     ``evaluation_rubric_version`` / ``triage_rubric_version``) instead of reusing it.
     Off by default because it spends money: a rubric change otherwise only reaches new or changed
     postings. Without an API key it just counts them, as unverified, for a cost estimate.
@@ -185,8 +185,8 @@ def evaluate_all(
     run_id = db.start_evaluation_run(stats)
     profile = load_profile(settings.profile_path)
     profile_text = render_profile_text(profile)
-    full_rubric = evaluation_rubric_version(profile_text)
-    triage_rubric = triage_rubric_version(profile_text)
+    full_rubric = evaluation_rubric_version(profile_text, settings.anthropic_model, settings.anthropic_thinking)
+    triage_rubric = triage_rubric_version(profile_text, settings.triage_model or "", settings.triage_thinking)
 
     if client is None and settings.anthropic_api_key:
         client = AnthropicClient(
@@ -194,6 +194,7 @@ def evaluate_all(
             model=settings.anthropic_model,
             max_retries=settings.anthropic_max_retries,
             timeout_seconds=settings.anthropic_timeout_seconds,
+            thinking=settings.anthropic_thinking,
         )
     if client is None:
         logger.warning("no ANTHROPIC_API_KEY configured — postings will be filtered but not LLM-evaluated")
@@ -204,6 +205,7 @@ def evaluate_all(
             model=settings.triage_model,
             max_retries=settings.anthropic_max_retries,
             timeout_seconds=settings.anthropic_timeout_seconds,
+            thinking=settings.triage_thinking,
         )
     if triage_client is not None:
         stats.triage_model = triage_client.model
@@ -317,7 +319,7 @@ def evaluate_all(
                     stats.triage_cache_read_input_tokens += t_cache_r
                     if triage_result.skip_full_evaluation and not skip_is_substantiated(
                         triage_result, job, settings.candidate_state, settings.candidate_state_name,
-                        settings.candidate_time_zone,
+                        settings.candidate_time_zone, settings.candidate_excluded_time_zones,
                     ):
                         stats.triage_overruled += 1
                         logger.info(

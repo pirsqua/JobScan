@@ -41,20 +41,24 @@ class TestLoading:
 
 
 class TestReport:
-    def test_applied_role_is_starred_where_it_stands(self, db: Database, settings):
+    def test_applied_role_leaves_the_shortlist_and_shows_where_it_stands(self, db: Database, settings):
+        # The shortlist holds only what still needs a decision; the Applications table says where
+        # an applied posting stands.
         seed_evaluated_job(db, settings)
         evaluate_all(db, settings, client=strong_match_client())
         write_applications(settings, entry("https://ACME.example.com/jobs/1/"))
 
         data = assemble_report_data(db, settings)
 
-        assert data.best_bets[0].applied_on == dt.date(2026, 9, 24)
+        assert data.best_bets == []
         (application,) = data.applications
         assert application.standing == "Best Bet"
         markdown = render_markdown(data)
         assert "## Applications" in markdown
-        assert "★ Acme Corp — Senior Backend Engineer (applied 2026-09-24)" in markdown
-        assert build_json_report(data)["best_bets"][0]["applied_on"] == "2026-09-24"
+        assert "| 2026-09-24 | [Acme Corp — Senior Backend Engineer]" in markdown
+        report = build_json_report(data)
+        assert report["best_bets"] == [] and report["applications"][0]["standing"] == "Best Bet"
+        assert report["all_evaluated"][0]["applied_on"] == "2026-09-24"
 
     def test_closed_and_untracked_postings_still_listed(self, db: Database, settings):
         company, _ = seed_evaluated_job(db, settings)

@@ -28,27 +28,36 @@ without `--limit` against the full registry:
    for demos/samples instead of burning through the whole registry.
 4. After a real run, report the *actual* cost from `EvaluateStats.estimated_cost_usd()`, not the
    pre-run estimate.
-5. A change to the prompts (`jobscan/llm/prompts.py`), the tool schemas or the rendered
-   candidate profile changes the rubric version but does NOT re-judge cached verdicts — only
-   `evaluate --refresh-stale` does. (Profile keys the renderer doesn't read, such as the
-   code-only `candidate_state`, don't change it.) Full evaluations and triage screen-outs carry
-   separate versions: a profile change re-screens everything, a `JOB_EVAL_SYSTEM`/schema change
-   only full evaluations, a `TRIAGE_SYSTEM` change only triage screen-outs. The per-posting
-   message templates (`build_*_user_message`) are NOT fingerprinted — a material change there
+5. A change to the prompts (`jobscan/llm/prompts.py`), the output schemas, the rendered
+   candidate profile, or a model or its thinking setting changes the rubric version but does NOT
+   re-judge cached verdicts — only `evaluate --refresh-stale` does. (Profile keys the renderer
+   doesn't read, such as the code-only `candidate_state` or `excluded_time_zones`, don't change it.) Full evaluations and
+   triage screen-outs carry separate versions: a profile change re-screens everything, a
+   `JOB_EVAL_SYSTEM`/schema/main-model change only full evaluations, a `TRIAGE_SYSTEM`/triage-model
+   change only triage screen-outs. The per-posting message templates (`build_*_user_message`) are NOT fingerprinted — a material change there
    needs a deliberate refresh (e.g. a matching edit to the system prompt). Validate a rubric change on a handful of known postings first, then dry-run the refresh
    (`evaluate_all(..., refresh_stale=True)` with no key) for the count.
 
 ## LLM output schema — field order is reasoning order
 
-The evaluation tool call is forced with no separate thinking step, so the property order of
-`JobEvaluationResult` (`jobscan/llm/schemas.py`) is the order the model reasons in. Keep the
-evidence/analysis fields before `verdict`/`worth_applying`: with the verdict first, the model
-decided before analysing and then rationalized (it once rejected Pilot and then wrote that it had
-no reason to). A test pins this order.
+Each LLM call asks for one JSON object (structured outputs, `output_config.format`) with thinking
+off, and the model writes it in schema order (verified live on Sonnet 5.5 and Haiku 5.5), so the
+property order of `JobEvaluationResult` (`jobscan/llm/schemas.py`) is the order the model reasons
+in. Keep the evidence/analysis fields before `verdict`/`worth_applying`: with the verdict first, the
+model decided before analysing and then rationalized (it once rejected Pilot and then wrote that it
+had no reason to). A test pins this order.
 
 Rules the model must apply while writing a field work far better in that field's `description`
 than in the system prompt alone (observed: a rule stated only in the prompt was ignored; repeated
 in the field description, it held), and a concrete example beats an abstract rule.
+
+`day_to_day_work` and `work_fit` come first: what the team's engineers actually do, judged apart
+from whether the qualifications list can be met. The alternative-language and "technologies like
+X" rules (added because Sonnet 5 over-rejected) decide the hiring bar, and Sonnet 5.5 applies them
+literally — it called GitHub's npm team a plausible match because the list accepted C#. `work_fit`
+caps the report tier in code (`reports.data._report_section`), as `working_hours_fit` does; the
+tiers themselves come from the requirement evidence (`_missing_requirements`), not the verdict
+label alone, which Sonnet 5.5 hands out generously.
 
 The evaluation model can't be made deterministic — `temperature` is deprecated for it (the API
 returns 400). The same posting under the same rubric has come back Best Bet twice and Growth Bet
@@ -56,9 +65,13 @@ once, and a near-miss not-worth-applying twice and worth-applying once. So: judg
 on several runs of a posting, not one; and near-misses (borderline + not worth applying) get a
 second look in `evaluate_all`, keeping the more favourable result.
 
-Tool calls go out in strict mode (`strict: true`, schema converted by
-`jobscan.llm.client.strict_input_schema` at send time — the fingerprinted schema is unchanged), so
-the API guarantees the response's shape; Pydantic still checks ranges.
+The schema is converted by `jobscan.llm.client.strict_input_schema` at send time (the
+fingerprinted schema is unchanged), so the API guarantees the response's shape; Pydantic still
+checks ranges. No tool calls: Sonnet 5.5 rejects a forced `tool_choice`. Which `thinking.type`
+turns thinking off depends on the model (`between_tools` on Sonnet 5.5, a 400 everywhere else;
+`disabled` on Haiku 5.5), so it's set per model in `config/settings.yaml` beside the model name. A
+refusal (`stop_reason: "refusal"`, e.g. on offensive-security postings) raises `LlmCallError`, so
+the posting stays awaiting evaluation — never cache it as a reject.
 
 ## Triage skips must be substantiated
 

@@ -24,6 +24,7 @@ from jobscan.models import (
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkFit,
     WorkingHoursFit,
     WorkplaceType,
 )
@@ -299,12 +300,33 @@ class TestEvaluationPersistence:
         quote = "ideally with the ability to work within Eastern Time hours"
         db.save_evaluation(dataclasses.replace(
             make_evaluation(job_id), working_hours_quote=quote,
-            working_hours_fit=WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED,
+            working_hours_fit=WorkingHoursFit.CONFLICTS,
         ))
 
         loaded = db.get_evaluation_for_job(job_id)
         assert loaded.working_hours_quote == quote
-        assert loaded.working_hours_fit == WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED
+        assert loaded.working_hours_fit == WorkingHoursFit.CONFLICTS
+
+    def test_working_hours_stored_under_the_old_zone_names_read_as_conflicts(self, settings: Settings, sample_company: Company):
+        # The values once named the owner's own excluded zones; reopening the database renames them.
+        with Database(settings.db_path) as db:
+            sample_company.id = db.upsert_company(sample_company)
+            job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+            db.save_evaluation(dataclasses.replace(make_evaluation(job_id), working_hours_fit=WorkingHoursFit.CONFLICTS))
+            db.conn.execute("UPDATE evaluations SET working_hours_fit = 'eastern_or_central_preferred'")
+            db.conn.commit()
+
+        with Database(settings.db_path) as db:
+            assert db.get_evaluation_for_job(job_id).working_hours_fit == WorkingHoursFit.CONFLICTS
+
+    def test_day_to_day_work_round_trips(self, db: Database, settings: Settings, sample_company: Company):
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+        work = "Maintaining and extending npm, a JavaScript/Node.js package manager."
+        db.save_evaluation(dataclasses.replace(make_evaluation(job_id), day_to_day_work=work, work_fit=WorkFit.OUTSIDE))
+
+        loaded = db.get_evaluation_for_job(job_id)
+        assert (loaded.day_to_day_work, loaded.work_fit) == (work, WorkFit.OUTSIDE)
 
     def test_working_hours_not_assessed_round_trips_as_none(self, db: Database, settings: Settings, sample_company: Company):
         sample_company.id = db.upsert_company(sample_company)

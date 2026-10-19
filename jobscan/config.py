@@ -46,9 +46,16 @@ class Settings:
     profile_path: Path = DEFAULT_PROFILE_PATH
     applications_path: Path = DEFAULT_APPLICATIONS_PATH
     candidate_time_zone: str = "Pacific"
+    # Time zones whose working hours, required or preferred, rule a posting out — the triage guard's
+    # copy of the profile's working-hours filter. Empty: none.
+    candidate_excluded_time_zones: tuple[str, ...] = ()
     crawl_workers: int = 4
     registry_path: Path | None = None
     backup_dir: Path | None = None
+    # The thinking.type sent with each model's calls (None leaves the model's default); which value
+    # turns thinking off depends on the model, so it's configured beside the model name.
+    anthropic_thinking: str | None = None
+    triage_thinking: str | None = None
 
     def pricing_for(self, model_name: str) -> ModelPricing | None:
         return self.anthropic_pricing.get(model_name)
@@ -100,15 +107,18 @@ def load_settings(
     return Settings(
         db_path=db_path,
         output_dir=output_dir,
-        anthropic_model=env_or("JOBSCAN_ANTHROPIC_MODEL", raw.get("anthropic_model", "claude-sonnet-5")),
+        anthropic_model=env_or("JOBSCAN_ANTHROPIC_MODEL", raw.get("anthropic_model", "claude-sonnet-5-5")),
         anthropic_max_retries=int(raw.get("anthropic_max_retries", 3)),
         anthropic_timeout_seconds=int(raw.get("anthropic_timeout_seconds", 60)),
         anthropic_pricing=pricing,
         triage_model=env_or("JOBSCAN_TRIAGE_MODEL", raw.get("triage_model")) or None,
+        anthropic_thinking=env_or("JOBSCAN_ANTHROPIC_THINKING", raw.get("anthropic_thinking")) or None,
+        triage_thinking=env_or("JOBSCAN_TRIAGE_THINKING", raw.get("triage_thinking")) or None,
         min_base_salary=int(candidate["min_base_salary"]),
         candidate_state=str(candidate["candidate_state"]),
         candidate_state_name=str(candidate["candidate_state_name"]),
         candidate_time_zone=str(candidate["candidate_time_zone"]),
+        candidate_excluded_time_zones=candidate["excluded_time_zones"],
         log_level=env_or("JOBSCAN_LOG_LEVEL", raw.get("log_level", "INFO")),
         http_timeout_seconds=int(raw.get("http_timeout_seconds", 30)),
         http_user_agent=raw.get("http_user_agent", "JobScan/0.1"),
@@ -130,7 +140,8 @@ class SettingsError(RuntimeError):
 
 def _candidate_facts(profile_path: Path, raw_settings: dict) -> dict:
     """The candidate's salary floor, state and time zone, read from the profile; an older
-    settings.yaml that still carries them is honoured as a fallback."""
+    settings.yaml that still carries them is honoured as a fallback. ``excluded_time_zones`` is
+    optional and read from the profile only."""
     profile: dict = {}
     if profile_path.exists():
         profile = yaml.safe_load(profile_path.read_text(encoding="utf-8")) or {}
@@ -141,4 +152,5 @@ def _candidate_facts(profile_path: Path, raw_settings: dict) -> dict:
             f"{', '.join(missing)} missing — set them in the candidate profile ({profile_path}); "
             "see config/candidate_profile.example.yaml"
         )
+    facts["excluded_time_zones"] = tuple(str(zone) for zone in profile.get("excluded_time_zones") or ())
     return facts

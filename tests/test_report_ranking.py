@@ -10,6 +10,7 @@ prove the whole pipeline — not just the sort function — places them correctl
 from __future__ import annotations
 
 import dataclasses
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -18,7 +19,6 @@ import pytest
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.llm.client import AnthropicClient
-from jobscan.llm.schemas import JOB_EVALUATION_TOOL_NAME
 from jobscan.models import (
     AtsType,
     ClassificationSource,
@@ -29,10 +29,12 @@ from jobscan.models import (
     RawPosting,
     RequirementEvidence,
     RequirementImportance,
+    RequirementStrength,
     ScopeFit,
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkFit,
     WorkingHoursFit,
 )
 from jobscan.normalize import normalize_posting
@@ -109,14 +111,15 @@ class TestRankingAndGrouping:
         assert len(data.growth_bets) == 0
         assert len(data.attractive_stretches) == 0
 
-    def test_plausible_match_at_level_is_best_bet(self, db: Database, settings):
+    def test_plausible_match_at_level_is_a_good_fit(self, db: Database, settings):
         company = seed_company(db)
         job = seed_job(db, settings, company, "1", "Senior Backend Engineer", "x", 190000, 230000)
         db.save_evaluation(make_evaluation(job.id, Verdict.PLAUSIBLE_MATCH, ScopeFit.AT_LEVEL))
 
         data = assemble_report_data(db, settings)
 
-        assert len(data.best_bets) == 1
+        assert len(data.good_fits) == 1
+        assert len(data.best_bets) == 0
 
     def test_plausible_match_one_step_up_is_growth_bet(self, db: Database, settings):
         company = seed_company(db)
@@ -278,7 +281,7 @@ class TestScopeFollowsRequirementEvidence:
 
     def _section(self, db, settings, evaluation) -> str:
         data = assemble_report_data(db, settings)
-        for name in ("best_bets", "growth_bets", "attractive_stretches"):
+        for name in ("best_bets", "good_fits", "growth_bets", "attractive_stretches"):
             if getattr(data, name):
                 return name
         return "rejected"
@@ -293,7 +296,7 @@ class TestScopeFollowsRequirementEvidence:
 
     def test_clean_evidence_labelled_one_step_up_is_at_level(self, db: Database, settings):
         self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP)
-        assert self._section(db, settings, None) == "best_bets"
+        assert self._section(db, settings, None) == "good_fits"
 
     def test_an_undemonstrated_central_requirement_makes_at_level_one_step_up(self, db: Database, settings):
         base = make_evaluation(1, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, central_directly_demonstrated=2)
@@ -325,6 +328,91 @@ class TestScopeFollowsRequirementEvidence:
         assert len(assemble_report_data(db, settings).growth_bets) == 1
 
 
+class TestTiersFollowWhatTheCandidateLacks:
+    # Observed: Affirm's "experience shipping web apps using declarative UI frameworks like React or
+    # Vue", filed as a secondary, weakly inferred requirement of a plausible_match at level, made a
+    # Best Bet of a frontend stretch — and Best Bets ran to 61.
+    @staticmethod
+    def _item(stated_as: RequirementStrength, evidence: EvidenceClassification, text: str = "React or Vue web apps"):
+        return RequirementEvidence(
+            requirement=text, importance=RequirementImportance.SECONDARY, evidence_classification=evidence,
+            candidate_evidence="x", posting_evidence="y", stated_as=stated_as,
+        )
+
+    def _section(self, db, settings, verdict, scope_fit, items) -> str:
+        company = seed_company(db)
+        job = seed_job(db, settings, company, "1", "Senior Backend Engineer", "x", 190000, 230000)
+        base = make_evaluation(job.id, verdict, scope_fit, central_directly_demonstrated=2)
+        db.save_evaluation(dataclasses.replace(base, requirement_evidence=base.requirement_evidence + items))
+        data = assemble_report_data(db, settings)
+        return next(name for name in ("best_bets", "good_fits", "growth_bets", "attractive_stretches") if getattr(data, name))
+
+    def test_one_missing_required_qualification_makes_a_strong_match_a_growth_bet(self, db: Database, settings):
+        items = [self._item(RequirementStrength.REQUIRED, EvidenceClassification.WEAKLY_INFERRED)]
+        assert self._section(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, items) == "growth_bets"
+
+    def test_two_missing_required_qualifications_make_it_a_stretch(self, db: Database, settings):
+        items = [self._item(RequirementStrength.REQUIRED, EvidenceClassification.WEAKLY_INFERRED),
+                 self._item(RequirementStrength.STRONGLY_IMPLIED, EvidenceClassification.NOT_DEMONSTRATED, "LLM features")]
+        assert self._section(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.AT_LEVEL, items) == "attractive_stretches"
+
+    def test_preferred_or_transferable_items_keep_a_strong_match_a_best_bet(self, db: Database, settings):
+        items = [self._item(RequirementStrength.PREFERRED, EvidenceClassification.NOT_DEMONSTRATED),
+                 self._item(RequirementStrength.REQUIRED, EvidenceClassification.CREDIBLY_TRANSFERABLE, "consumer scale")]
+        assert self._section(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, items) == "best_bets"
+
+    def test_fewer_missing_qualifications_rank_first_within_a_tier(self, db: Database, settings):
+        company = seed_company(db)
+        for source_id, title, items in (
+            ("1", "One Gap", [self._item(RequirementStrength.REQUIRED, EvidenceClassification.WEAKLY_INFERRED)]),
+            ("2", "No Gaps", []),
+        ):
+            job = seed_job(db, settings, company, source_id, title, f"posting {source_id}", 190000, 230000)
+            base = make_evaluation(job.id, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP, evidence_coverage_percent=60,
+                                   hidden_staff_signals=["sets direction across teams"])
+            db.save_evaluation(dataclasses.replace(base, requirement_evidence=items))
+
+        assert [r.job.title for r in assemble_report_data(db, settings).growth_bets] == ["No Gaps", "One Gap"]
+
+
+class TestDayToDayWorkCapsTheTier:
+    # Observed: GitHub's npm team ("a full-stack software engineer" on "the open source tools that
+    # empower the JavaScript ecosystem") came out a plausible match because its list accepted C#.
+    def _section(self, db, settings, work_fit) -> str:
+        company = seed_company(db)
+        job = seed_job(db, settings, company, "1", "Software Engineer III", "x", 190000, 230000)
+        evaluation = make_evaluation(job.id, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, central_directly_demonstrated=2)
+        db.save_evaluation(dataclasses.replace(evaluation, work_fit=work_fit))
+        data = assemble_report_data(db, settings)
+        return next(name for name in ("best_bets", "good_fits", "growth_bets", "attractive_stretches") if getattr(data, name))
+
+    @pytest.mark.parametrize("work_fit, section", [
+        (WorkFit.IN_LANE, "best_bets"),
+        (None, "best_bets"),  # not assessed: no cap
+        (WorkFit.PARTLY_OUTSIDE, "growth_bets"),
+        (WorkFit.OUTSIDE, "attractive_stretches"),
+    ])
+    def test_work_outside_the_lane_caps_a_strong_match(self, db: Database, settings, work_fit, section):
+        assert self._section(db, settings, work_fit) == section
+
+    def test_the_cap_never_lifts_a_lower_tier(self, db: Database, settings):
+        company = seed_company(db)
+        job = seed_job(db, settings, company, "1", "Software Engineer III", "x", 190000, 230000)
+        evaluation = make_evaluation(job.id, Verdict.BORDERLINE, ScopeFit.TWO_PLUS_STEPS_UP)
+        db.save_evaluation(dataclasses.replace(evaluation, work_fit=WorkFit.PARTLY_OUTSIDE))
+        assert len(assemble_report_data(db, settings).attractive_stretches) == 1
+
+    def test_the_report_says_what_the_job_is(self, db: Database, settings):
+        company = seed_company(db)
+        job = seed_job(db, settings, company, "1", "Software Engineer III", "x", 190000, 230000)
+        evaluation = make_evaluation(job.id, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, central_directly_demonstrated=2)
+        db.save_evaluation(dataclasses.replace(
+            evaluation, day_to_day_work="Maintaining npm, a Node.js package manager.", work_fit=WorkFit.OUTSIDE))
+        markdown = render_markdown(assemble_report_data(db, settings))
+        assert "- Day to day: Maintaining npm, a Node.js package manager. — outside your lane" in markdown
+        assert "the day-to-day work is outside your lane" in markdown
+
+
 class TestWorkingHours:
     # Observed live: 1Password's "ideally with the ability to work within Eastern Time hours" came
     # out a strong-match Best Bet for a Pacific-time candidate.
@@ -343,15 +431,15 @@ class TestWorkingHours:
         (Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP),
         (Verdict.BORDERLINE, ScopeFit.ONE_STEP_UP),
     ])
-    @pytest.mark.parametrize("fit", [WorkingHoursFit.EASTERN_OR_CENTRAL_PREFERRED, WorkingHoursFit.EASTERN_OR_CENTRAL_REQUIRED])
-    def test_eastern_hours_required_or_preferred_reject_whatever_the_verdict(self, db: Database, settings, verdict, scope_fit, fit):
+    @pytest.mark.parametrize("fit", [WorkingHoursFit.CONFLICTS])
+    def test_hours_that_fail_the_filter_reject_whatever_the_verdict(self, db: Database, settings, verdict, scope_fit, fit):
         self._seed(db, settings, verdict, scope_fit, fit)
 
         data = assemble_report_data(db, settings)
 
         assert data.best_bets == data.growth_bets == data.attractive_stretches == []
         markdown = render_markdown(data)
-        assert "expects Eastern/Central Time hours" in markdown
+        assert "working hours fail the hours filter" in markdown
         assert self.QUOTE in markdown
 
     def test_compatible_hours_change_nothing(self, db: Database, settings):
@@ -422,6 +510,8 @@ DOXIMITY_EXPECTED_RESPONSE = {
     "requirement despite the midpoint nominally clearing $170,000.",
     "remote_employment_verification": "Remote in the United States (also Canada/South America), "
     "no state-specific exclusion for Washington noted.",
+    "day_to_day_work": "Building backend services.",
+    "work_fit": "in_lane",
     "working_hours_quote": "",
     "working_hours_fit": "compatible",
     "required_matches": ["Python", "SQL", "automated testing", "maintainable pipeline experience"],
@@ -494,6 +584,8 @@ REVENUECAT_EXPECTED_RESPONSE = {
     "compensation is not the blocker here, but per the compensation rule this does not "
     "compensate for the scope mismatch.",
     "remote_employment_verification": "Remote-first team, described as 'Americas' — plausibly open to Washington.",
+    "day_to_day_work": "Building backend services.",
+    "work_fit": "in_lane",
     "working_hours_quote": "",
     "working_hours_fit": "compatible",
     "required_matches": ["SQL", "backend ownership", "production feature delivery", "mentorship"],
@@ -574,6 +666,8 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
     "compensation_assessment": "Published base salary range $175,000-$210,000, midpoint "
     "$192,500, comfortably clears the $170,000 minimum.",
     "remote_employment_verification": "No location restriction noted; treated as open to Washington-based remote.",
+    "day_to_day_work": "Building backend services.",
+    "work_fit": "in_lane",
     "working_hours_quote": "",
     "working_hours_fit": "compatible",
     "required_matches": ["Python/C#", "SQL", "REST APIs", "Azure", "testing/CI/CD", "production support", "mentoring"],
@@ -591,7 +685,7 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
 
 
 def _tool_response(input_dict: dict, input_tokens: int = 500, output_tokens: int = 300):
-    block = SimpleNamespace(type="tool_use", name=JOB_EVALUATION_TOOL_NAME, input=input_dict)
+    block = SimpleNamespace(type="text", text=json.dumps(input_dict))
     usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
     return SimpleNamespace(content=[block], usage=usage)
 

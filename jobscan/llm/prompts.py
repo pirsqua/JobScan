@@ -1,4 +1,4 @@
-"""Prompt construction for the two LLM calls, built from config/candidate_profile.yaml."""
+"""Prompt construction for the LLM calls, built from the candidate profile."""
 from __future__ import annotations
 
 import hashlib
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-from jobscan.llm.schemas import JOB_EVALUATION_TOOL_SCHEMA, TRIAGE_TOOL_SCHEMA
+from jobscan.llm.schemas import JOB_EVALUATION_SCHEMA, TRIAGE_SCHEMA
 from jobscan.models import Company, JobPosting
 
 
@@ -99,7 +99,15 @@ not requiring experience in it, and ordinary senior ownership is not staff scope
 reasonable reading is genuinely uncertain, say so in the caveats rather than resolving it against \
 the candidate.
 
-Work through these steps, in order, before calling the tool:
+Work through these steps, in order:
+
+0. WHAT THE JOB IS. Before any qualification, say what the team's engineers actually do day to day \
+and in which stack (`day_to_day_work`), from the responsibilities and the team's description, and \
+how that work sits with the candidate's lane (`work_fit`). A qualifications list the candidate's \
+languages satisfy doesn't make the work theirs: a team maintaining a JavaScript/Node.js tool is \
+outside the lane even when its list accepts "C#, Python, JavaScript". The rules below on \
+alternatives and examples decide whether the candidate clears the hiring bar; `work_fit` decides \
+whether the job is in their lane.
 
 1. IDENTIFY REQUIRED QUALIFICATIONS. Classify every qualification by the posting's own wording \
 (`stated_as`):
@@ -210,17 +218,17 @@ never be framed as an immediate strong recommendation.
    - reject: a hard employment requirement fails, or a required (not preferred) central \
 qualification makes an interview professionally implausible. Remote eligibility needs affirmative evidence — the location \
 field, the text, or a structured workplace type of "remote". If the posting does not clearly offer \
-remote work, or it excludes Washington (including by limiting remote work to states or regions that \
-leave it out), the remote hard filter has failed: reject; never downgrade that to a borderline "risk", \
+remote work, or it excludes the candidate's state (including by limiting remote work to states or \
+regions that leave it out), the remote hard filter has failed: reject; never downgrade that to a borderline "risk", \
 however good the technical fit. A remote offer that simply doesn't list eligible states is not a \
 failure — e.g. a role listed at a city whose text offers working "100% remotely" passes.
 
 Also determine whether the employer is a product company or a consulting/client-delivery shop \
 from this posting's own language, whether frontend/deep-AWS-or-GCP/AI-agent/distributed-systems \
-ownership is central, and whether a $170,000+ base offer is credible from the published range \
-under the candidate's compensation rule (explicitly distinguish base salary from total \
+ownership is central, and whether a base offer at the candidate's minimum salary is credible from \
+the published range under the candidate's compensation rule (explicitly distinguish base salary from total \
 compensation if the posting blends them). Compensation is a pass/fail gate: once a range passes \
-it, a midpoint below $170,000 is not a gap and must not lower scope_fit, coverage, the verdict or \
+it, a midpoint below that minimum is not a gap and must not lower scope_fit, coverage, the verdict or \
 worth_applying — note it as a minor caveat at most.
 
 Write `why_this_is_or_is_not_gettable` as a concise, specific verdict on interview/offer \
@@ -242,10 +250,9 @@ candidate already works in) or a learnable stack the posting invites. Always Tru
 strong_match and plausible_match — this field exists to separate real stretches from roles that \
 only look attractive on a keyword scan.
 
-The tool's fields follow these steps in order, with the verdict near the end: fill them in that \
-order and let the verdict follow from the analysis you've written — never settle it first and \
-justify it afterwards. Always call the submit_job_evaluation tool exactly once with your full \
-structured evaluation."""
+Your answer's fields follow these steps in order, with the verdict near the end: fill them in \
+that order and let the verdict follow from the analysis you've written — never settle it first and \
+justify it afterwards."""
 
 
 def build_candidate_profile_block(profile_text: str) -> str:
@@ -285,8 +292,8 @@ Full description:
 {job.description_text}
 ---
 
-Work through the 9-step procedure from your instructions and call submit_job_evaluation with the \
-complete structured result, including requirement_evidence for each important required or \
+Work through the 9-step procedure from your instructions and answer with the complete \
+structured result, including requirement_evidence for each important required or \
 strongly implied qualification."""
 
 
@@ -303,9 +310,10 @@ at Senior ("Senior/Staff", "Senior or Staff").
 Tech-leading, or "leading engineers on the team" through a project, is ordinary senior work, not \
 this.
 - not_remote: the posting requires office or hybrid presence, or limits remote work to places, \
-time zones or states that exclude a Washington resident, or expects Eastern or Central Time \
-working hours — even as a preference ("ideally with the ability to work within Eastern Time \
-hours"). A remote offer that doesn't list eligible states is not a mismatch.
+time zones or states that exclude the candidate's location, or states working hours that fail the \
+candidate's working-hours filter — even as a preference ("ideally with the ability to work within \
+... hours"), when that filter says a preference fails it. A remote offer that doesn't list \
+eligible states is not a mismatch.
 - excluded_industry: the employer is in an industry the candidate's hard filters exclude.
 - not_engineering: not a software-engineering job at all — sales, support, solutions, developer \
 advocacy and the like under an engineering-sounding title.
@@ -315,6 +323,11 @@ and accepts none of the candidate's languages instead.
 - required_specialty: the posting requires prior specialist experience the candidate lacks — \
 production ML/LLM/AI-agent systems, security, SRE/infrastructure/Kubernetes platforms, low-level \
 networking, mobile, embedded, or a frontend-centered role.
+
+A full-stack role whose backend is in one of the candidate's languages is neither of the last two: \
+owning features end-to-end "from the React/TypeScript UI through the C#/.NET API it calls" is \
+backend work the candidate does plus a frontend tier to grow into — the full evaluation weighs \
+that, so don't skip on it.
 
 For a skip, copy into disqualifier_quote the posting's exact words that establish it — one phrase \
 or sentence, character for character from the title or text, no paraphrase or ellipsis — and set \
@@ -332,9 +345,7 @@ anything else not in the list above. When you're genuinely unsure, or the postin
 alongside some gaps, do NOT skip — set disqualifier to none and leave the quote empty. Skipping a \
 posting that deserved a full look silently destroys a real opportunity; sending a clear reject \
 through for full evaluation only costs a few cents. Treat those two mistakes as very different in \
-severity.
-
-Always call the submit_triage tool exactly once."""
+severity."""
 
 
 def build_triage_user_message(company: Company, job: JobPosting) -> str:
@@ -363,31 +374,34 @@ Full description:
 {job.description_text}
 ---
 
-Call submit_triage with your skip_full_evaluation decision and a one-sentence reason."""
+Answer with your skip_full_evaluation decision and a one-sentence reason."""
 
 
 def _fingerprint(*parts: str) -> str:
     return hashlib.sha256("\x00".join(parts).encode("utf-8")).hexdigest()[:12]
 
 
-def evaluation_rubric_version(profile_text: str) -> str:
+def evaluation_rubric_version(profile_text: str, model: str, thinking: str | None) -> str:
     """Short fingerprint of everything that decides a full evaluation's verdict — its system
-    prompt, tool schema and the rendered candidate profile. Recorded on every evaluation so verdicts
-    made under an older rubric can be found and refreshed (``evaluate --refresh-stale``)."""
-    return _fingerprint(JOB_EVAL_SYSTEM, json.dumps(JOB_EVALUATION_TOOL_SCHEMA, sort_keys=True), profile_text)
+    prompt, schema, the rendered candidate profile, and the model and thinking setting that read
+    them. Recorded on every evaluation so verdicts made under an older rubric can be found and
+    refreshed (``evaluate --refresh-stale``)."""
+    return _fingerprint(
+        JOB_EVAL_SYSTEM, json.dumps(JOB_EVALUATION_SCHEMA, sort_keys=True), profile_text, model, thinking or ""
+    )
 
 
-def triage_rubric_version(profile_text: str) -> str:
-    """The same for a triage screen-out. Kept separate so a fix to the cheap triage prompt only
-    re-screens triage screen-outs, not every full evaluation (which never sees that prompt)."""
-    return _fingerprint(TRIAGE_SYSTEM, json.dumps(TRIAGE_TOOL_SCHEMA, sort_keys=True), profile_text)
+def triage_rubric_version(profile_text: str, model: str, thinking: str | None) -> str:
+    """The same for a triage screen-out. Kept separate so a change to the cheap triage prompt or
+    model only re-screens triage screen-outs, not every full evaluation (which never sees them)."""
+    return _fingerprint(TRIAGE_SYSTEM, json.dumps(TRIAGE_SCHEMA, sort_keys=True), profile_text, model, thinking or "")
 
 
 COMPANY_EVAL_SYSTEM = """You classify companies as either a PRODUCT company (builds and operates its \
 own software product or platform, hiring engineers to build features for its own users) or a \
 CONSULTING/STAFFING/OUTSOURCING company (sells engineering time/delivery to other companies' \
 projects, e.g. a digital agency, dev shop, staffing firm, or IT services vendor). Base your answer \
-only on the text given. Always call the submit_company_classification tool exactly once."""
+only on the text given."""
 
 
 def build_company_eval_user_message(company_name: str, domain: str | None, homepage_text: str, sample_job_text: str) -> str:

@@ -56,6 +56,8 @@ def _job_dict(row) -> dict:
             "remote_employment_verification": ev.remote_employment_verification,
             "working_hours_quote": ev.working_hours_quote,
             "working_hours_fit": ev.working_hours_fit.value if ev.working_hours_fit else None,
+            "day_to_day_work": ev.day_to_day_work,
+            "work_fit": ev.work_fit.value if ev.work_fit else None,
             "required_matches": ev.required_matches,
             "required_gaps": ev.required_gaps,
             "preferred_only_gaps": ev.preferred_only_gaps,
@@ -101,6 +103,7 @@ def build_json_report(data: ReportData) -> dict:
             for r in data.applications
         ],
         "best_bets": [_job_dict(r) for r in data.best_bets],
+        "good_fits": [_job_dict(r) for r in data.good_fits],
         "growth_bets": [_job_dict(r) for r in data.growth_bets],
         "attractive_stretches": [_job_dict(r) for r in data.attractive_stretches],
         "all_evaluated": [_job_dict(r) for r in data.all_evaluated],

@@ -1,12 +1,13 @@
 """Markdown report: run statistics, the candidate's applications and where each stands, Best Bets,
-Growth Bets, Attractive Stretches, and a summary of what was rejected or left unverified. Roles
-already applied to are starred (★) wherever they appear."""
+Good Fits, Growth Bets, Attractive Stretches, and a summary of what was rejected or left unverified.
+Roles already applied to are listed under Applications, not in the shortlist, and starred (★)
+wherever else they appear."""
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
 
-from jobscan.models import Evaluation, JobPosting, ScopeFit, Verdict
+from jobscan.models import Evaluation, JobPosting, ScopeFit, Verdict, WorkFit
 from jobscan.reports.data import JobReportRow, ReportData, declined_reason, is_declined
 from jobscan.timeutil import SEATTLE_TZ
 
@@ -82,8 +83,9 @@ def _render_stats(data: ReportData) -> list[str]:
         f"- Rejected by factual filters (salary, remote, employment type, consulting): **{pool.factually_rejected}**",
         f"- Evaluated: **{pool.evaluated}** — {_verdicts(pool.verdict_counts)}",
         f"- Awaiting evaluation: **{pool.awaiting_evaluation}**",
-        f"- Shortlist: **{len(data.best_bets)}** Best Bets, **{len(data.growth_bets)}** Growth Bets, "
-        f"**{len(data.attractive_stretches)}** Attractive Stretches",
+        f"- Shortlist (not yet applied to): **{len(data.best_bets)}** Best Bets, **{len(data.good_fits)}** "
+        f"Good Fits, **{len(data.growth_bets)}** Growth Bets, **{len(data.attractive_stretches)}** "
+        "Attractive Stretches",
     ]
     return lines
 
@@ -94,11 +96,24 @@ def _role(row: JobReportRow) -> str:
     return f"★ {name} (applied {row.applied_on.isoformat()})" if row.applied_on else name
 
 
+_WORK_FIT_NOTES = {
+    WorkFit.PARTLY_OUTSIDE: " — partly outside your lane",
+    WorkFit.OUTSIDE: " — outside your lane",
+}
+
+
+def _work_line(ev: Evaluation) -> list[str]:
+    """What the team's engineers do day to day, whenever the evaluation says."""
+    if not ev.day_to_day_work:
+        return []
+    return [f"- Day to day: {ev.day_to_day_work}{_WORK_FIT_NOTES.get(ev.work_fit, '') if ev.work_fit else ''}"]
+
+
 def _hours_line(ev: Evaluation) -> list[str]:
     """The posting's own words on working hours, whenever it states any."""
     if not ev.working_hours_quote:
         return []
-    note = " — expects Eastern/Central hours" if ev.working_hours_fit and ev.working_hours_fit.disqualifies else ""
+    note = " — fails the working-hours filter" if ev.working_hours_fit and ev.working_hours_fit.disqualifies else ""
     return [f'- Working hours: "{ev.working_hours_quote}"{note}']
 
 
@@ -115,8 +130,8 @@ def _render_applications(data: ReportData) -> list[str]:
     return lines
 
 
-def _render_best_or_growth(title: str, rows: list[JobReportRow], empty_note: str) -> list[str]:
-    lines = ["", f"## {title}", ""]
+def _render_shortlist(title: str, intro: str, rows: list[JobReportRow], empty_note: str) -> list[str]:
+    lines = ["", f"## {title}", "", f"_{intro}_", ""]
     if not rows:
         lines.append(f"_{empty_note}_")
         return lines
@@ -132,6 +147,7 @@ def _render_best_or_growth(title: str, rows: list[JobReportRow], empty_note: str
             f"- Apply: {job.apply_url or job.posting_url or 'n/a'}",
             f"- Freshness: {_freshness(job)}",
         ]
+        lines += _work_line(ev)
         lines += _hours_line(ev)
         if ev.required_matches:
             lines.append(f"- Exact matches: {'; '.join(ev.required_matches)}")
@@ -150,9 +166,10 @@ def _render_best_or_growth(title: str, rows: list[JobReportRow], empty_note: str
 def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
     lines = [
         "", "## Attractive Stretches", "",
-        "_Strong technical overlap, but two or more unproven scope dimensions — or a hidden "
-        "staff-level/elite-startup expectation behind an ordinary-looking Senior title — or a good "
-        "fit that sits below your level. Worth a look, not a Best Bet._", "",
+        "_Strong technical overlap, but two or more required qualifications you don't have, two or "
+        "more unproven scope dimensions, or a hidden staff-level expectation behind an "
+        "ordinary-looking Senior title — or a good fit that sits below your level. Worth a look, "
+        "not a first pick._", "",
     ]
     if not rows:
         lines.append("_None._")
@@ -162,9 +179,11 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
         job, company, ev = row.job, row.company, row.evaluation
         assert ev is not None
         stretch = ev.growth_dimensions or [ev.primary_rejection_reason or ""]
-        # A match that would otherwise be a Best or Growth Bet lands here for its level.
+        # A match that would otherwise be a Best or Growth Bet lands here for its level or its work.
         if ev.scope_fit == ScopeFit.BELOW_LEVEL:
             stretch = ["below the candidate's level"] + stretch
+        if ev.work_fit == WorkFit.OUTSIDE:
+            stretch = ["the day-to-day work is outside your lane"] + stretch
         stretch_text = "; ".join(item for item in stretch if item) or "(not specified)"
         lines += [
             f"### {_role(row)} ({ev.verdict.value}, {ev.scope_fit.value})",
@@ -175,6 +194,7 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
             f"- Strong matching areas: {'; '.join(ev.required_matches) if ev.required_matches else '(none noted)'}",
             f"- What makes this a stretch: {stretch_text}",
         ]
+        lines += _work_line(ev)
         lines += _hours_line(ev)
         if ev.hidden_staff_signals:
             lines.append(f"- Hidden staff-level signals: {'; '.join(ev.hidden_staff_signals)}")
@@ -187,7 +207,7 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
 def _render_rejected_or_unverified(data: ReportData) -> list[str]:
     lines = ["", "## Rejected or Unverified", ""]
     # Every evaluated posting in no shortlist section: verdict=reject outright, but also e.g. a
-    # borderline judged not worth applying, or required Eastern/Central hours — so nothing is
+    # borderline judged not worth applying, or hours that fail the hours filter — so nothing is
     # silently dropped from every section (see reports.data._report_section).
     llm_declined = [r for r in data.all_evaluated if r.evaluation and is_declined(r.evaluation)]
 
@@ -228,13 +248,22 @@ def render_markdown(data: ReportData) -> str:
     lines = [f"# JobScan report — {data.generated_at}", ""]
     lines += _render_stats(data)
     lines += _render_applications(data)
-    lines += _render_best_or_growth(
-        "Best Bets", data.best_bets,
-        "None yet — at-level strong/plausible matches will show up here.",
+    lines += _render_shortlist(
+        "Best Bets",
+        "Strong matches at your level, with every required qualification demonstrated or credibly "
+        "transferable. Apply to these first.",
+        data.best_bets, "None right now.",
     )
-    lines += _render_best_or_growth(
-        "Growth Bets", data.growth_bets,
-        "None yet — genuine one-step-up roles with no more than one material growth dimension will show up here.",
+    lines += _render_shortlist(
+        "Good Fits",
+        "Plausible matches at your level, with nothing required missing.",
+        data.good_fits, "None right now.",
+    )
+    lines += _render_shortlist(
+        "Growth Bets",
+        "One step up with no more than one material growth dimension, or at your level but missing "
+        "one required qualification.",
+        data.growth_bets, "None right now.",
     )
     lines += _render_attractive_stretches(data.attractive_stretches)
     lines += _render_rejected_or_unverified(data)

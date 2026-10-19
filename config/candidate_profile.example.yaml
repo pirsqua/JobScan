@@ -97,6 +97,9 @@ min_base_salary: 160000
 candidate_state: CO
 candidate_state_name: Colorado
 candidate_time_zone: Mountain
+# Time zones whose working hours rule a posting out, required or merely preferred — the triage
+# guard's copy of the working-hours hard filter below. Leave it out to rule out none.
+excluded_time_zones: [Eastern]
 compensation_rule: >
   Reject when the published maximum is below $160,000. Pass when the midpoint is at least
   $160,000, or when $160,000 sits no higher than about 80% of the way from the range's minimum to
@@ -105,7 +108,8 @@ compensation_rule: >
 hard_filters:
   - U.S. remote, available to an employee living in Colorado. A role tied to an office with no
     remote option, or a hybrid arrangement, fails this filter.
-  - Working hours that fit a Mountain Time day.
+  - Working hours that fit a Mountain Time day. A role that requires or prefers working Eastern
+    Time hours fails this filter.
   - Full-time employee position
   - Employer principally builds and operates its own product or platform (not a consulting,
     staffing or outsourcing firm)

@@ -36,6 +36,7 @@ from jobscan.models import (
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkFit,
     WorkingHoursFit,
     WorkplaceType,
 )
@@ -237,8 +238,15 @@ class Database:
         self._add_column_if_missing("evaluations", "rubric_version", "TEXT")
         self._add_column_if_missing("evaluations", "working_hours_quote", "TEXT")
         self._add_column_if_missing("evaluations", "working_hours_fit", "TEXT")
+        self._add_column_if_missing("evaluations", "day_to_day_work", "TEXT")
+        self._add_column_if_missing("evaluations", "work_fit", "TEXT")
         self._add_column_if_missing("evaluation_runs", "newly_filtered", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "new_verdict_counts", "TEXT")
+        # Working-hours conflicts were once stored under the owner's own time zones.
+        self.conn.execute(
+            "UPDATE evaluations SET working_hours_fit = 'conflicts' "
+            "WHERE working_hours_fit IN ('eastern_or_central_preferred', 'eastern_or_central_required')"
+        )
         # Triage screen-outs used to carry a two_plus_steps_up placeholder for scope_fit.
         self.conn.execute(
             "UPDATE evaluations SET scope_fit = 'not_assessed' "
@@ -689,6 +697,8 @@ class Database:
             rubric_version=row["rubric_version"],
             working_hours_quote=row["working_hours_quote"] or "",
             working_hours_fit=WorkingHoursFit(row["working_hours_fit"]) if row["working_hours_fit"] else None,
+            day_to_day_work=row["day_to_day_work"] or "",
+            work_fit=WorkFit(row["work_fit"]) if row["work_fit"] else None,
         )
 
     def save_evaluation(self, evaluation: Evaluation) -> int:
@@ -721,8 +731,8 @@ class Database:
                 credibility_assessment, why_this_is_or_is_not_gettable, is_product_company,
                 primary_rejection_reason, worth_applying, model_name, input_tokens, output_tokens,
                 cache_creation_input_tokens, cache_read_input_tokens, created_at, rubric_version,
-                working_hours_quote, working_hours_fit)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                working_hours_quote, working_hours_fit, day_to_day_work, work_fit)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(job_id, description_hash) DO UPDATE SET
                  verdict=excluded.verdict, confidence=excluded.confidence,
                  scope_fit=excluded.scope_fit,
@@ -747,7 +757,8 @@ class Database:
                  cache_read_input_tokens=excluded.cache_read_input_tokens,
                  created_at=excluded.created_at, rubric_version=excluded.rubric_version,
                  working_hours_quote=excluded.working_hours_quote,
-                 working_hours_fit=excluded.working_hours_fit
+                 working_hours_fit=excluded.working_hours_fit,
+                 day_to_day_work=excluded.day_to_day_work, work_fit=excluded.work_fit
                """,
             (
                 evaluation.job_id, evaluation.description_hash, evaluation.verdict.value,
@@ -765,6 +776,8 @@ class Database:
                 _dt(evaluation.created_at), evaluation.rubric_version,
                 evaluation.working_hours_quote,
                 evaluation.working_hours_fit.value if evaluation.working_hours_fit else None,
+                evaluation.day_to_day_work,
+                evaluation.work_fit.value if evaluation.work_fit else None,
             ),
         )
         return cur.lastrowid or self.get_evaluation_for_job(evaluation.job_id).id

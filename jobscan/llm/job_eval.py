@@ -12,7 +12,7 @@ from jobscan.llm.prompts import (
     build_job_eval_user_message,
     render_profile_text,
 )
-from jobscan.llm.schemas import JOB_EVALUATION_TOOL_NAME, JOB_EVALUATION_TOOL_SCHEMA, JobEvaluationResult
+from jobscan.llm.schemas import JOB_EVALUATION_SCHEMA, JobEvaluationResult
 from jobscan.models import (
     Company,
     Evaluation,
@@ -25,6 +25,7 @@ from jobscan.models import (
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
     Verdict,
+    WorkFit,
     WorkingHoursFit,
 )
 
@@ -44,11 +45,10 @@ def evaluate_job(
     profile_block = build_candidate_profile_block(profile_text)
     user_message = build_job_eval_user_message(company, job)
 
-    result = client.call_tool(
+    result = client.call_structured(
         system=JOB_EVAL_SYSTEM,
         user_message=user_message,
-        tool_schema=JOB_EVALUATION_TOOL_SCHEMA,
-        tool_name=JOB_EVALUATION_TOOL_NAME,
+        schema=JOB_EVALUATION_SCHEMA,
         # Observed live: the default 2048 was silently truncating ~99% of real calls
         # (stop_reason="max_tokens") — requirement_evidence in particular is expensive (a list of
         # structured objects) and was missing from 93% of historical evaluations as a result,
@@ -60,7 +60,7 @@ def evaluate_job(
     )
 
     try:
-        parsed = JobEvaluationResult.model_validate(result.input)
+        parsed = JobEvaluationResult.model_validate(result.data)
     except ValidationError as exc:
         raise LlmCallError(f"job evaluation response failed schema validation: {exc}") from exc
 
@@ -110,6 +110,8 @@ def evaluate_job(
         remote_employment_verification=parsed.remote_employment_verification,
         working_hours_quote=parsed.working_hours_quote,
         working_hours_fit=WorkingHoursFit(parsed.working_hours_fit),
+        day_to_day_work=parsed.day_to_day_work,
+        work_fit=WorkFit(parsed.work_fit),
         required_matches=parsed.required_matches,
         required_gaps=parsed.required_gaps,
         preferred_only_gaps=parsed.preferred_only_gaps,

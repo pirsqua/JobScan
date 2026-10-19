@@ -55,7 +55,7 @@ def apply_factual_filters(job: JobPosting, company: Company, min_base_salary: in
         return FilterResult(
             False,
             FilterReason.STATE_EXCLUDED,
-            f"location_raw={job.location_raw!r} is not confirmed open to a Washington-based remote employee",
+            f"location_raw={job.location_raw!r} is not confirmed open to a remote employee in the candidate's state",
         )
 
     if job.employment_type in (EmploymentType.CONTRACT, EmploymentType.PART_TIME, EmploymentType.INTERN):

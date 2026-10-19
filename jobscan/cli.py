@@ -109,8 +109,8 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
     pool = data.pool
     print(f"Pool: {pool.active_postings} active postings — {pool.factually_rejected} rejected by factual filters, "
           f"{pool.evaluated} evaluated, {pool.awaiting_evaluation} awaiting evaluation")
-    print(f"Shortlist: {len(data.best_bets)} Best Bets, {len(data.growth_bets)} Growth Bets, "
-          f"{len(data.attractive_stretches)} Attractive Stretches")
+    print(f"Shortlist (not yet applied to): {len(data.best_bets)} Best Bets, {len(data.good_fits)} Good Fits, "
+          f"{len(data.growth_bets)} Growth Bets, {len(data.attractive_stretches)} Attractive Stretches")
     print(f"Report: {md_path}")
     # The daily command, so its end is where the database gets backed up.
     if settings.backup_dir is not None:
