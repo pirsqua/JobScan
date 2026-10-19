@@ -50,4 +50,8 @@ http_timeout_seconds: 30
 # Boards fetched at once during a crawl (each adapter also runs its own small detail-page pool).
 # Many boards share a host (Greenhouse's API, Workday clusters), so keep this modest.
 crawl_workers: 4
-http_user_agent: "JobScan/0.5 (+personal job search tool)"
+# Postings whose LLM calls run at once during `evaluate` (a --limit run goes one at a time, so the
+# cap is exact). Observed: 6 workers re-evaluated 372 postings in about 25 minutes with no rate-limit
+# errors; one at a time that's hours.
+evaluate_workers: 4
+http_user_agent: "JobScan/0.5 (personal job search tool)"

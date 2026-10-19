@@ -50,7 +50,17 @@ def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
 
 def cmd_evaluate(args: argparse.Namespace, settings: Settings) -> int:
     with _open_db(settings) as db:
-        stats = evaluate_all(db, settings, limit=args.limit, refresh_stale=args.refresh_stale)
+        stats = evaluate_all(db, settings, limit=args.limit, refresh_stale=args.refresh_stale, dry_run=args.dry_run)
+        average = db.average_evaluation_tokens(settings.anthropic_model) if args.dry_run else None
+    if args.dry_run:
+        print(f"Dry run, no API calls: {stats.unverified} postings would be sent to the LLM")
+        if average is not None and stats.unverified:
+            per_posting = average.estimated_cost_usd(settings)
+            if per_posting is not None:
+                print(f"At ${per_posting:.3f} per full evaluation (recent average), about "
+                      f"${per_posting * stats.unverified:.2f} if every one reaches it — triage skips "
+                      "some, and near-misses get a second look")
+        return 0
     _print_evaluation_run(stats, settings)
     print(f"Pool: {stats.jobs_considered} active postings, {stats.factual_rejected} rejected by factual filters, "
           f"{sum(stats.verdict_counts.values())} evaluated, {stats.unverified} awaiting evaluation")
@@ -247,6 +257,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Cap the number of real LLM calls (job + company) made this run; unlimited if omitted.",
     )
     p_eval.add_argument("--refresh-stale", action="store_true", help=_REFRESH_STALE_HELP)
+    p_eval.add_argument(
+        "--dry-run", action="store_true",
+        help="Make no API calls: count what would be sent and estimate the cost. Factual filtering "
+        "and free cache reuse still happen.",
+    )
     p_eval.set_defaults(func=cmd_evaluate)
 
     p_report = sub.add_parser("report", help="Generate Markdown/CSV/JSON reports from current database state.")

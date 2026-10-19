@@ -18,10 +18,10 @@ fresh session needs before touching code, that reading the code alone won't make
 
 They call the real Anthropic API (model/pricing in `config/settings.yaml`). Before running either
 without `--limit` against the full registry:
-1. Do a free dry run first — build `Settings` with `anthropic_api_key=None` (via
-   `dataclasses.replace(settings, anthropic_api_key=None)`) and call `evaluate_all()` — this runs
-   real factual filtering with zero LLM calls and reports exactly how many postings *would* be
-   sent, so cost can be estimated from real counts rather than a guess.
+1. Do a free dry run first — `python -m jobscan evaluate --dry-run` (with `--refresh-stale` to
+   size a refresh; `evaluate_all(..., dry_run=True)` in code). It runs real factual filtering with
+   zero LLM calls and prints exactly how many postings *would* be sent, with a cost estimate from
+   recent per-evaluation averages, so cost comes from real counts rather than a guess.
 2. State the estimated cost and confirm before running for real, unless the user already asked
    for the full run explicitly.
 3. `--limit N` caps real LLM calls (job evals + company classifications) per invocation — use it
@@ -31,12 +31,17 @@ without `--limit` against the full registry:
 5. A change to the prompts (`jobscan/llm/prompts.py`), the output schemas, the rendered
    candidate profile, or a model or its thinking setting changes the rubric version but does NOT
    re-judge cached verdicts — only `evaluate --refresh-stale` does. (Profile keys the renderer
-   doesn't read, such as the code-only `candidate_state` or `excluded_time_zones`, don't change it.) Full evaluations and
-   triage screen-outs carry separate versions: a profile change re-screens everything, a
-   `JOB_EVAL_SYSTEM`/schema/main-model change only full evaluations, a `TRIAGE_SYSTEM`/triage-model
-   change only triage screen-outs. The per-posting message templates (`build_*_user_message`) are NOT fingerprinted — a material change there
-   needs a deliberate refresh (e.g. a matching edit to the system prompt). Validate a rubric change on a handful of known postings first, then dry-run the refresh
-   (`evaluate_all(..., refresh_stale=True)` with no key) for the count.
+   doesn't read, such as the code-only `candidate_state` or `excluded_time_zones`, don't change
+   it.) Full evaluations and triage screen-outs carry separate versions: a profile change
+   re-screens everything, a `JOB_EVAL_SYSTEM`/schema/main-model change only full evaluations, a
+   `TRIAGE_SYSTEM`/triage-model change only triage screen-outs. The per-posting message templates
+   (`build_*_user_message`) are NOT fingerprinted — a material change there needs a deliberate
+   refresh (e.g. a matching edit to the system prompt). Validate a rubric change on a handful of
+   known postings first, then dry-run the refresh (`evaluate --dry-run --refresh-stale`) for the
+   count.
+6. Evaluations keep their history — re-judging adds a row and the newest is current. Reverting a
+   rubric change makes the earlier verdicts current again on the next `--refresh-stale` with no API
+   calls (a cache hit is copied forward), and before/after comparisons are a query, not a re-run.
 
 ## LLM output schema — field order is reasoning order
 
@@ -103,9 +108,11 @@ check there may only turn a skip into a full evaluation — never the reverse.
   consulting employers. If a check requires reading and interpreting the posting's prose, it
   belongs in the LLM path (`jobscan/llm/`), not here.
 - The crawl fetches boards in worker threads (`crawl_workers`), but only the fetching:
-  normalizing, `db.upsert_job` and closing stay on the calling thread, in registry order. The
-  `Database` is one SQLite connection — never touch it from a worker thread, in the crawl or in an
-  adapter.
+  normalizing, `db.upsert_job` and closing stay on the calling thread, in registry order.
+  `evaluate` likewise makes only its LLM calls in worker threads (`evaluate_workers`,
+  `jobscan.evaluate._screen`); every read and save stays on the calling thread. The `Database` is
+  one SQLite connection — never touch it from a worker thread, in the crawl, an adapter or
+  `_screen`.
 - Never describe registry coverage as "comprehensive" — always report the exact
   companies/postings actually processed (this is a hard requirement from the original spec, not
   a style preference).

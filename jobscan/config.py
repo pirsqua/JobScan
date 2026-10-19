@@ -50,6 +50,7 @@ class Settings:
     # copy of the profile's working-hours filter. Empty: none.
     candidate_excluded_time_zones: tuple[str, ...] = ()
     crawl_workers: int = 4
+    evaluate_workers: int = 4
     registry_path: Path | None = None
     backup_dir: Path | None = None
     # The thinking.type sent with each model's calls (None leaves the model's default); which value
@@ -121,8 +122,9 @@ def load_settings(
         candidate_excluded_time_zones=candidate["excluded_time_zones"],
         log_level=env_or("JOBSCAN_LOG_LEVEL", raw.get("log_level", "INFO")),
         http_timeout_seconds=int(raw.get("http_timeout_seconds", 30)),
-        http_user_agent=raw.get("http_user_agent", "JobScan/0.1"),
+        http_user_agent=raw.get("http_user_agent", "JobScan/0.5"),
         crawl_workers=int(raw.get("crawl_workers", 4)),
+        evaluate_workers=int(raw.get("evaluate_workers", 4)),
         anthropic_api_key=env_or("ANTHROPIC_API_KEY", None),
         profile_path=profile_path,
         applications_path=Path(env_or("JOBSCAN_APPLICATIONS_PATH", DEFAULT_APPLICATIONS_PATH)),

@@ -253,6 +253,44 @@ def make_evaluation(job_id: int, worth_applying: bool = True) -> Evaluation:
     )
 
 
+class TestEvaluationHistory:
+    def _job(self, db, settings, sample_company):
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+        return job_id
+
+    def test_re_judging_the_same_text_keeps_the_earlier_verdict(self, db: Database, settings: Settings, sample_company: Company):
+        # Observed: the switch to Sonnet 5.5 overwrote every Sonnet 5 verdict it replaced.
+        job_id = self._job(db, settings, sample_company)
+        db.save_evaluation(dataclasses.replace(make_evaluation(job_id), model_name="older-model"))
+        db.save_evaluation(dataclasses.replace(make_evaluation(job_id), model_name="newer-model", verdict=Verdict.STRONG_MATCH))
+
+        assert db.get_evaluation_for_job(job_id).model_name == "newer-model"
+        assert db.get_evaluation_by_hash("hash-1").model_name == "newer-model"
+        rows = db.conn.execute("SELECT model_name FROM evaluations WHERE job_id = ? ORDER BY id", (job_id,)).fetchall()
+        assert [r["model_name"] for r in rows] == ["older-model", "newer-model"]
+
+    def test_an_older_database_is_rebuilt_without_the_one_verdict_limit(self, settings: Settings, sample_company: Company):
+        with Database(settings.db_path) as db:
+            job_id = self._job(db, settings, sample_company)
+            db.save_evaluation(make_evaluation(job_id))
+            # Put the table back the way older databases have it.
+            sql = db.conn.execute("SELECT sql FROM sqlite_master WHERE name = 'evaluations'").fetchone()["sql"]
+            db.conn.executescript(
+                "DROP INDEX evaluations_by_job; DROP INDEX evaluations_by_hash;"
+                "ALTER TABLE evaluations RENAME TO evaluations_new;"
+                + sql.rstrip().rstrip(")") + ", UNIQUE (job_id, description_hash));"
+                "INSERT INTO evaluations SELECT * FROM evaluations_new; DROP TABLE evaluations_new;"
+            )
+
+        with Database(settings.db_path) as db:
+            sql = db.conn.execute("SELECT sql FROM sqlite_master WHERE name = 'evaluations'").fetchone()["sql"]
+            assert "UNIQUE" not in sql
+            assert db.get_evaluation_for_job(job_id).primary_rejection_reason == "not gettable"
+            db.save_evaluation(make_evaluation(job_id))
+            assert db.conn.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0] == 2
+
+
 class TestEvaluationPersistence:
     def test_worth_applying_round_trips(self, db: Database, settings: Settings, sample_company: Company):
         sample_company.id = db.upsert_company(sample_company)

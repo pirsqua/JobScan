@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import threading
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -131,6 +132,85 @@ def seed_job(db: Database, settings, company: Company, source_job_id="1", title=
     return db.get_job(job_id)
 
 
+class ConcurrentSdk:
+    """Answers any call with a valid evaluation, from any thread; with a barrier, a call waits until
+    that many are in flight at once — so a test passes only if calls really overlap."""
+
+    def __init__(self, barrier: threading.Barrier | None = None, fail: bool = False):
+        self.calls = 0
+        self._lock = threading.Lock()
+        self._barrier = barrier
+        self._fail = fail
+        self.messages = self
+
+    def create(self, **kwargs):
+        with self._lock:
+            self.calls += 1
+        if self._barrier is not None:
+            self._barrier.wait(timeout=10)
+        if self._fail:
+            return SimpleNamespace(content=[], usage=SimpleNamespace(input_tokens=1, output_tokens=0),
+                                   stop_reason="refusal", stop_details=SimpleNamespace(category="cyber"))
+        return eval_response(VALID_EVAL_INPUT)
+
+
+class TestParallelEvaluation:
+    def _seed(self, db, settings, descriptions):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        return [seed_job(db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}",
+                         description=f"{text} $180,000 - $220,000 per year.")
+                for i, text in enumerate(descriptions)]
+
+    def test_llm_calls_overlap_and_every_verdict_is_saved(self, db: Database, settings):
+        jobs = self._seed(db, settings, [f"We build product {i}." for i in range(6)])
+        sdk = ConcurrentSdk(barrier=threading.Barrier(3))
+
+        stats = evaluate_all(db, dataclasses.replace(settings, evaluate_workers=3),
+                             client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert sdk.calls == 6 and stats.sent_to_llm == 6
+        assert all(db.get_evaluation_for_job(job.id) is not None for job in jobs)
+
+    def test_postings_sharing_a_description_still_cost_one_call(self, db: Database, settings):
+        jobs = self._seed(db, settings, ["We build product A.", "We build product A.", "We build product B."])
+        sdk = ConcurrentSdk()
+
+        stats = evaluate_all(db, dataclasses.replace(settings, evaluate_workers=3),
+                             client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert sdk.calls == 2
+        assert (stats.sent_to_llm, stats.cache_hits) == (2, 1)
+        assert all(db.get_evaluation_for_job(job.id) is not None for job in jobs)
+
+    def test_a_failed_call_leaves_its_followers_awaiting_too(self, db: Database, settings):
+        self._seed(db, settings, ["We build product A.", "We build product A."])
+
+        stats = evaluate_all(db, dataclasses.replace(settings, evaluate_workers=2),
+                             client=AnthropicClient(api_key=None, model="test-model", client=ConcurrentSdk(fail=True)))
+
+        assert (stats.llm_errors, stats.unverified, stats.sent_to_llm) == (1, 2, 0)
+
+    def test_a_limit_runs_one_at_a_time_and_is_exact(self, db: Database, settings):
+        self._seed(db, settings, [f"We build product {i}." for i in range(5)])
+        sdk = ConcurrentSdk()
+
+        stats = evaluate_all(db, dataclasses.replace(settings, evaluate_workers=4), limit=2,
+                             client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert sdk.calls == 2 and stats.sent_to_llm == 2
+
+    def test_a_dry_run_makes_no_calls_and_logs_no_run(self, db: Database, settings):
+        self._seed(db, settings, ["We build product A.", "We build product B."])
+        sdk = ConcurrentSdk()
+
+        stats = evaluate_all(db, dataclasses.replace(settings, anthropic_api_key="sk-test", triage_model="t"),
+                             client=AnthropicClient(api_key=None, model="test-model", client=sdk), dry_run=True)
+
+        assert sdk.calls == 0
+        assert stats.unverified == 2
+        assert db.latest_evaluation_run() is None
+
+
 class TestEvaluateAll:
     def test_factual_rejection_skips_llm(self, db: Database, settings):
         company = seed_company(db)
@@ -246,6 +326,29 @@ class TestEvaluateAll:
         assert stats.factual_rejected == 0
         evaluation = db.get_evaluation_for_job(job.id)
         assert evaluation.verdict == Verdict.STRONG_MATCH
+
+    def test_a_manual_override_is_saved_once_not_every_run(self, db: Database, settings):
+        company = seed_company(db)
+        job = seed_job(db, settings, company)
+        db.set_manual_override(
+            ManualOverride("job", job.id, "verdict", "strong_match", "I know this role", datetime.now(timezone.utc))
+        )
+        for _ in range(3):
+            evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])))
+
+        assert db.conn.execute("SELECT COUNT(*) FROM evaluations WHERE job_id = ?", (job.id,)).fetchone()[0] == 1
+
+    def test_postings_sharing_a_description_do_not_grow_the_history_every_run(self, db: Database, settings):
+        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        same_description = "We build our own SaaS product. $180,000 - $220,000 per year."
+        seed_job(db, settings, company, source_job_id="1", description=same_description)
+        seed_job(db, settings, company, source_job_id="2", title="Senior Backend Engineer II", description=same_description)
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([eval_response(VALID_EVAL_INPUT)]))
+
+        for _ in range(3):
+            evaluate_all(db, settings, client=client)
+
+        assert db.conn.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0] == 2
 
     def test_company_classification_override_rejects_without_llm_classification_call(self, db: Database, settings):
         company = seed_company(db)  # unknown by default
@@ -626,6 +729,26 @@ class TestRubricVersion:
         refreshed = db.get_evaluation_for_job(job.id)
         assert refreshed.verdict == Verdict.REJECT
         assert refreshed.rubric_version == full_rubric(settings)
+
+    def test_reverting_a_rubric_change_brings_the_earlier_verdict_back_for_free(self, db: Database, settings):
+        # Evaluations keep their history, so the verdict made under the restored rubric is still
+        # there: a refresh copies it forward instead of paying for a new evaluation.
+        job = self._evaluate_once(db, settings)
+        experimental = dataclasses.replace(
+            db.get_evaluation_for_job(job.id), id=None, verdict=Verdict.REJECT, rubric_version="experimental-rubric",
+            created_at=datetime.now(timezone.utc),
+        )
+        db.save_evaluation(experimental)
+        sdk = FakeSdkClient([])
+
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
+        )
+
+        assert sdk.messages.call_count == 0
+        assert stats.cache_hits == 1
+        current = db.get_evaluation_for_job(job.id)
+        assert current.verdict == Verdict.STRONG_MATCH and current.rubric_version == full_rubric(settings)
 
     def test_refresh_stale_leaves_current_verdicts_alone(self, db: Database, settings):
         self._evaluate_once(db, settings)

@@ -31,7 +31,8 @@ crawl ──► title gate ──► factual filters ──► triage (Haiku) �
    overrules location quotes that offer remote work or don't actually exclude your state or time
    zone. Anything else goes to the full evaluation.
 4. **Full evaluation (main model).** One structured call per posting, against your candidate
-   profile: requirement by requirement (required vs. preferred, by the posting's own wording),
+   profile: first what the team's engineers actually do day to day and whether that work is in
+   your lane, then requirement by requirement (required vs. preferred, by the posting's own wording),
    growth dimensions, hidden staff-level scope, compensation, remote eligibility and working
    hours, then scope fit, verdict and a yes/no on whether it's worth applying. The model isn't
    deterministic, so a borderline result judged not worth applying gets one more evaluation and the
@@ -42,6 +43,33 @@ crawl ──► title gate ──► factual filters ──► triage (Haiku) �
 
 Verdicts are cached by description text: a posting is re-judged only when its text changes, or on
 request after the rubric changes (see [Changing the rubric](#changing-the-rubric)).
+
+## Design notes
+
+The engineering choices worth a look, for anyone reading the code:
+
+- **Field order is reasoning order.** Each LLM call returns one JSON object (structured outputs)
+  with thinking off, written in schema order, so `JobEvaluationResult`
+  (`jobscan/llm/schemas.py`) lists what the job is, then the evidence and analysis, then the
+  verdict. With the verdict first, the model decided and then rationalized.
+- **Code checks the model wherever it can.** A triage skip must quote the posting, and
+  `skip_is_substantiated` (`jobscan/llm/triage.py`) verifies the quote and decides the title and
+  location categories itself — it can only turn a skip into a full evaluation, never the reverse.
+  The report's tiers (`jobscan/reports/data.py`) come from the requirement-by-requirement evidence
+  and are capped by the fit of the day-to-day work, not the model's one-word verdict.
+- **Code-side rejections err toward keeping.** No model ever sees what the title gate, the
+  salary/location parsers or the factual filters reject, so each resolves ambiguity toward keeping
+  a posting, and every change to them is measured against the real postings in the database.
+- **Verdicts know what made them.** Each records a fingerprint of the prompt, schema, profile and
+  model behind it, and every evaluation is kept. A rubric change is validated on known postings,
+  sized with a dry run, applied with `--refresh-stale` — and can be reverted at no cost.
+- **Built for a non-deterministic model.** The same posting can come back with different verdicts,
+  so a near-miss gets a second evaluation and rubric changes are judged over several runs of known
+  postings, never one.
+- **Cost and speed are designed in.** The system prompt and profile are cached across calls, a cheap
+  model screens before the expensive one, `--dry-run` prices a run before it spends, and every run
+  reports its actual cost. Board fetches and LLM calls run in worker threads while every database
+  read and write stays on one thread.
 
 ## Getting started (Windows, PowerShell)
 
@@ -72,9 +100,10 @@ Copy-Item data\applications.example.yaml        "$data\applications.yaml"
 Then make them yours:
 - **`candidate_profile.yaml`** — your resume facts (skills, accomplishments, work history), the
   roles you want and don't, how to read qualification language, and the hard filters. It also sets
-  the numbers code uses: `min_base_salary`, `candidate_state` / `candidate_state_name` (the state
-  you can be employed in) and `candidate_time_zone`. Every evaluation is judged against this file,
-  so it's where to tune what gets recommended.
+  the facts code uses: `min_base_salary`, `candidate_state` / `candidate_state_name` (the state
+  you can be employed in), `candidate_time_zone`, and optionally `excluded_time_zones` (zones whose
+  working hours rule a posting out, required or merely preferred). Every evaluation is judged
+  against this file, so it's where to tune what gets recommended.
 - **`companies.yaml`** — the companies to search; see [The employer registry](#the-employer-registry).
 - **`applications.yaml`** — delete the example entry; add one per role you apply to (see
   [Daily use](#daily-use)).
@@ -140,7 +169,7 @@ To see why postings were filtered out — useful for spotting a wrongly rejected
 | Command | What it does |
 |---|---|
 | `crawl` | Fetch current postings for every active company |
-| `evaluate [--limit N] [--refresh-stale]` | Filter and screen new/changed postings. `--limit` caps real LLM calls; `--refresh-stale` also re-screens verdicts made under an older rubric |
+| `evaluate [--limit N] [--refresh-stale] [--dry-run]` | Filter and screen new/changed postings. `--limit` caps real LLM calls; `--refresh-stale` also re-screens verdicts made under an older rubric; `--dry-run` only counts and prices what would be sent |
 | `report [--out DIR]` | Write the Markdown/CSV/JSON report from the current database |
 | `run [--out DIR] [--limit N] [--refresh-stale]` | `crawl`, `evaluate` and `report` in sequence, then a verified database backup if `JOBSCAN_BACKUP_DIR` is set |
 | `audit [--out DIR]` | Every filtered posting and the reason (factual filter, triage or full evaluation) |
@@ -161,17 +190,17 @@ and both LLM calls cache the shared system prompt and candidate profile. A daily
 sends only new or changed postings, so it usually costs cents; the first run over a new registry,
 and re-screening the whole cached set after a rubric change, are the expensive operations.
 
-Check what a run would send before running it — this applies the real filters with no API calls
-and stores no verdicts (it does log a run, so a `report` right after it shows the dry run's
-statistics until the next real `evaluate`):
+Check what a run would send before running it:
 
 ```powershell
-python -c "import dataclasses; from jobscan.config import load_settings; from jobscan.db import Database; from jobscan.evaluate import evaluate_all; s = dataclasses.replace(load_settings(), anthropic_api_key=None); print(evaluate_all(Database(s.db_path), s).unverified, 'postings would be sent')"
+python -m jobscan evaluate --dry-run                   # what the next run would send
+python -m jobscan evaluate --dry-run --refresh-stale   # what a re-screen after a rubric change would
 ```
 
-(`evaluate_all(..., refresh_stale=True)` counts a full re-screen the same way.) Each run prints its
-estimated cost, computed from the pricing table in `config/settings.yaml` — keep that table in
-step with current model prices.
+A dry run applies the real filters, makes no API calls, and prints how many postings would be sent
+with a cost estimate at your recent per-evaluation average. It logs no run, so the next report still
+shows the last real one. Each real run prints its estimated cost, computed from the pricing table
+in `config/settings.yaml` — keep that table in step with current model prices.
 
 ## Changing the rubric
 
@@ -181,18 +210,23 @@ them (`config/settings.yaml`). Every verdict records a fingerprint of the rubric
 under — full evaluations and triage screen-outs separately. Changing any of them doesn't re-judge
 cached verdicts; it marks them stale. `evaluate --refresh-stale` re-screens the stale ones (a
 profile change marks everything stale, a triage prompt or model change only triage
-screen-outs). The profile's code-only keys (`candidate_state`, `candidate_time_zone`,
-`excluded_time_zones`) aren't part of the fingerprint. Dry-run a refresh first, and validate a change on a handful of known
-postings — some that should pass, some that must stay rejected — before re-screening everything.
+screen-outs). Every evaluation is kept, so reverting a change brings the earlier verdicts back on
+the next `--refresh-stale` without new API calls. The profile's code-only keys
+(`candidate_state`, `candidate_time_zone`, `excluded_time_zones`) aren't part of the fingerprint.
+Dry-run a refresh first (`evaluate --dry-run --refresh-stale`), and validate a change on a handful
+of known postings — some that should pass, some that must stay rejected — before re-screening
+everything.
 
 ## Configuration
 
 - **`.env`** (never committed) — `ANTHROPIC_API_KEY`, the paths to your personal files
   (`JOBSCAN_PROFILE_PATH`, `JOBSCAN_REGISTRY_PATH`, `JOBSCAN_APPLICATIONS_PATH`), the backup folder
-  (`JOBSCAN_BACKUP_DIR`), and optional overrides (`JOBSCAN_DB_PATH`, `JOBSCAN_ANTHROPIC_MODEL`,
-  `JOBSCAN_LOG_LEVEL`).
-- **`config/settings.yaml`** — main and triage model, pricing for cost estimates, crawl
-  concurrency (`crawl_workers`) and HTTP settings, database and output paths. Nothing personal.
+  (`JOBSCAN_BACKUP_DIR`), and optional overrides of `config/settings.yaml`: `JOBSCAN_DB_PATH`,
+  `JOBSCAN_OUTPUT_DIR`, `JOBSCAN_ANTHROPIC_MODEL`, `JOBSCAN_ANTHROPIC_THINKING`,
+  `JOBSCAN_TRIAGE_MODEL`, `JOBSCAN_TRIAGE_THINKING` and `JOBSCAN_LOG_LEVEL`.
+- **`config/settings.yaml`** — main and triage model, pricing for cost estimates, crawl and
+  evaluation concurrency (`crawl_workers`, `evaluate_workers`), HTTP settings, database and output
+  paths. Nothing personal.
 - **Your candidate profile** — everything about you, including the salary floor, state and time
   zone; see [Getting started](#getting-started-windows-powershell).
 
@@ -240,7 +274,8 @@ some Avature tenants) stay inactive too, to check by hand.
 
 The database is `data/jobscan.db` (SQLite, never committed): every crawled posting and every
 evaluation. Closed postings are marked closed, never deleted, and a posting's previous text is
-snapshotted whenever it changes, so `crawl` is always safe to re-run.
+snapshotted whenever it changes, so `crawl` is always safe to re-run. Re-judging a posting adds a
+new evaluation rather than replacing the old one; the newest is current.
 
 The database stays on the local disk — a sync client working on a live SQLite file can capture it
 mid-write — and is backed up instead. When `JOBSCAN_BACKUP_DIR` is set, every `run` ends by
@@ -252,9 +287,10 @@ exits non-zero). To restore, decompress it over the database:
 
 ```powershell
 python -c "import gzip, shutil; shutil.copyfileobj(gzip.open(r'<backup folder>\jobscan.db.gz'), open(r'data\jobscan.db', 'wb'))"
-``` A synced folder such as Google Drive
-also keeps earlier versions of the file. Your profile, registry and applications live wherever
-`.env` points.
+```
+
+A synced folder such as Google Drive also keeps earlier versions of the file. Your profile,
+registry and applications live wherever `.env` points.
 
 ## Development
 
@@ -278,3 +314,7 @@ order, the crawl's threading rule, where personal data lives).
 - LLM judgment is fallible in both directions. Spot-check skips with `audit` now and then — a
   sampled second opinion on triage skips has found misses before.
 - A CLI you run when you want fresh results — no scheduler or UI.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

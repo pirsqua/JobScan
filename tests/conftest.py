@@ -46,6 +46,9 @@ def settings(tmp_path: Path) -> Settings:
         log_level="WARNING",
         http_timeout_seconds=5,
         http_user_agent="JobScan-Test/0.1",
+        # One at a time, so stub clients hand out their queued responses in a fixed order; the
+        # parallel path has its own tests.
+        evaluate_workers=1,
         anthropic_api_key=None,
         # The committed example, never the candidate's real (private) profile.
         profile_path=EXAMPLE_PROFILE,

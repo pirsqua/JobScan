@@ -6,7 +6,8 @@ override short-circuits the automated pipeline for that entity.
 """
 from __future__ import annotations
 
-from dataclasses import replace
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
 import httpx
@@ -67,6 +68,12 @@ def _favourability(evaluation: Evaluation) -> tuple:
         _VERDICT_RANK[evaluation.verdict],
         evaluation.evidence_coverage_percent,
     )
+
+
+def _same_verdict(current: Evaluation | None, cached: Evaluation) -> bool:
+    """Whether ``current`` already is ``cached`` or a copy of it — copies keep the original's
+    timestamp, so a verdict shared by postings with the same text isn't copied again every run."""
+    return current is not None and current.created_at == cached.created_at and current.model_name == cached.model_name
 
 
 def _count_tokens(stats: EvaluateStats, evaluation: Evaluation) -> None:
@@ -160,6 +167,71 @@ def _manual_override_evaluation(job: JobPosting, company: Company, verdict: Verd
     )
 
 
+@dataclass
+class _Screening:
+    """What the LLM calls for one posting produced. Made in a worker thread, recorded on the main
+    thread — the Database is one SQLite connection."""
+
+    job: JobPosting
+    company: Company
+    triage: TriageResult | None = None
+    triage_tokens: tuple[int, int, int, int] = (0, 0, 0, 0)
+    triage_error: str | None = None
+    triage_overruled: bool = False
+    # A substantiated triage skip, stored in place of a full evaluation.
+    skip: Evaluation | None = None
+    # Every full evaluation made (two for a near-miss's second look) and the one kept.
+    evaluations: list[Evaluation] = field(default_factory=list)
+    chosen: Evaluation | None = None
+    error: str | None = None
+    second_look_error: str | None = None
+
+
+def _screen(
+    job: JobPosting, company: Company, profile: dict, profile_text: str, client: AnthropicClient,
+    triage_client: AnthropicClient | None, settings: Settings, full_rubric: str, triage_rubric: str,
+) -> _Screening:
+    """The LLM calls for one posting: triage, then — unless triage substantiates a skip — the full
+    evaluation, and a second look for a near-miss. Touches no database, so it's safe to run in a
+    worker thread."""
+    outcome = _Screening(job, company)
+    if triage_client is not None:
+        try:
+            result, t_in, t_out, t_cache_w, t_cache_r = triage_job(triage_client, profile_text, company, job)
+        except LlmCallError as exc:
+            # A failed triage call is not evidence of a safe reject — go on to the full evaluation
+            # rather than risk silently dropping a real opportunity.
+            outcome.triage_error = str(exc)
+        else:
+            outcome.triage, outcome.triage_tokens = result, (t_in, t_out, t_cache_w, t_cache_r)
+            if result.skip_full_evaluation:
+                if skip_is_substantiated(
+                    result, job, settings.candidate_state, settings.candidate_state_name,
+                    settings.candidate_time_zone, settings.candidate_excluded_time_zones,
+                ):
+                    outcome.skip = _build_triage_skip_evaluation(job, company, result, triage_client.model, triage_rubric)
+                    return outcome
+                outcome.triage_overruled = True
+
+    try:
+        evaluation = replace(evaluate_job(client, profile, company, job), rubric_version=full_rubric)
+    except LlmCallError as exc:
+        outcome.error = str(exc)
+        return outcome
+    outcome.evaluations.append(evaluation)
+    if _is_near_miss(evaluation):
+        try:
+            second = replace(evaluate_job(client, profile, company, job), rubric_version=full_rubric)
+        except LlmCallError as exc:
+            outcome.second_look_error = str(exc)
+        else:
+            outcome.evaluations.append(second)
+            if _favourability(second) > _favourability(evaluation):
+                evaluation = second
+    outcome.chosen = evaluation
+    return outcome
+
+
 def evaluate_all(
     db: Database,
     settings: Settings,
@@ -167,10 +239,13 @@ def evaluate_all(
     triage_client: AnthropicClient | None = None,
     limit: int | None = None,
     refresh_stale: bool = False,
+    dry_run: bool = False,
 ) -> EvaluateStats:
     """``limit``, if set, caps the number of real LLM calls (job evaluations + company
     classifications + triage screens) made in this run — factual filtering and cache hits are
-    free and unaffected. Useful for bounding spend on a single invocation.
+    free and unaffected. Useful for bounding spend on a single invocation. With a limit, postings
+    are screened one at a time, so the cap is exact; without one, ``settings.evaluate_workers``
+    make their LLM calls in parallel (all database work stays on this thread).
 
     ``refresh_stale`` re-screens postings whose cached verdict was made under a different rubric
     (the prompt, schema, candidate profile or model behind that kind of verdict — see
@@ -178,17 +253,23 @@ def evaluate_all(
     Off by default because it spends money: a rubric change otherwise only reaches new or changed
     postings. Without an API key it just counts them, as unverified, for a cost estimate.
 
+    ``dry_run`` makes no LLM calls whatever the configuration: postings that would go to the LLM
+    are counted as unverified, and the run isn't logged, so a later report still shows the last
+    real run. Factual filtering is real and is recorded as usual.
+
     ``triage_client``, if not overridden, is built from ``settings.triage_model`` when set — a
     cheap first-pass screen (jobscan.llm.triage) that runs before the expensive full evaluation.
     Leave triage_model unset in settings to disable triage entirely."""
     stats = EvaluateStats()
-    run_id = db.start_evaluation_run(stats)
+    run_id = None if dry_run else db.start_evaluation_run(stats)
     profile = load_profile(settings.profile_path)
     profile_text = render_profile_text(profile)
     full_rubric = evaluation_rubric_version(profile_text, settings.anthropic_model, settings.anthropic_thinking)
     triage_rubric = triage_rubric_version(profile_text, settings.triage_model or "", settings.triage_thinking)
 
-    if client is None and settings.anthropic_api_key:
+    if dry_run:
+        client = triage_client = None
+    if client is None and settings.anthropic_api_key and not dry_run:
         client = AnthropicClient(
             api_key=settings.anthropic_api_key,
             model=settings.anthropic_model,
@@ -196,10 +277,10 @@ def evaluate_all(
             timeout_seconds=settings.anthropic_timeout_seconds,
             thinking=settings.anthropic_thinking,
         )
-    if client is None:
+    if client is None and not dry_run:
         logger.warning("no ANTHROPIC_API_KEY configured — postings will be filtered but not LLM-evaluated")
 
-    if triage_client is None and settings.anthropic_api_key and settings.triage_model:
+    if triage_client is None and settings.anthropic_api_key and settings.triage_model and not dry_run:
         triage_client = AnthropicClient(
             api_key=settings.anthropic_api_key,
             model=settings.triage_model,
@@ -209,6 +290,75 @@ def evaluate_all(
         )
     if triage_client is not None:
         stats.triage_model = triage_client.model
+
+    workers = 1 if limit is not None else max(1, settings.evaluate_workers)
+    # Postings waiting for their LLM calls, and later postings with the same description text,
+    # which take a copy of that verdict when it lands — so a role posted in several locations still
+    # costs one evaluation (as the cache gives it when screening runs one at a time).
+    pending: list[tuple[JobPosting, Company]] = []
+    followers: dict[str, list[JobPosting]] = {}
+
+    def screen(job: JobPosting, company: Company) -> _Screening:
+        assert client is not None
+        return _screen(job, company, profile, profile_text, client, triage_client, settings, full_rubric, triage_rubric)
+
+    def record(outcome: _Screening) -> None:
+        job = outcome.job
+        if outcome.triage_error is not None:
+            logger.warning(
+                "triage call failed — proceeding to full evaluation",
+                extra=log_extra(job_id=job.id, title=job.title, error=outcome.triage_error),
+            )
+        if outcome.triage is not None:
+            stats.triaged += 1
+            t_in, t_out, t_cache_w, t_cache_r = outcome.triage_tokens
+            stats.triage_input_tokens += t_in
+            stats.triage_output_tokens += t_out
+            stats.triage_cache_creation_input_tokens += t_cache_w
+            stats.triage_cache_read_input_tokens += t_cache_r
+        if outcome.triage_overruled:
+            stats.triage_overruled += 1
+            logger.info(
+                "triage skip not substantiated by the posting — running the full evaluation",
+                extra=log_extra(
+                    job_id=job.id, title=job.title, disqualifier=outcome.triage.disqualifier,
+                    quote=outcome.triage.disqualifier_quote, reason=outcome.triage.reason,
+                ),
+            )
+
+        saved: Evaluation | None
+        if outcome.skip is not None:
+            stats.triage_skipped += 1
+            saved = outcome.skip
+        else:
+            for evaluation in outcome.evaluations:
+                _count_tokens(stats, evaluation)
+            if outcome.second_look_error is not None:
+                logger.warning("second look failed — keeping the first evaluation",
+                               extra=log_extra(job_id=job.id, title=job.title, error=outcome.second_look_error))
+            if len(outcome.evaluations) > 1:
+                stats.second_looks += 1
+                if outcome.chosen is outcome.evaluations[1]:
+                    stats.second_looks_kept += 1
+            saved = outcome.chosen
+            if saved is None:
+                logger.warning("job evaluation failed", extra=log_extra(job_id=job.id, title=job.title, error=outcome.error))
+                db.record_filter_log(FilterLogEntry(job.id, "llm_error", "llm_call_failed", outcome.error, _now()))
+                stats.unverified += 1
+                stats.llm_errors += 1
+            else:
+                stats.sent_to_llm += 1
+        if saved is not None:
+            db.save_evaluation(saved)
+            stats._bump_new_verdict(saved.verdict.value)
+
+        for follower in followers.pop(job.description_hash, []):
+            if saved is None:
+                stats.unverified += 1
+            else:
+                stats.cache_hits += 1
+                db.save_evaluation(replace(saved, id=None, job_id=follower.id))
+                stats._bump_verdict(saved.verdict.value)
 
     headers = {"User-Agent": settings.http_user_agent}
     with httpx.Client(timeout=settings.http_timeout_seconds, headers=headers) as http_client:
@@ -228,7 +378,11 @@ def evaluate_all(
             if "verdict" in job_overrides:
                 stats.manual_overrides_applied += 1
                 evaluation = _manual_override_evaluation(job, company, Verdict(job_overrides["verdict"]))
-                db.save_evaluation(evaluation)
+                current = db.get_evaluation_for_job(job.id)
+                # Saved once, not on every run: evaluations keep their history.
+                if not (current is not None and current.model_name == "manual_override"
+                        and current.verdict == evaluation.verdict and current.description_hash == job.description_hash):
+                    db.save_evaluation(evaluation)
                 stats._bump_verdict(evaluation.verdict.value)
                 continue
 
@@ -289,9 +443,11 @@ def evaluate_all(
             )
             if cached is not None:
                 stats.cache_hits += 1
-                if cached.job_id != job.id:
-                    cached = replace(cached, id=None, job_id=job.id)
-                    db.save_evaluation(cached)
+                # A verdict made for another posting with the same text, or an older verdict of this
+                # posting whose rubric is current again (a reverted change): copy it forward so it's
+                # the posting's newest — what the report reads.
+                if not _same_verdict(db.get_evaluation_for_job(job.id), cached):
+                    db.save_evaluation(replace(cached, id=None, job_id=job.id))
                 stats._bump_verdict(cached.verdict.value)
                 continue
 
@@ -299,72 +455,22 @@ def evaluate_all(
                 stats.unverified += 1
                 continue
 
-            if triage_client is not None:
-                try:
-                    triage_result, t_in, t_out, t_cache_w, t_cache_r = triage_job(
-                        triage_client, profile_text, company, job
-                    )
-                except LlmCallError as exc:
-                    # A failed triage call is not evidence of a safe reject — proceed to the full
-                    # evaluation rather than risk silently dropping a real opportunity.
-                    logger.warning(
-                        "triage call failed — proceeding to full evaluation",
-                        extra=log_extra(job_id=job.id, title=job.title, error=str(exc)),
-                    )
-                else:
-                    stats.triaged += 1
-                    stats.triage_input_tokens += t_in
-                    stats.triage_output_tokens += t_out
-                    stats.triage_cache_creation_input_tokens += t_cache_w
-                    stats.triage_cache_read_input_tokens += t_cache_r
-                    if triage_result.skip_full_evaluation and not skip_is_substantiated(
-                        triage_result, job, settings.candidate_state, settings.candidate_state_name,
-                        settings.candidate_time_zone, settings.candidate_excluded_time_zones,
-                    ):
-                        stats.triage_overruled += 1
-                        logger.info(
-                            "triage skip not substantiated by the posting — running the full evaluation",
-                            extra=log_extra(
-                                job_id=job.id, title=job.title, disqualifier=triage_result.disqualifier,
-                                quote=triage_result.disqualifier_quote, reason=triage_result.reason,
-                            ),
-                        )
-                    elif triage_result.skip_full_evaluation:
-                        stats.triage_skipped += 1
-                        skip_evaluation = _build_triage_skip_evaluation(
-                            job, company, triage_result, triage_client.model, triage_rubric
-                        )
-                        db.save_evaluation(skip_evaluation)
-                        stats._bump_new_verdict(skip_evaluation.verdict.value)
-                        continue
+            if job.description_hash in followers:
+                followers[job.description_hash].append(job)
+            elif workers == 1:
+                followers[job.description_hash] = []
+                record(screen(job, company))
+            else:
+                followers[job.description_hash] = []
+                pending.append((job, company))
 
-            try:
-                evaluation = replace(evaluate_job(client, profile, company, job), rubric_version=full_rubric)
-            except LlmCallError as exc:
-                logger.warning("job evaluation failed", extra=log_extra(job_id=job.id, title=job.title, error=str(exc)))
-                db.record_filter_log(FilterLogEntry(job.id, "llm_error", "llm_call_failed", str(exc), _now()))
-                stats.unverified += 1
-                stats.llm_errors += 1
-                continue
-            _count_tokens(stats, evaluation)
-
-            if _is_near_miss(evaluation):
-                try:
-                    second = replace(evaluate_job(client, profile, company, job), rubric_version=full_rubric)
-                except LlmCallError as exc:
-                    logger.warning("second look failed — keeping the first evaluation",
-                                   extra=log_extra(job_id=job.id, title=job.title, error=str(exc)))
-                else:
-                    stats.second_looks += 1
-                    _count_tokens(stats, second)
-                    if _favourability(second) > _favourability(evaluation):
-                        stats.second_looks_kept += 1
-                        evaluation = second
-
-            db.save_evaluation(evaluation)
-            stats.sent_to_llm += 1
-            stats._bump_new_verdict(evaluation.verdict.value)
+    if pending:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(screen, job, company) for job, company in pending]
+            for future in as_completed(futures):
+                record(future.result())
 
     stats.finished_at = _now()
-    db.finish_evaluation_run(run_id, stats)
+    if run_id is not None:
+        db.finish_evaluation_run(run_id, stats)
     return stats

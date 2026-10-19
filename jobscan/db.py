@@ -8,6 +8,7 @@ list/dict fields as JSON text.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -130,8 +131,7 @@ CREATE TABLE IF NOT EXISTS evaluations (
     model_name TEXT,
     input_tokens INTEGER,
     output_tokens INTEGER,
-    created_at TEXT NOT NULL,
-    UNIQUE (job_id, description_hash)
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS manual_overrides (
@@ -252,6 +252,29 @@ class Database:
             "UPDATE evaluations SET scope_fit = 'not_assessed' "
             "WHERE model_name LIKE 'triage:%' AND scope_fit != 'not_assessed'"
         )
+        self._keep_evaluation_history()
+        self.conn.execute("CREATE INDEX IF NOT EXISTS evaluations_by_job ON evaluations (job_id, id)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS evaluations_by_hash ON evaluations (description_hash, id)")
+
+    def _keep_evaluation_history(self) -> None:
+        """Evaluations were once unique per posting and description text, so re-judging unchanged
+        text — a refresh, a model switch — overwrote the earlier verdict (observed: the switch to
+        Sonnet 5.5 erased every Sonnet 5 verdict it replaced). Rebuild the table without that
+        constraint: every evaluation is kept, and the newest one is current."""
+        sql = self.conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'evaluations'").fetchone()["sql"]
+        unique = re.search(r",\s*UNIQUE\s*\(\s*job_id\s*,\s*description_hash\s*\)", sql)
+        if unique is None:
+            return
+        self.conn.execute("BEGIN")
+        try:
+            self.conn.execute("ALTER TABLE evaluations RENAME TO evaluations_old")
+            self.conn.execute(sql[:unique.start()] + sql[unique.end():])
+            self.conn.execute("INSERT INTO evaluations SELECT * FROM evaluations_old")
+            self.conn.execute("DROP TABLE evaluations_old")
+            self.conn.execute("COMMIT")
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
 
     def _add_column_if_missing(self, table: str, column: str, sql_type: str) -> None:
         existing = {row["name"] for row in self.conn.execute(f"PRAGMA table_info({table})")}
@@ -620,6 +643,22 @@ class Database:
     # Evaluations
     # ------------------------------------------------------------------
 
+    def average_evaluation_tokens(self, model_name: str, recent: int = 100) -> EvaluateStats | None:
+        """Mean token counts of the latest ``recent`` evaluations by ``model_name`` (input, output,
+        cache writes, cache reads), for estimating a run's cost before making it."""
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS n, AVG(input_tokens) AS i, AVG(output_tokens) AS o, "
+            "AVG(cache_creation_input_tokens) AS w, AVG(cache_read_input_tokens) AS r FROM "
+            "(SELECT * FROM evaluations WHERE model_name = ? AND output_tokens IS NOT NULL ORDER BY id DESC LIMIT ?)",
+            (model_name, recent),
+        ).fetchone()
+        if not row["n"]:
+            return None
+        return EvaluateStats(
+            input_tokens=round(row["i"] or 0), output_tokens=round(row["o"] or 0),
+            cache_creation_input_tokens=round(row["w"] or 0), cache_read_input_tokens=round(row["r"] or 0),
+        )
+
     def get_evaluation_by_hash(
         self, description_hash: str, rubric_versions: tuple[str, ...] | None = None
     ) -> Evaluation | None:
@@ -733,32 +772,6 @@ class Database:
                 cache_creation_input_tokens, cache_read_input_tokens, created_at, rubric_version,
                 working_hours_quote, working_hours_fit, day_to_day_work, work_fit)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-               ON CONFLICT(job_id, description_hash) DO UPDATE SET
-                 verdict=excluded.verdict, confidence=excluded.confidence,
-                 scope_fit=excluded.scope_fit,
-                 evidence_coverage_percent=excluded.evidence_coverage_percent,
-                 specialist_tenure_json=excluded.specialist_tenure_json,
-                 requirement_evidence_json=excluded.requirement_evidence_json,
-                 growth_dimensions=excluded.growth_dimensions,
-                 hidden_staff_signals=excluded.hidden_staff_signals,
-                 compensation_assessment=excluded.compensation_assessment,
-                 remote_employment_verification=excluded.remote_employment_verification,
-                 required_matches=excluded.required_matches, required_gaps=excluded.required_gaps,
-                 preferred_only_gaps=excluded.preferred_only_gaps,
-                 minor_caveats=excluded.minor_caveats,
-                 evidence=excluded.evidence, credibility_assessment=excluded.credibility_assessment,
-                 why_this_is_or_is_not_gettable=excluded.why_this_is_or_is_not_gettable,
-                 is_product_company=excluded.is_product_company,
-                 primary_rejection_reason=excluded.primary_rejection_reason,
-                 worth_applying=excluded.worth_applying,
-                 model_name=excluded.model_name, input_tokens=excluded.input_tokens,
-                 output_tokens=excluded.output_tokens,
-                 cache_creation_input_tokens=excluded.cache_creation_input_tokens,
-                 cache_read_input_tokens=excluded.cache_read_input_tokens,
-                 created_at=excluded.created_at, rubric_version=excluded.rubric_version,
-                 working_hours_quote=excluded.working_hours_quote,
-                 working_hours_fit=excluded.working_hours_fit,
-                 day_to_day_work=excluded.day_to_day_work, work_fit=excluded.work_fit
                """,
             (
                 evaluation.job_id, evaluation.description_hash, evaluation.verdict.value,
@@ -780,7 +793,7 @@ class Database:
                 evaluation.work_fit.value if evaluation.work_fit else None,
             ),
         )
-        return cur.lastrowid or self.get_evaluation_for_job(evaluation.job_id).id
+        return cur.lastrowid
 
     # ------------------------------------------------------------------
     # Manual overrides

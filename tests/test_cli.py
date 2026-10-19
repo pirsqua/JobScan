@@ -14,6 +14,10 @@ import respx
 import yaml
 
 from jobscan.cli import main
+from jobscan.config import load_settings
+from jobscan.db import Database
+from jobscan.models import AtsType, ClassificationSource, Company, CompanyClassification, RawPosting
+from jobscan.normalize import normalize_posting
 
 COMPANIES_CSV = """name,domain,ats_type,board_id,classification
 Acme Corp,acme.example.com,greenhouse,acme,product
@@ -25,7 +29,8 @@ def _clean_jobscan_env(monkeypatch):
     # main() loads settings from the real environment/.env — strip anything that could make
     # these tests depend on the host machine's ambient configuration. (The personal-file paths
     # are pinned to the example and temp paths by conftest's _isolate_personal_paths.)
-    for key in ("JOBSCAN_DB_PATH", "JOBSCAN_OUTPUT_DIR", "JOBSCAN_ANTHROPIC_MODEL", "JOBSCAN_LOG_LEVEL"):
+    for key in ("JOBSCAN_DB_PATH", "JOBSCAN_OUTPUT_DIR", "JOBSCAN_ANTHROPIC_MODEL", "JOBSCAN_LOG_LEVEL",
+                "JOBSCAN_ANTHROPIC_THINKING", "JOBSCAN_TRIAGE_MODEL", "JOBSCAN_TRIAGE_THINKING"):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -151,6 +156,32 @@ class TestCrawlCommand:
         assert "Companies successfully crawled: 1" in out
         assert "Postings fetched (all departments): 1" in out
         assert "Skipped as outside the software-engineering job family: 0" in out
+
+
+class TestEvaluateDryRun:
+    def test_counts_what_would_be_sent_without_calling_the_api(self, settings_path, monkeypatch, capsys):
+        # A key is set, so a real client would be built — the dry run must still make no call.
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-unused")
+        settings = load_settings(settings_path=settings_path, load_dotenv_file=False)
+        with Database(settings.db_path) as db:
+            company = Company(
+                name="Acme", domain="acme.example.com", careers_url=None, ats_type=AtsType.GREENHOUSE,
+                board_id="acme", classification=CompanyClassification.PRODUCT,
+                classification_source=ClassificationSource.SEED,
+            )
+            company.id = db.upsert_company(company)
+            db.upsert_job(normalize_posting(RawPosting(
+                source_job_id="1", title="Senior Backend Engineer", location_raw="Remote - US",
+                employment_type_raw="Full-time",
+                description_html="<p>We build our own SaaS product. $180,000 - $220,000 per year.</p>",
+                description_text=None, posting_url="https://acme.example.com/jobs/1", apply_url=None,
+            ), company, settings))
+
+        assert main(["--settings", str(settings_path), "evaluate", "--dry-run"]) == 0
+
+        assert "Dry run, no API calls: 1 postings would be sent to the LLM" in capsys.readouterr().out
+        with Database(settings.db_path) as db:
+            assert db.latest_evaluation_run() is None
 
 
 class TestRunBackup:
