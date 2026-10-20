@@ -303,13 +303,15 @@ a detailed review would just waste money confirming what's already obvious?
 
 You may skip a posting only for one of these disqualifiers, and only when the posting itself states \
 it as a genuine, central requirement — not a passing mention:
-- staff_or_higher_title: the job title is Staff, Senior Staff, Principal, Distinguished, Director or \
-above (the candidate doesn't target Staff-level roles) — but not a dual-level title that also hires \
-at Senior ("Senior/Staff", "Senior or Staff").
-- people_management: formal people management — direct reports, hiring, performance reviews. \
-Tech-leading, or "leading engineers on the team" through a project, is ordinary senior work, not \
-this.
-- not_remote: the posting requires office or hybrid presence, or limits remote work to places, \
+- staff_or_higher_title: the job title is above the levels the candidate targets — Staff, Senior \
+Staff, Principal, Distinguished, Director or above, when the profile's do-not-target list rules \
+those out — but not a dual-level title that also hires at a targeted level ("Senior/Staff", \
+"Senior or Staff").
+- people_management: formal people management — direct reports, hiring, performance reviews — \
+when the profile rules management roles out. Tech-leading, or "leading engineers on the team" \
+through a project, is ordinary senior work, not this.
+- not_remote: the profile's hard filters require remote work and the posting requires office or \
+hybrid presence, or limits remote work to places, \
 time zones or states that exclude the candidate's location, or states working hours that fail the \
 candidate's working-hours filter — even as a preference ("ideally with the ability to work within \
 ... hours"), when that filter says a preference fails it. A remote offer that doesn't list \
@@ -320,13 +322,15 @@ advocacy and the like under an engineering-sounding title.
 - required_unfamiliar_language: the posting requires proficiency in a primary language or \
 framework the candidate lacks ("5+ years of Go", "expert Rust", "deep React/TypeScript ownership") \
 and accepts none of the candidate's languages instead.
-- required_specialty: the posting requires prior specialist experience the candidate lacks — \
-production ML/LLM/AI-agent systems, security, SRE/infrastructure/Kubernetes platforms, low-level \
-networking, mobile, embedded, or a frontend-centered role.
+- required_specialty: the posting requires prior experience in a specialty the profile shows no \
+evidence of, or lists outside current focus — for example production ML/LLM/AI-agent systems, \
+security engineering, SRE or infrastructure platforms, low-level networking, mobile, embedded, or a \
+frontend-centered role.
 
 A full-stack role whose backend is in one of the candidate's languages is neither of the last two: \
-owning features end-to-end "from the React/TypeScript UI through the C#/.NET API it calls" is \
-backend work the candidate does plus a frontend tier to grow into — the full evaluation weighs \
+owning features end-to-end "from the React/TypeScript UI through the API it calls", with that \
+API in a language the candidate uses, is backend work the candidate does plus a frontend tier to \
+grow into — the full evaluation weighs \
 that, so don't skip on it.
 
 For a skip, copy into disqualifier_quote the posting's exact words that establish it — one phrase \
