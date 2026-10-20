@@ -23,13 +23,12 @@ crawl ──► title gate ──► factual filters ──► triage (Haiku) �
    salary range tops out below your salary floor, or it publishes no salary; when it isn't remote
    (on-site, hybrid, or never mentions remote work) or excludes your state; when it isn't
    full-time; or when the company is confirmed as consulting/staffing.
-3. **Triage (cheap model).** A fast, lenient screen may skip a posting only for a fixed list of
-   reasons — Staff-or-above title, people management, not remote, excluded industry, not an
-   engineering job, a required unfamiliar language, a required specialty — and must quote the
-   posting's own words for it. Code checks the quote is really there, decides Staff+ from the title
-   (unless the posting says it hires at Senior too) and management from a manager title, and
-   overrules location quotes that offer remote work or don't actually exclude your state or time
-   zone. Anything else goes to the full evaluation.
+3. **Triage (cheap model).** A fast, lenient screen may skip a posting only for a short, fixed
+   set of clear disqualifiers — for example a title above the level you target, a location your
+   profile rules out, or a skill the posting requires that you don't have — and must quote the
+   posting's own words for it. Code checks the quote is really there, decides the title-based
+   reasons from the title itself, and overrules location quotes that offer remote work or don't
+   actually exclude your state or time zone. Anything else goes to the full evaluation.
 4. **Full evaluation (main model).** One structured call per posting, against your candidate
    profile: first what the team's engineers actually do day to day and whether that work is in
    your lane, then requirement by requirement (required vs. preferred, by the posting's own wording),
@@ -39,7 +38,7 @@ crawl ──► title gate ──► factual filters ──► triage (Haiku) �
    more favourable one is kept. Companies of unknown type get one separate, cached
    product-vs-consulting call. A model that declines to answer (a safety refusal) leaves the
    posting awaiting evaluation — never rejected.
-5. **Report.** Markdown, CSV and JSON in `out/`, timestamped in Seattle time.
+5. **Report.** Markdown, CSV and JSON in `out/`, timestamped in Pacific time.
 
 Verdicts are cached by description text: a posting is re-judged only when its text changes, or on
 request after the rubric changes (see [Changing the rubric](#changing-the-rubric)).
