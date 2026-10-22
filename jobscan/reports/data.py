@@ -190,17 +190,17 @@ def _section_from_verdict(evaluation: Evaluation | None) -> str:
         # evidence, not the one-word verdict alone: Sonnet 5.5 called far more postings plausible
         # matches than Sonnet 5 had (Best Bets went from 23 to 61, too many to choose from).
         missing = _missing_requirements(evaluation)
-        if evaluation.scope_fit == ScopeFit.AT_LEVEL:
+        # A below-Senior title tiers like an at-level one: with pay passing the candidate's floor
+        # and the work in lane, it is among the most gettable applications (a mid-level band can
+        # reach well past a weaker company's Senior one). It once sat in Attractive Stretches as
+        # "underusing" the candidate, out of sight of the sections applied from; the report flags
+        # the level instead.
+        if evaluation.scope_fit in (ScopeFit.AT_LEVEL, ScopeFit.BELOW_LEVEL):
             if missing == 0:
                 return "best_bets" if evaluation.verdict == Verdict.STRONG_MATCH else "good_fits"
             return "growth_bets" if missing == 1 else "attractive_stretches"
         if evaluation.scope_fit == ScopeFit.ONE_STEP_UP and evaluation.verdict == Verdict.PLAUSIBLE_MATCH:
             return "growth_bets" if missing <= 1 else "attractive_stretches"
-        if evaluation.scope_fit == ScopeFit.BELOW_LEVEL:
-            # Not a Best Bet (it underuses the candidate), but never dropped: below-Senior roles
-            # with passing pay and backend work are wanted. These once vanished from every
-            # section, unlisted even among the rejects.
-            return "attractive_stretches"
     if not evaluation.worth_applying:
         return "rejected_or_unverified"
     # Anything else attractive-but-unconfident (borderline at any scope_fit, or a

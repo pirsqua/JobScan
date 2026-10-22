@@ -159,6 +159,8 @@ def _render_shortlist(title: str, intro: str, rows: list[JobReportRow], empty_no
             f"- Apply: {job.apply_url or job.posting_url or 'n/a'}",
             f"- Freshness: {_freshness(job)}",
         ]
+        if ev.scope_fit == ScopeFit.BELOW_LEVEL:
+            lines.append("- Level: below yours — ask the recruiter whether they'd level you at Senior")
         lines += _work_line(ev)
         lines += _hours_line(ev)
         if ev.required_matches:
@@ -180,8 +182,7 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
         "", "## Attractive Stretches", "",
         "_Strong technical overlap, but two or more required qualifications you don't have, two or "
         "more unproven scope dimensions, or a hidden staff-level expectation behind an "
-        "ordinary-looking Senior title — or a good fit that sits below your level. Worth a look, "
-        "not a first pick._", "",
+        "ordinary-looking Senior title. Worth a look, not a first pick._", "",
     ]
     if not rows:
         lines.append("_None._")
@@ -263,13 +264,13 @@ def render_markdown(data: ReportData) -> str:
     lines += _render_paused(data)
     lines += _render_shortlist(
         "Best Bets",
-        "Strong matches at your level, with every required qualification demonstrated or credibly "
-        "transferable. Apply to these first.",
+        "Strong matches at or below your level, with every required qualification demonstrated or "
+        "credibly transferable. Apply to these first.",
         data.best_bets, "None right now.",
     )
     lines += _render_shortlist(
         "Good Fits",
-        "Plausible matches at your level, with nothing required missing.",
+        "Plausible matches at or below your level, with nothing required missing.",
         data.good_fits, "None right now.",
     )
     lines += _render_shortlist(
