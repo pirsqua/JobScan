@@ -18,6 +18,7 @@ from jobscan.config import load_settings
 from jobscan.db import Database
 from jobscan.models import AtsType, ClassificationSource, Company, CompanyClassification, RawPosting
 from jobscan.normalize import normalize_posting
+from tests.conftest import data_folder
 
 COMPANIES_CSV = """name,domain,ats_type,board_id,classification
 Acme Corp,acme.example.com,greenhouse,acme,product
@@ -27,8 +28,8 @@ Acme Corp,acme.example.com,greenhouse,acme,product
 @pytest.fixture(autouse=True)
 def _clean_jobscan_env(monkeypatch):
     # main() loads settings from the real environment/.env — strip anything that could make
-    # these tests depend on the host machine's ambient configuration. (The personal-file paths
-    # are pinned to the example and temp paths by conftest's _isolate_personal_paths.)
+    # these tests depend on the host machine's ambient configuration. (The personal data folder is
+    # pinned to a temporary one holding the example profile by conftest's _isolate_personal_paths.)
     for key in ("JOBSCAN_DB_PATH", "JOBSCAN_OUTPUT_DIR", "JOBSCAN_ANTHROPIC_MODEL", "JOBSCAN_LOG_LEVEL",
                 "JOBSCAN_ANTHROPIC_THINKING", "JOBSCAN_TRIAGE_MODEL", "JOBSCAN_TRIAGE_THINKING"):
         monkeypatch.delenv(key, raising=False)
@@ -194,8 +195,8 @@ class TestRunBackup:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "")
 
     def test_run_ends_with_a_verified_backup(self, settings_path, tmp_path, monkeypatch, capsys):
-        backups = tmp_path / "drive"
-        monkeypatch.setenv("JOBSCAN_BACKUP_DIR", str(backups))
+        backups = data_folder(tmp_path / "drive")
+        monkeypatch.setenv("JOBSCAN_DATA_DIR", str(backups))
 
         assert main(["--settings", str(settings_path), "run"]) == 0
 
@@ -203,18 +204,18 @@ class TestRunBackup:
         assert "integrity check passed" in capsys.readouterr().out
 
     def test_other_commands_do_not_back_up(self, settings_path, tmp_path, monkeypatch):
-        backups = tmp_path / "drive"
-        monkeypatch.setenv("JOBSCAN_BACKUP_DIR", str(backups))
+        backups = data_folder(tmp_path / "drive")
+        monkeypatch.setenv("JOBSCAN_DATA_DIR", str(backups))
         csv_path = tmp_path / "companies.csv"
         csv_path.write_text(COMPANIES_CSV, encoding="utf-8")
 
         assert main(["--settings", str(settings_path), "companies", "import", str(csv_path)]) == 0
 
-        assert not backups.exists()
+        assert not (backups / "jobscan.db.gz").exists()
 
     def test_a_failed_backup_is_reported_on_stdout_and_fails_the_run(self, settings_path, tmp_path, monkeypatch, capsys):
         from jobscan import backup
-        monkeypatch.setenv("JOBSCAN_BACKUP_DIR", str(tmp_path / "drive"))
+        monkeypatch.setenv("JOBSCAN_DATA_DIR", str(data_folder(tmp_path / "drive")))
         monkeypatch.setattr(backup, "_integrity_problem", lambda path: "malformed")
 
         assert main(["--settings", str(settings_path), "run"]) == 1

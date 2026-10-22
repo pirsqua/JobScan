@@ -3,6 +3,14 @@
 db_path: data/jobscan.db
 output_dir: out
 
+# Your personal files, all in one folder: JOBSCAN_DATA_DIR (in .env), or the repo's gitignored
+# private/ when unset. Point JOBSCAN_DATA_DIR at a synced folder (Google Drive, OneDrive) and every
+# `run` also backs the database up there. The files' names:
+personal_files:
+  profile: candidate_profile.yaml
+  applications: applications.yaml
+  registry: jobscan_companies.yaml
+
 # Anthropic model used for both job evaluation and company classification.
 # Keep this here (not hard-coded) so it can be swapped without touching code.
 anthropic_model: claude-sonnet-5-5

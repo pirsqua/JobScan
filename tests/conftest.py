@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
+from jobscan import config
 from jobscan.config import Settings, ModelPricing
 from jobscan.db import Database
 from jobscan.models import AtsType, Company
@@ -13,16 +15,23 @@ from jobscan.models import AtsType, Company
 EXAMPLE_PROFILE = Path(__file__).resolve().parent.parent / "config" / "candidate_profile.example.yaml"
 
 
+def data_folder(path: Path) -> Path:
+    """A personal data folder holding the committed example profile, never the owner's own."""
+    path.mkdir(parents=True, exist_ok=True)
+    shutil.copy(EXAMPLE_PROFILE, path / "candidate_profile.yaml")
+    return path
+
+
 @pytest.fixture(autouse=True)
 def _isolate_personal_paths(monkeypatch, tmp_path: Path) -> None:
     """No test reads the owner's personal files or writes a backup: .env never overrides a
-    variable that's already set, so pinning these keeps every test — including ones that call
-    jobscan.cli.main, which loads real settings — on the committed example and temp paths, and
-    makes a fresh clone with no .env behave the same."""
-    monkeypatch.setenv("JOBSCAN_PROFILE_PATH", str(EXAMPLE_PROFILE))
-    monkeypatch.setenv("JOBSCAN_APPLICATIONS_PATH", str(tmp_path / "applications.yaml"))
-    monkeypatch.setenv("JOBSCAN_REGISTRY_PATH", "")
-    monkeypatch.setenv("JOBSCAN_BACKUP_DIR", "")
+    variable that's already set, so blanking these — and pointing the default data folder at a
+    temporary one holding the example profile — keeps every test, including ones that call
+    jobscan.cli.main (which loads real settings), off the owner's data, and makes a fresh clone with
+    no .env behave the same."""
+    monkeypatch.setattr(config, "DEFAULT_DATA_DIR", data_folder(tmp_path / "personal"))
+    for key in ("JOBSCAN_DATA_DIR", *config.LEGACY_PATH_VARIABLES):
+        monkeypatch.setenv(key, "")
 
 
 @pytest.fixture()

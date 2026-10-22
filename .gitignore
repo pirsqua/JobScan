@@ -8,7 +8,9 @@ __pycache__/
 *.db-journal
 /out/
 
-# Personal data lives outside the repository (paths in .env); never commit it here.
+# Personal data: the data folder (JOBSCAN_DATA_DIR, by default private/); never commit it. The
+# other lines cover where these files used to live.
+/private/
 config/candidate_profile.yaml
 data/applications.yaml
-data/jobscan_companies_*.yaml
+data/jobscan_companies*.yaml

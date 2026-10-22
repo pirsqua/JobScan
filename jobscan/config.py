@@ -1,10 +1,11 @@
 """Application configuration.
 
-Secrets (API keys) come from environment variables / a local .env file. Facts about the candidate
-— salary floor, employment-eligible state, time zone — come from the candidate profile, which is
-personal and lives outside the repository (``JOBSCAN_PROFILE_PATH``), as do the applications and
-registry files. Everything else (model name, pricing table, ...) lives in config/settings.yaml so
-it can be tuned without touching code.
+Secrets (API keys) come from environment variables / a local .env file. The candidate's personal
+files — profile, applications, employer registry — live together in one data folder,
+``JOBSCAN_DATA_DIR``; unset, that is the repo's gitignored ``private/``. Their file names are in
+config/settings.yaml (``personal_files``). Facts about the candidate — salary floor,
+employment-eligible state, time zone — come from the profile. Everything else (model name, pricing
+table, ...) lives in config/settings.yaml so it can be tuned without touching code.
 """
 from __future__ import annotations
 
@@ -17,8 +18,17 @@ from dotenv import load_dotenv
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SETTINGS_PATH = REPO_ROOT / "config" / "settings.yaml"
-DEFAULT_PROFILE_PATH = REPO_ROOT / "config" / "candidate_profile.yaml"
-DEFAULT_APPLICATIONS_PATH = REPO_ROOT / "data" / "applications.yaml"
+DEFAULT_DATA_DIR = REPO_ROOT / "private"
+DEFAULT_FILE_NAMES = {
+    "profile": "candidate_profile.yaml",
+    "applications": "applications.yaml",
+    "registry": "jobscan_companies.yaml",
+}
+DEFAULT_PROFILE_PATH = DEFAULT_DATA_DIR / DEFAULT_FILE_NAMES["profile"]
+DEFAULT_APPLICATIONS_PATH = DEFAULT_DATA_DIR / DEFAULT_FILE_NAMES["applications"]
+# Replaced by JOBSCAN_DATA_DIR; still set, they would silently point nowhere.
+LEGACY_PATH_VARIABLES = ("JOBSCAN_PROFILE_PATH", "JOBSCAN_APPLICATIONS_PATH", "JOBSCAN_REGISTRY_PATH",
+                         "JOBSCAN_BACKUP_DIR")
 
 
 @dataclass
@@ -51,7 +61,10 @@ class Settings:
     candidate_excluded_time_zones: tuple[str, ...] = ()
     crawl_workers: int = 4
     evaluate_workers: int = 4
+    data_dir: Path = DEFAULT_DATA_DIR
     registry_path: Path | None = None
+    # The data folder when JOBSCAN_DATA_DIR names one; None for the in-repo default, where a copy
+    # on the database's own disk would protect nothing.
     backup_dir: Path | None = None
     # The thinking.type sent with each model's calls (None leaves the model's default); which value
     # turns thinking off depends on the model, so it's configured beside the model name.
@@ -91,10 +104,17 @@ def load_settings(
     if not output_dir.is_absolute():
         output_dir = REPO_ROOT / output_dir
 
-    profile_path = Path(env_or("JOBSCAN_PROFILE_PATH", DEFAULT_PROFILE_PATH))
+    legacy = [key for key in LEGACY_PATH_VARIABLES if env_map.get(key)]
+    if legacy:
+        raise SettingsError(
+            f"{', '.join(legacy)} {'is' if len(legacy) == 1 else 'are'} no longer read: set JOBSCAN_DATA_DIR "
+            "to the folder holding your personal files instead (see .env.example)"
+        )
+    data_raw = env_or("JOBSCAN_DATA_DIR", "")
+    data_dir = Path(data_raw) if data_raw else DEFAULT_DATA_DIR
+    names = {**DEFAULT_FILE_NAMES, **(raw.get("personal_files") or {})}
+    profile_path = data_dir / names["profile"]
     candidate = _candidate_facts(profile_path, raw)
-    registry_raw = env_or("JOBSCAN_REGISTRY_PATH", raw.get("registry_path"))
-    backup_raw = env_or("JOBSCAN_BACKUP_DIR", raw.get("backup_dir"))
 
     pricing_raw = raw.get("anthropic_pricing", {}) or {}
     pricing = {
@@ -126,10 +146,11 @@ def load_settings(
         crawl_workers=int(raw.get("crawl_workers", 4)),
         evaluate_workers=int(raw.get("evaluate_workers", 4)),
         anthropic_api_key=env_or("ANTHROPIC_API_KEY", None),
+        data_dir=data_dir,
         profile_path=profile_path,
-        applications_path=Path(env_or("JOBSCAN_APPLICATIONS_PATH", DEFAULT_APPLICATIONS_PATH)),
-        registry_path=Path(registry_raw) if registry_raw else None,
-        backup_dir=Path(backup_raw) if backup_raw else None,
+        applications_path=data_dir / names["applications"],
+        registry_path=data_dir / names["registry"],
+        backup_dir=data_dir if data_raw else None,
     )
 
 
@@ -151,8 +172,8 @@ def _candidate_facts(profile_path: Path, raw_settings: dict) -> dict:
     missing = [key for key, value in facts.items() if value is None]
     if missing:
         raise SettingsError(
-            f"{', '.join(missing)} missing — set them in the candidate profile ({profile_path}); "
-            "see config/candidate_profile.example.yaml"
+            f"{', '.join(missing)} missing — set them in the candidate profile ({profile_path}, in the data "
+            "folder JOBSCAN_DATA_DIR names); see config/candidate_profile.example.yaml"
         )
     facts["excluded_time_zones"] = tuple(str(zone) for zone in profile.get("excluded_time_zones") or ())
     return facts

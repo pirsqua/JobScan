@@ -7,9 +7,9 @@ fresh session needs before touching code, that reading the code alone won't make
 
 - Windows, PowerShell primary; venv at `.venv` (`.\.venv\Scripts\Activate.ps1`).
 - Python 3.14. Run the suite before considering any change done: `python -m pytest -q`.
-- The owner's personal data — candidate profile, applications, employer registry — lives outside
-  the repository, at the paths `.env` sets (`JOBSCAN_PROFILE_PATH`, `JOBSCAN_APPLICATIONS_PATH`,
-  `JOBSCAN_REGISTRY_PATH`); edit it there. Never commit it, never copy it into the repo, and never
+- The owner's personal data — candidate profile, applications, employer registry — lives in one
+  data folder outside the repository, the one `.env` sets as `JOBSCAN_DATA_DIR` (file names in
+  `config/settings.yaml`, `personal_files`); edit it there. Never commit it, never copy it into the repo, and never
   put a real application, posting URL or profile detail into code, tests or docs — use the
   `.example` files and example.com URLs. Tests read `config/candidate_profile.example.yaml`.
 - Commit messages carry no `Co-Authored-By` or "Generated with" trailers.

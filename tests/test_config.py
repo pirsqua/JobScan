@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from jobscan import config
 from jobscan.config import SettingsError, load_settings
 
 SAMPLE_YAML = """
@@ -34,12 +35,17 @@ excluded_time_zones: [Eastern, Central]
 """
 
 
+def data_dir_with_profile(tmp_path: Path, profile_yaml: str, name: str = "candidate_profile.yaml") -> Path:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / name).write_text(profile_yaml, encoding="utf-8")
+    return data_dir
+
+
 @pytest.fixture()
 def env(tmp_path: Path) -> dict:
-    """An isolated environment whose profile is a temporary file, never the real one."""
-    profile = tmp_path / "profile.yaml"
-    profile.write_text(PROFILE_YAML, encoding="utf-8")
-    return {"JOBSCAN_PROFILE_PATH": str(profile)}
+    """An isolated environment whose data folder is a temporary one, never the real one."""
+    return {"JOBSCAN_DATA_DIR": str(data_dir_with_profile(tmp_path, PROFILE_YAML))}
 
 
 @pytest.fixture()
@@ -70,30 +76,27 @@ class TestLoadSettings:
         assert settings.candidate_excluded_time_zones == ("Eastern", "Central")
 
     def test_excluded_time_zones_are_optional(self, settings_path: Path, tmp_path: Path):
-        profile = tmp_path / "bare_profile.yaml"
-        profile.write_text(PROFILE_YAML.replace("excluded_time_zones: [Eastern, Central]\n", ""), encoding="utf-8")
-        settings = load_settings(settings_path=settings_path, env={"JOBSCAN_PROFILE_PATH": str(profile)},
+        data_dir = data_dir_with_profile(tmp_path, PROFILE_YAML.replace("excluded_time_zones: [Eastern, Central]\n", ""))
+        settings = load_settings(settings_path=settings_path, env={"JOBSCAN_DATA_DIR": str(data_dir)},
                                  load_dotenv_file=False)
         assert settings.candidate_excluded_time_zones == ()
 
     def test_an_older_settings_file_still_supplies_facts_the_profile_lacks(self, tmp_path: Path):
         settings_path = tmp_path / "settings.yaml"
         settings_path.write_text(SAMPLE_YAML + "min_base_salary: 140000\n", encoding="utf-8")
-        profile = tmp_path / "profile.yaml"
-        profile.write_text("candidate_state: OR\ncandidate_state_name: Oregon\ncandidate_time_zone: Pacific\n",
-                           encoding="utf-8")
+        data_dir = data_dir_with_profile(
+            tmp_path, "candidate_state: OR\ncandidate_state_name: Oregon\ncandidate_time_zone: Pacific\n")
 
-        settings = load_settings(settings_path=settings_path, env={"JOBSCAN_PROFILE_PATH": str(profile)},
+        settings = load_settings(settings_path=settings_path, env={"JOBSCAN_DATA_DIR": str(data_dir)},
                                  load_dotenv_file=False)
 
         assert settings.min_base_salary == 140000
 
     def test_missing_candidate_facts_are_an_error_naming_them(self, settings_path: Path, tmp_path: Path):
-        profile = tmp_path / "profile.yaml"
-        profile.write_text("min_base_salary: 150000\n", encoding="utf-8")
+        data_dir = data_dir_with_profile(tmp_path, "min_base_salary: 150000\n")
 
         with pytest.raises(SettingsError, match="candidate_state, candidate_state_name, candidate_time_zone"):
-            load_settings(settings_path=settings_path, env={"JOBSCAN_PROFILE_PATH": str(profile)},
+            load_settings(settings_path=settings_path, env={"JOBSCAN_DATA_DIR": str(data_dir)},
                           load_dotenv_file=False)
 
     def test_builds_pricing_table(self, settings_path: Path, env: dict):
@@ -122,7 +125,7 @@ class TestLoadSettings:
 
         assert settings.anthropic_model == "claude-sonnet-5-5"
         assert settings.anthropic_thinking is None  # the model's own default
-        assert settings.registry_path is None
+        assert settings.registry_path == Path(env["JOBSCAN_DATA_DIR"]) / "jobscan_companies.yaml"
 
     def test_env_vars_override_yaml_values(self, settings_path: Path, env: dict):
         settings = load_settings(
@@ -133,7 +136,6 @@ class TestLoadSettings:
                 "JOBSCAN_DB_PATH": "env/jobscan.db",
                 "JOBSCAN_LOG_LEVEL": "WARNING",
                 "ANTHROPIC_API_KEY": "sk-test-key",
-                "JOBSCAN_REGISTRY_PATH": "elsewhere/companies.yaml",
             },
             load_dotenv_file=False,
         )
@@ -142,7 +144,6 @@ class TestLoadSettings:
         assert settings.db_path.as_posix().endswith("env/jobscan.db")
         assert settings.log_level == "WARNING"
         assert settings.anthropic_api_key == "sk-test-key"
-        assert settings.registry_path.as_posix() == "elsewhere/companies.yaml"
         # YAML values not targeted by an env var stay as configured.
         assert settings.http_timeout_seconds == 15
 
@@ -150,3 +151,45 @@ class TestLoadSettings:
         settings = load_settings(settings_path=settings_path, env=env, load_dotenv_file=False)
 
         assert settings.anthropic_api_key is None
+
+
+class TestPersonalFiles:
+    def test_personal_files_live_in_the_data_folder_which_is_also_the_backup_folder(
+            self, settings_path: Path, env: dict):
+        data_dir = Path(env["JOBSCAN_DATA_DIR"])
+        settings = load_settings(settings_path=settings_path, env=env, load_dotenv_file=False)
+
+        assert settings.data_dir == data_dir
+        assert settings.profile_path == data_dir / "candidate_profile.yaml"
+        assert settings.applications_path == data_dir / "applications.yaml"
+        assert settings.registry_path == data_dir / "jobscan_companies.yaml"
+        assert settings.backup_dir == data_dir
+
+    def test_file_names_come_from_settings(self, tmp_path: Path):
+        settings_path = tmp_path / "settings.yaml"
+        settings_path.write_text(
+            SAMPLE_YAML + "personal_files:\n  profile: me.yaml\n  registry: employers.yaml\n", encoding="utf-8")
+        data_dir = data_dir_with_profile(tmp_path, PROFILE_YAML, name="me.yaml")
+
+        settings = load_settings(settings_path=settings_path, env={"JOBSCAN_DATA_DIR": str(data_dir)},
+                                 load_dotenv_file=False)
+
+        assert settings.profile_path == data_dir / "me.yaml"
+        assert settings.registry_path == data_dir / "employers.yaml"
+        assert settings.applications_path == data_dir / "applications.yaml"  # not renamed: the default
+
+    def test_without_a_data_folder_the_in_repo_default_is_used_and_nothing_is_backed_up(
+            self, settings_path: Path, tmp_path: Path, monkeypatch):
+        default = data_dir_with_profile(tmp_path, PROFILE_YAML)
+        monkeypatch.setattr(config, "DEFAULT_DATA_DIR", default)
+
+        settings = load_settings(settings_path=settings_path, env={}, load_dotenv_file=False)
+
+        assert settings.profile_path == default / "candidate_profile.yaml"
+        assert settings.backup_dir is None
+
+    def test_the_old_per_file_variables_are_an_error_pointing_at_the_data_folder(
+            self, settings_path: Path, env: dict):
+        with pytest.raises(SettingsError, match="JOBSCAN_PROFILE_PATH is no longer read.*JOBSCAN_DATA_DIR"):
+            load_settings(settings_path=settings_path, env={**env, "JOBSCAN_PROFILE_PATH": "elsewhere/profile.yaml"},
+                          load_dotenv_file=False)

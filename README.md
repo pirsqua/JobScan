@@ -83,16 +83,18 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-**2. Create your personal files, outside the repository.** Three files describe you and your
-search: the candidate profile, the employer registry and your applications. Keep them in a folder
-outside the repo — a synced folder (Google Drive, OneDrive) backs them up — so they're never
-committed. Start from the `.example` versions:
+**2. Create your personal files in one data folder.** Three files describe you and your search:
+the candidate profile, the employer registry and your applications. They live together in a data
+folder that is never committed: by default the repo's gitignored `private/`, or any folder you
+name in `JOBSCAN_DATA_DIR` — make that a synced folder (Google Drive, OneDrive) and they're backed
+up. Their names are set in `config/settings.yaml` (`personal_files`). Start from the `.example`
+versions:
 
 ```powershell
-$data = "$env:USERPROFILE\OneDrive\JobScan-data"   # any folder outside the repo
+$data = "$env:USERPROFILE\OneDrive\JobScan-data"   # or "private" to keep them in the repo, unsynced
 New-Item -ItemType Directory -Force $data
 Copy-Item config\candidate_profile.example.yaml "$data\candidate_profile.yaml"
-Copy-Item data\companies.example.yaml           "$data\companies.yaml"
+Copy-Item data\companies.example.yaml           "$data\jobscan_companies.yaml"
 Copy-Item data\applications.example.yaml        "$data\applications.yaml"
 ```
 
@@ -103,7 +105,7 @@ Then make them yours:
   you can be employed in), `candidate_time_zone`, and optionally `excluded_time_zones` (zones whose
   working hours rule a posting out, required or merely preferred). Every evaluation is judged
   against this file, so it's where to tune what gets recommended.
-- **`companies.yaml`** — the companies to search; see [The employer registry](#the-employer-registry).
+- **`jobscan_companies.yaml`** — the companies to search; see [The employer registry](#the-employer-registry).
 - **`applications.yaml`** — delete the example entry; add one per role you apply to (see
   [Daily use](#daily-use)).
 
@@ -113,17 +115,14 @@ Then make them yours:
 Copy-Item .env.example .env
 ```
 
-Set `ANTHROPIC_API_KEY`, and `JOBSCAN_PROFILE_PATH`, `JOBSCAN_REGISTRY_PATH` and
-`JOBSCAN_APPLICATIONS_PATH` to the three files. Set `JOBSCAN_BACKUP_DIR` too (the same folder is
-fine): every `run` then ends by backing up the database there (see [Data](#data)).
-Without the path variables JobScan falls back
-to `config/candidate_profile.yaml` and `data/applications.yaml` inside the repo — both are in
-`.gitignore`, but they aren't backed up.
+Set `ANTHROPIC_API_KEY`, and `JOBSCAN_DATA_DIR` to the folder from step 2: every `run` then also
+ends by backing up the database there (see [Data](#data)). Leave `JOBSCAN_DATA_DIR` unset to use
+the repo's `private/` — gitignored, but neither the files nor the database are backed up.
 
 **4. Load the registry and run.**
 
 ```powershell
-python -m jobscan companies import    # reads JOBSCAN_REGISTRY_PATH
+python -m jobscan companies import    # reads the registry in your data folder
 python -m jobscan run
 ```
 
@@ -173,10 +172,10 @@ To see why postings were filtered out — useful for spotting a wrongly rejected
 | `crawl` | Fetch current postings for every active company |
 | `evaluate [--limit N] [--refresh-stale] [--dry-run]` | Filter and screen new/changed postings. `--limit` caps real LLM calls; `--refresh-stale` also re-screens verdicts made under an older rubric; `--dry-run` only counts and prices what would be sent |
 | `report [--out DIR]` | Write the Markdown/CSV/JSON report from the current database |
-| `run [--out DIR] [--limit N] [--refresh-stale]` | `crawl`, `evaluate` and `report` in sequence, then a verified database backup if `JOBSCAN_BACKUP_DIR` is set |
+| `run [--out DIR] [--limit N] [--refresh-stale]` | `crawl`, `evaluate` and `report` in sequence, then a verified database backup into `JOBSCAN_DATA_DIR` if it is set |
 | `audit [--out DIR]` | Every filtered posting and the reason (factual filter, triage or full evaluation) |
-| `backup [--to DIR]` | Snapshot and verify the database now (default folder: `JOBSCAN_BACKUP_DIR`) — `run` already does this at its end |
-| `companies import [file] [--replace\|--delete]` | Add/update companies from a YAML or CSV registry file (default: `JOBSCAN_REGISTRY_PATH`) |
+| `backup [--to DIR]` | Snapshot and verify the database now (default folder: `JOBSCAN_DATA_DIR`) — `run` already does this at its end |
+| `companies import [file] [--replace\|--delete]` | Add/update companies from a YAML or CSV registry file (default: the registry in your data folder) |
 | `companies list [--all]` | List companies (active only unless `--all`) |
 | `companies probe <ats_type> <board_id>` | Dry-run one board through the real adapter and factual filters — what would reach evaluation, nothing stored, no LLM calls. Use it before adding a company |
 | `overrides set job <id> verdict <value> [--reason TEXT]` | Force a job's verdict; bypasses filters and the LLM |
@@ -221,20 +220,21 @@ everything.
 
 ## Configuration
 
-- **`.env`** (never committed) — `ANTHROPIC_API_KEY`, the paths to your personal files
-  (`JOBSCAN_PROFILE_PATH`, `JOBSCAN_REGISTRY_PATH`, `JOBSCAN_APPLICATIONS_PATH`), the backup folder
-  (`JOBSCAN_BACKUP_DIR`), and optional overrides of `config/settings.yaml`: `JOBSCAN_DB_PATH`,
+- **`.env`** (never committed) — `ANTHROPIC_API_KEY`, your data folder (`JOBSCAN_DATA_DIR`: the
+  personal files, and where `run` backs up the database), and optional overrides of
+  `config/settings.yaml`: `JOBSCAN_DB_PATH`,
   `JOBSCAN_OUTPUT_DIR`, `JOBSCAN_ANTHROPIC_MODEL`, `JOBSCAN_ANTHROPIC_THINKING`,
   `JOBSCAN_TRIAGE_MODEL`, `JOBSCAN_TRIAGE_THINKING` and `JOBSCAN_LOG_LEVEL`.
 - **`config/settings.yaml`** — main and triage model, pricing for cost estimates, crawl and
   evaluation concurrency (`crawl_workers`, `evaluate_workers`), HTTP settings, database and output
-  paths. Nothing personal.
+  paths, and the personal files' names (`personal_files`). Nothing personal.
 - **Your candidate profile** — everything about you, including the salary floor, state and time
   zone; see [Getting started](#getting-started-windows-powershell).
 
 ## The employer registry
 
-Your registry file (`JOBSCAN_REGISTRY_PATH`; start from `data/companies.example.yaml`) lists the
+Your registry file (`jobscan_companies.yaml` in your data folder; start from
+`data/companies.example.yaml`) lists the
 companies to search. Code reads `name`, `domain`, `careers_url`, `ats_type`, `board_id`,
 `classification`, `active`, `applied` (a label shown by `companies list`; individual applications
 go in the applications file), `discovery_source` and `notes`; the rest (`priority`, `fit_lanes`,
@@ -280,7 +280,7 @@ snapshotted whenever it changes, so `crawl` is always safe to re-run. Re-judging
 new evaluation rather than replacing the old one; the newest is current.
 
 The database stays on the local disk — a sync client working on a live SQLite file can capture it
-mid-write — and is backed up instead. When `JOBSCAN_BACKUP_DIR` is set, every `run` ends by
+mid-write — and is backed up instead. When `JOBSCAN_DATA_DIR` is set, every `run` ends by
 writing a consistent snapshot, running SQLite's integrity check on it, and saving it compressed as
 `jobscan.db.gz` in that folder (about an eighth of the database's size), so the backup is at most
 one run behind; `backup` takes one on demand. Only a snapshot that passes replaces the previous

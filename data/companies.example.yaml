@@ -1,5 +1,5 @@
-# Example employer registry. Keep your real one outside the repository and point
-# JOBSCAN_REGISTRY_PATH at it, so `python -m jobscan companies import` picks it up (see README,
+# Example employer registry. Keep your real one in your data folder as jobscan_companies.yaml
+# (JOBSCAN_DATA_DIR, or private/), where `python -m jobscan companies import` picks it up (see README,
 # "The employer registry", for every field and the priority scale). Probe a board before adding
 # it: python -m jobscan companies probe <ats_type> <board_id>
 - name: Acme

@@ -1,5 +1,5 @@
 """The candidate's job applications: one entry per posting applied to, kept in a hand-editable
-YAML file outside the repository (``Settings.applications_path``, from ``JOBSCAN_APPLICATIONS_PATH``)
+YAML file in the personal data folder (``Settings.applications_path``, under ``JOBSCAN_DATA_DIR``)
 and matched to crawled postings by URL, so a report can mark each applied role wherever it now
 stands — shortlisted, rejected, or closed since. See data/applications.example.yaml.
 

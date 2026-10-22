@@ -143,14 +143,14 @@ def _report_backup(settings: Settings, target: Path) -> int:
 def cmd_backup(args: argparse.Namespace, settings: Settings) -> int:
     target = Path(args.to) if args.to else settings.backup_dir
     if target is None:
-        print("No backup folder given and JOBSCAN_BACKUP_DIR is not set.", file=sys.stderr)
+        print("No backup folder given and JOBSCAN_DATA_DIR is not set.", file=sys.stderr)
         return 1
     return _report_backup(settings, target)
 
 
 def cmd_companies_import(args: argparse.Namespace, settings: Settings) -> int:
     if args.path is None and settings.registry_path is None:
-        print("No registry file given and JOBSCAN_REGISTRY_PATH is not set.", file=sys.stderr)
+        print("No registry file given.", file=sys.stderr)
         return 1
     path = Path(args.path) if args.path else settings.registry_path
     if not path.exists():
@@ -277,8 +277,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--refresh-stale", action="store_true", help=_REFRESH_STALE_HELP)
     p_run.set_defaults(func=cmd_run)
 
-    p_backup = sub.add_parser("backup", help="Snapshot the database to a backup folder (default: JOBSCAN_BACKUP_DIR).")
-    p_backup.add_argument("--to", default=None, help="Backup folder (default: JOBSCAN_BACKUP_DIR)")
+    p_backup = sub.add_parser("backup", help="Snapshot the database to a backup folder (default: JOBSCAN_DATA_DIR).")
+    p_backup.add_argument("--to", default=None, help="Backup folder (default: JOBSCAN_DATA_DIR)")
     p_backup.set_defaults(func=cmd_backup)
 
     p_audit = sub.add_parser("audit", help="Report every filtered posting and its reason.")
@@ -291,7 +291,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_companies_import = companies_sub.add_parser("import", help="Import companies from a CSV or YAML file.")
     p_companies_import.add_argument(
         "path", nargs="?", default=None,
-        help="Path to a .csv or .yaml employer registry file (default: JOBSCAN_REGISTRY_PATH).",
+        help="Path to a .csv or .yaml employer registry file (default: the registry in JOBSCAN_DATA_DIR).",
     )
     p_companies_import_scope = p_companies_import.add_mutually_exclusive_group()
     p_companies_import_scope.add_argument(

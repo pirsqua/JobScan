@@ -1,6 +1,6 @@
 # Example candidate profile — a fictional candidate showing every key the pipeline reads. Copy it
-# somewhere outside the repository, make it yours, and point JOBSCAN_PROFILE_PATH at it (see
-# .env.example). It's fed to the LLM for job screening; the tests also use this file.
+# into your data folder as candidate_profile.yaml (JOBSCAN_DATA_DIR, or private/; see
+# .env.example) and make it yours. It's fed to the LLM for job screening; the tests also use this file.
 # New top-level keys need a line in jobscan.llm.prompts.render_profile_text to reach the model.
 
 headline: >

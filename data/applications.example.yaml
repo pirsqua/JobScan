@@ -1,5 +1,5 @@
-# Example applications file. Keep your real one outside the repository and point
-# JOBSCAN_APPLICATIONS_PATH at it (see .env.example). Reports match `url` against crawled postings
+# Example applications file. Keep your real one in your data folder as applications.yaml
+# (JOBSCAN_DATA_DIR, or private/; see .env.example). Reports match `url` against crawled postings
 # (case and trailing slashes don't matter) and star each applied role wherever it now stands.
 applications:
   - company: Acme
