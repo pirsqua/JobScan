@@ -76,7 +76,7 @@ class OracleAdapter(SourceAdapter):
         self, api: str, host: str, site: str, brief: OracleRequisitionBrief, board_id: str
     ) -> RawPosting | None:
         try:
-            response = self._get_detail(
+            response = self.client.get(
                 f"{api}/recruitingCEJobRequisitionDetails",
                 params={"onlyData": "true", "finder": f'ById;Id="{brief.Id}",siteNumber={site}'},
             )

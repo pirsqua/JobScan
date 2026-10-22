@@ -60,7 +60,7 @@ class JobviteAdapter(SourceAdapter):
     ) -> RawPosting | None:
         url = f"https://jobs.jobvite.com{path}"
         try:
-            response = self._get_detail(url)
+            response = self.client.get(url)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning(

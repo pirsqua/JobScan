@@ -24,13 +24,15 @@ from jobscan.adapters.rippling import RipplingAdapter
 from jobscan.adapters.smartrecruiters import SmartRecruitersAdapter
 from jobscan.adapters.workable import WorkableAdapter
 from jobscan.adapters.workday import WorkdayAdapter
+from jobscan.http_client import RetryTransport
 from jobscan.models import EmploymentType, RemoteScope, SalarySource, WorkplaceType
 from jobscan.normalize import normalize_posting
 
 
 @pytest.fixture()
 def http_client():
-    with httpx.Client() as client:
+    # The retry layer production clients carry (jobscan.http_client.make_client).
+    with httpx.Client(transport=RetryTransport()) as client:
         yield client
 
 
@@ -1853,7 +1855,7 @@ class TestWorkableAdapter:
         assert [p.source_job_id for p in WorkableAdapter(http_client).fetch_postings("fmx")] == ["BBB"]
 
     @respx.mock
-    def test_a_transient_detail_failure_is_retried_once(self, http_client):
+    def test_a_transient_detail_failure_is_retried(self, http_client):
         # Observed live: Siemens' Avature board timed out on ~5% of parallel detail requests.
         respx.post(self.LIST_URL).mock(return_value=httpx.Response(200, json={"results": [{"shortcode": "AAA", "title": "Software Developer"}]}))
         route = respx.get(self.detail_url("AAA")).mock(side_effect=[
@@ -1867,15 +1869,27 @@ class TestWorkableAdapter:
         assert adapter.incomplete is False
 
     @respx.mock
-    def test_a_detail_that_fails_twice_marks_the_fetch_incomplete(self, http_client):
+    def test_a_detail_that_keeps_failing_marks_the_fetch_incomplete(self, http_client):
         respx.post(self.LIST_URL).mock(return_value=httpx.Response(200, json={"results": [{"shortcode": "AAA", "title": "Software Developer"}]}))
         route = respx.get(self.detail_url("AAA")).mock(return_value=httpx.Response(503))
 
         adapter = WorkableAdapter(http_client)
 
         assert list(adapter.fetch_postings("fmx")) == []
-        assert route.call_count == 2
+        assert route.call_count == 3  # the first try and two retries
         assert adapter.incomplete is True
+
+    @respx.mock
+    def test_a_rate_limited_list_page_is_retried(self, http_client):
+        # Observed live: FMX's board answered 429 on four crawls and failed the whole board.
+        route = respx.post(self.LIST_URL).mock(side_effect=[
+            httpx.Response(429, headers={"Retry-After": "1"}),
+            httpx.Response(200, json={"results": [{"shortcode": "AAA", "title": "Software Developer"}]})])
+        respx.get(self.detail_url("AAA")).mock(
+            return_value=httpx.Response(200, json=workable_detail("AAA", "Software Developer")))
+
+        assert [p.source_job_id for p in WorkableAdapter(http_client).fetch_postings("fmx")] == ["AAA"]
+        assert route.call_count == 2
 
     @respx.mock
     def test_unknown_account_is_an_adapter_error(self, http_client):
@@ -2004,7 +2018,7 @@ class TestOracleAdapter:
             OracleAdapter(http_client).fetch_postings(self.HOST)
 
     @respx.mock
-    def test_a_detail_that_fails_twice_marks_the_fetch_incomplete(self, http_client):
+    def test_a_detail_that_keeps_failing_marks_the_fetch_incomplete(self, http_client):
         respx.get(self.LIST).mock(return_value=httpx.Response(200, json={"items": [{"TotalJobsCount": 1, "requisitionList": [
             {"Id": "1", "Title": "Software Engineer"}]}]}))
         respx.get(self.DETAIL).mock(return_value=httpx.Response(502))

@@ -62,7 +62,7 @@ class JazzHRAdapter(SourceAdapter):
         self, detail_url: str, brief_title: str, location_text: str | None, board_id: str
     ) -> RawPosting | None:
         try:
-            response = self._get_detail(detail_url)
+            response = self.client.get(detail_url)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning(

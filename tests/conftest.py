@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from jobscan import config
+from jobscan import config, http_client
 from jobscan.config import Settings, ModelPricing
 from jobscan.db import Database
 from jobscan.models import AtsType, Company
@@ -32,6 +32,12 @@ def _isolate_personal_paths(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(config, "DEFAULT_DATA_DIR", data_folder(tmp_path / "personal"))
     for key in ("JOBSCAN_DATA_DIR", *config.LEGACY_PATH_VARIABLES):
         monkeypatch.setenv(key, "")
+
+
+@pytest.fixture(autouse=True)
+def _instant_retries(monkeypatch) -> None:
+    """Retries still happen — tests count them — but without the real waits between attempts."""
+    monkeypatch.setattr(http_client, "_pause", lambda seconds: None)
 
 
 @pytest.fixture()

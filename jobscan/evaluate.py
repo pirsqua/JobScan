@@ -10,11 +10,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
-import httpx
-
 from jobscan.config import Settings
 from jobscan.db import Database
 from jobscan.filters import FilterReason, apply_factual_filters
+from jobscan.http_client import make_client
 from jobscan.llm.client import AnthropicClient, LlmCallError
 from jobscan.llm.company_eval import classify_company, fetch_homepage_text
 from jobscan.llm.job_eval import evaluate_job
@@ -360,8 +359,7 @@ def evaluate_all(
                 db.save_evaluation(replace(saved, id=None, job_id=follower.id))
                 stats._bump_verdict(saved.verdict.value)
 
-    headers = {"User-Agent": settings.http_user_agent}
-    with httpx.Client(timeout=settings.http_timeout_seconds, headers=headers) as http_client:
+    with make_client(settings) as http_client:
         jobs = db.get_active_jobs()
         for job in jobs:
             if limit is not None and (stats.sent_to_llm + stats.companies_classified + stats.triaged) >= limit:

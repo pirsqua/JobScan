@@ -114,7 +114,7 @@ class RipplingAdapter(SourceAdapter):
     def _fetch_detail(self, data_base: str, brief: RipplingJobBrief, board_id: str) -> RawPosting | None:
         job_id = brief.id
         try:
-            response = self._get_detail(
+            response = self.client.get(
                 f"{data_base}/jobs/{job_id}.json", params={"jobBoardSlug": board_id, "jobId": job_id}
             )
             response.raise_for_status()

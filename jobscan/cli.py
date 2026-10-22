@@ -6,8 +6,6 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import httpx
-
 from jobscan.adapters import ADAPTERS
 from jobscan.adapters.base import AdapterError
 from jobscan.audit import build_audit_rows, write_audit_csv, write_audit_markdown
@@ -17,6 +15,7 @@ from jobscan.config import Settings, load_settings
 from jobscan.crawl import crawl_all
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
+from jobscan.http_client import make_client
 from jobscan.logging_setup import configure_logging, get_logger
 from jobscan.models import AtsType, EvaluateStats, ManualOverride
 from jobscan.probe import probe_board
@@ -191,7 +190,7 @@ def cmd_companies_probe(args: argparse.Namespace, settings: Settings) -> int:
         print(f"No adapter for {ats_type.value} — such a company can only be recorded inactive, for manual checks.",
               file=sys.stderr)
         return 1
-    with httpx.Client(timeout=settings.http_timeout_seconds, headers={"User-Agent": settings.http_user_agent}) as client:
+    with make_client(settings) as client:
         try:
             result = probe_board(settings, ats_type, args.board_id, client)
         except AdapterError as exc:

@@ -80,7 +80,7 @@ class SmartRecruitersAdapter(SourceAdapter):
         self, list_url: str, brief: SmartRecruitersPostingBrief, board_id: str
     ) -> RawPosting | None:
         try:
-            response = self._get_detail(f"{list_url}/{brief.id}")
+            response = self.client.get(f"{list_url}/{brief.id}")
             response.raise_for_status()
             detail = SmartRecruitersPostingDetail.model_validate(response.json())
         except (httpx.HTTPError, ValueError, ValidationError) as exc:

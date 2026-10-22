@@ -28,6 +28,7 @@ from jobscan.adapters import ADAPTERS
 from jobscan.adapters.base import AdapterError
 from jobscan.config import Settings
 from jobscan.db import Database
+from jobscan.http_client import make_client
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
 from jobscan.models import Company, CrawlRunStats, RawPosting
@@ -71,8 +72,7 @@ def crawl_all(db: Database, settings: Settings, companies: list[Company] | None 
     stats = CrawlRunStats(started_at=datetime.now(timezone.utc))
     run_id = db.start_crawl_run(stats)
 
-    headers = {"User-Agent": settings.http_user_agent}
-    with httpx.Client(timeout=settings.http_timeout_seconds, headers=headers) as http_client, \
+    with make_client(settings) as http_client, \
             ThreadPoolExecutor(max_workers=max(1, settings.crawl_workers)) as pool:
         fetches = pool.map(lambda company: _fetch_board(company, http_client), companies)
         for company, fetch in zip(companies, fetches):

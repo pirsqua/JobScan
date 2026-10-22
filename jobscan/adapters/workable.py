@@ -75,7 +75,7 @@ class WorkableAdapter(SourceAdapter):
 
     def _fetch_detail(self, account: str, summary: WorkableJobSummary) -> RawPosting | None:
         try:
-            response = self._get_detail(DETAIL_URL.format(account=account, shortcode=summary.shortcode))
+            response = self.client.get(DETAIL_URL.format(account=account, shortcode=summary.shortcode))
             response.raise_for_status()
             detail = WorkableJobDetail.model_validate(response.json())
         except (httpx.HTTPError, ValueError, ValidationError) as exc:

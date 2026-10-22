@@ -113,7 +113,8 @@ class TestCrawlOrchestration:
         ])
         respx.get(detail_url.format("A")).mock(return_value=httpx.Response(200, json={**detail, "shortcode": "A"}))
         respx.get(detail_url.format("B")).mock(side_effect=[
-            httpx.Response(200, json={**detail, "shortcode": "B"}), httpx.Response(500), httpx.Response(500),  # fails twice, retry included
+            httpx.Response(200, json={**detail, "shortcode": "B"}),
+            httpx.Response(500), httpx.Response(500), httpx.Response(500),  # fails on every retry too
         ])
         companies = db.list_companies(active_only=True)
 

@@ -78,7 +78,7 @@ class ICIMSAdapter(SourceAdapter):
 
     def _fetch_detail(self, brief: _Brief, board_id: str) -> RawPosting | None:
         try:
-            response = self._get_detail(brief.detail_url)
+            response = self.client.get(brief.detail_url)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning(
