@@ -130,6 +130,18 @@ def _render_applications(data: ReportData) -> list[str]:
     return lines
 
 
+def _render_paused(data: ReportData) -> list[str]:
+    """Companies held out of the shortlist until a date, so their roles don't silently vanish."""
+    if not data.paused:
+        return []
+    lines = ["", "## Paused", ""]
+    for row in data.paused:
+        reason = f" — {row.pause.reason}" if row.pause.reason else ""
+        held = f"{row.held_back} shortlisted role{'' if row.held_back == 1 else 's'} held back"
+        lines.append(f"- **{row.pause.company}** until {row.pause.until.isoformat()}{reason} ({held})")
+    return lines
+
+
 def _render_shortlist(title: str, intro: str, rows: list[JobReportRow], empty_note: str) -> list[str]:
     lines = ["", f"## {title}", "", f"_{intro}_", ""]
     if not rows:
@@ -248,6 +260,7 @@ def render_markdown(data: ReportData) -> str:
     lines = [f"# JobScan report — {data.generated_at}", ""]
     lines += _render_stats(data)
     lines += _render_applications(data)
+    lines += _render_paused(data)
     lines += _render_shortlist(
         "Best Bets",
         "Strong matches at your level, with every required qualification demonstrated or credibly "

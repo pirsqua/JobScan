@@ -6,3 +6,9 @@ applications:
     title: Senior Software Engineer, Backend
     url: https://job-boards.greenhouse.io/acme/jobs/1234567
     applied_on: 2026-01-15
+# Optional: companies whose roles stay out of the shortlist until a date (still crawled and
+# evaluated) — e.g. an employer that accepts only a few applications per 60 days.
+paused:
+  - company: Acme
+    until: 2026-03-16
+    reason: accepts 3 applications per 60 days

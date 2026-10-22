@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from jobscan.applications import load_applications, normalize_url
+from jobscan.applications import load_applications, load_pauses, normalize_url
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.reports.csv_report import write_csv_report
@@ -21,6 +21,12 @@ def entry(url: str, applied_on: str = "2026-09-24", company: str = "Acme Corp", 
     return f"  - company: {company}\n    title: {title}\n    url: {url}\n    applied_on: {applied_on}\n"
 
 
+def write_pause(settings, company: str, until: str, reason: str = "") -> None:
+    settings.applications_path.write_text(
+        f"applications: []\npaused:\n  - company: {company}\n    until: {until}\n    reason: {reason}\n", encoding="utf-8"
+    )
+
+
 class TestLoading:
     def test_no_file_means_no_applications(self, settings):
         assert load_applications(settings.applications_path) == []
@@ -29,6 +35,13 @@ class TestLoading:
         write_applications(settings, entry("https://acme.example.com/jobs/1"))
         (application,) = load_applications(settings.applications_path)
         assert application.applied_on == dt.date(2026, 9, 24)
+
+    def test_pauses_are_optional(self, settings):
+        write_applications(settings, entry("https://acme.example.com/jobs/1"))
+        assert load_pauses(settings.applications_path) == []
+        write_pause(settings, "Acme Corp", "2026-12-20", reason="3 applications per 60 days")
+        (pause,) = load_pauses(settings.applications_path)
+        assert pause.until == dt.date(2026, 12, 20) and pause.reason == "3 applications per 60 days"
 
     def test_url_variants_of_the_same_posting_match(self):
         # Observed: recorded links with a trailing slash, or without one before the query string,
@@ -73,6 +86,35 @@ class TestReport:
 
         assert standings[0] == "Not tracked (posting never crawled)"  # sorted by date: 09-10 first
         assert standings[1].startswith("Closed ")
+
+    def test_paused_company_is_held_out_of_the_shortlist_until_its_date(self, db: Database, settings):
+        # Observed: an employer accepting only three applications per 60 days. Its roles stay crawled
+        # and evaluated, but leave the shortlist until the window resets — and say so, rather than
+        # silently vanishing.
+        seed_evaluated_job(db, settings)
+        evaluate_all(db, settings, client=strong_match_client())
+        write_pause(settings, "acme corp", "2999-01-01", reason="3 applications per 60 days")
+
+        data = assemble_report_data(db, settings)
+
+        assert data.best_bets == []
+        (paused,) = data.paused
+        assert paused.held_back == 1
+        assert ("- **acme corp** until 2999-01-01 — 3 applications per 60 days (1 shortlisted role held back)"
+                in render_markdown(data))
+        assert build_json_report(data)["paused"] == [
+            {"company": "acme corp", "until": "2999-01-01", "reason": "3 applications per 60 days", "held_back": 1}
+        ]
+
+    def test_pause_ends_on_its_date(self, db: Database, settings):
+        seed_evaluated_job(db, settings)
+        evaluate_all(db, settings, client=strong_match_client())
+        write_pause(settings, "Acme Corp", "2000-01-01")
+
+        data = assemble_report_data(db, settings)
+
+        assert len(data.best_bets) == 1 and data.paused == []
+        assert "## Paused" not in render_markdown(data)
 
     def test_csv_carries_applied_on(self, db: Database, settings, tmp_path):
         seed_evaluated_job(db, settings)

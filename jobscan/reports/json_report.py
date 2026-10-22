@@ -102,6 +102,11 @@ def build_json_report(data: ReportData) -> dict:
              "applied_on": r.application.applied_on.isoformat(), "standing": r.standing}
             for r in data.applications
         ],
+        "paused": [
+            {"company": r.pause.company, "until": r.pause.until.isoformat(), "reason": r.pause.reason,
+             "held_back": r.held_back}
+            for r in data.paused
+        ],
         "best_bets": [_job_dict(r) for r in data.best_bets],
         "good_fits": [_job_dict(r) for r in data.good_fits],
         "growth_bets": [_job_dict(r) for r in data.growth_bets],

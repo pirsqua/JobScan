@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime as dt
 from dataclasses import dataclass, field, replace
 
-from jobscan.applications import Application, load_applications, normalize_url
+from jobscan.applications import Application, Pause, load_applications, load_pauses, normalize_url
 from jobscan.config import Settings
 from jobscan.db import Database
 from jobscan.filters import apply_factual_filters
@@ -50,6 +50,14 @@ class ApplicationRow:
 
 
 @dataclass
+class PausedRow:
+    """A company paused in the applications file, and how many of its shortlisted roles it holds back."""
+
+    pause: Pause
+    held_back: int
+
+
+@dataclass
 class PoolStats:
     """The current state of every active posting at an active company, computed at report time —
     as opposed to a run's own work (CrawlRunStats, EvaluateStats.new_verdict_counts). The three
@@ -75,6 +83,7 @@ class ReportData:
     all_evaluated: list[JobReportRow]
     pool: PoolStats
     applications: list[ApplicationRow] = field(default_factory=list)
+    paused: list[PausedRow] = field(default_factory=list)
 
 
 # The spec's six ranking groups, most to least preferred. Any (verdict, scope_fit) combination
@@ -330,13 +339,22 @@ def assemble_report_data(
         ))
 
     # A posting already applied to leaves the shortlist — the Applications table shows where it
-    # stands — so the sections hold only what still needs a decision.
+    # stands — so the sections hold only what still needs a decision. So does one at a company
+    # paused until a later date (e.g. a limit on how often you can apply); it is still crawled and
+    # evaluated, and returns on that date.
+    pauses = load_pauses(settings.applications_path)
+    today = now_seattle().date()
+    held_back: dict[str, int] = {}
     sections: dict[str, list[JobReportRow]] = {
         "best_bets": [], "good_fits": [], "growth_bets": [], "attractive_stretches": [],
     }
     for row in rows:
         section = _report_section(row.evaluation)
         if section in sections and row.applied_on is None and _still_passes_factual_filters(row, settings):
+            pause = next((p for p in pauses if p.holds(row.company.name, today)), None)
+            if pause is not None:
+                held_back[pause.company] = held_back.get(pause.company, 0) + 1
+                continue
             sections[section].append(row)
 
     for key in sections:
@@ -368,4 +386,5 @@ def assemble_report_data(
         all_evaluated=evaluated,
         pool=pool,
         applications=_application_rows(db, applications, settings),
+        paused=[PausedRow(p, held_back.get(p.company, 0)) for p in pauses if today < p.until],
     )

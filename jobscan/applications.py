@@ -8,6 +8,13 @@ stands — shortlisted, rejected, or closed since. See data/applications.example
         title: Senior Software Engineer
         url: https://acme.example.com/job-detail/?gh_jid=1234567
         applied_on: 2026-01-15
+    paused:
+      - company: Initech
+        until: 2026-03-01
+        reason: accepts 3 applications per 60 days
+
+A paused company's postings stay crawled and evaluated but are held out of the shortlist until the
+``until`` date, when they return on their own (an employer limiting how often you can apply).
 """
 from __future__ import annotations
 
@@ -50,3 +57,28 @@ def load_applications(path: Path) -> list[Application]:
             company=str(entry["company"]), title=str(entry["title"]), url=str(entry["url"]), applied_on=applied_on,
         ))
     return applications
+
+
+@dataclass
+class Pause:
+    company: str
+    until: dt.date  # the first day the company's postings are shown again
+    reason: str = ""
+
+    def holds(self, company_name: str, today: dt.date) -> bool:
+        return company_name.casefold() == self.company.casefold() and today < self.until
+
+
+def load_pauses(path: Path) -> list[Pause]:
+    """The ``paused`` list of the applications file; none without the file or the key."""
+    if not path.exists():
+        return []
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or []
+    entries = raw.get("paused", []) if isinstance(raw, dict) else []
+    pauses = []
+    for entry in entries:
+        until = entry["until"]
+        if isinstance(until, str):
+            until = dt.date.fromisoformat(until)
+        pauses.append(Pause(company=str(entry["company"]), until=until, reason=str(entry.get("reason") or "")))
+    return pauses

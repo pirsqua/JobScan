@@ -158,7 +158,10 @@ fail the working-hours filter in your profile reject it.
 Record each application in your applications file (company, title, posting URL, date). The report
 lists them under **Applications** with where each posting now stands — its tier, rejected, or
 closed — and leaves them out of the shortlist sections, which hold only what still needs a
-decision.
+decision. To pause a company until a date — one that accepts only a few applications per 60 days,
+say — list it under `paused` in the same file with an `until` date and a reason: its postings are
+still crawled and evaluated, but stay out of the shortlist until that date, and the report's
+**Paused** section says how many it is holding back.
 
 To see why postings were filtered out — useful for spotting a wrongly rejected role — run
 `python -m jobscan audit`.
