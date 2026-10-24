@@ -47,6 +47,8 @@ class ApplicationRow:
     application: Application
     job: JobPosting | None
     standing: str
+    # Days since applying, while the status is still "applied" (no reply yet); None otherwise.
+    days_waiting: int | None = None
 
 
 @dataclass
@@ -307,13 +309,16 @@ def declined_reason(evaluation: Evaluation) -> str:
     return evaluation.primary_rejection_reason or "no reason recorded"
 
 
-def _application_rows(db: Database, applications: list[Application], settings: Settings) -> list[ApplicationRow]:
+def _application_rows(
+    db: Database, applications: list[Application], settings: Settings, today: dt.date
+) -> list[ApplicationRow]:
     job_ids = {normalize_url(url): job_id for job_id, url in db.list_job_posting_urls()}
     rows = []
     for application in sorted(applications, key=lambda a: a.applied_on):
         job_id = job_ids.get(normalize_url(application.url))
         job = db.get_job(job_id) if job_id is not None else None
-        rows.append(ApplicationRow(application, job, _application_standing(db, job, settings)))
+        waiting = (today - application.applied_on).days if application.status == "applied" else None
+        rows.append(ApplicationRow(application, job, _application_standing(db, job, settings), waiting))
     return rows
 
 
@@ -385,6 +390,6 @@ def assemble_report_data(
         attractive_stretches=sections["attractive_stretches"],
         all_evaluated=evaluated,
         pool=pool,
-        applications=_application_rows(db, applications, settings),
+        applications=_application_rows(db, applications, settings, today),
         paused=[PausedRow(p, held_back.get(p.company, 0)) for p in pauses if today < p.until],
     )

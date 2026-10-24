@@ -157,7 +157,9 @@ fail the working-hours filter in your profile reject it.
 Record each application in your applications file (company, title, posting URL, date). The report
 lists them under **Applications** with where each posting now stands — its tier, rejected, or
 closed — and leaves them out of the shortlist sections, which hold only what still needs a
-decision. To pause a company until a date — one that accepts only a few applications per 60 days,
+decision. Give an application a `status` as it moves (`screening`, `interviewing`, `offer`,
+`rejected` or `withdrawn`, with an optional `status_on` date); without one it counts as awaiting a
+reply, and the report shows how many days it has waited and sums up the whole funnel. To pause a company until a date — one that accepts only a few applications per 60 days,
 say — list it under `paused` in the same file with an `until` date and a reason: its postings are
 still crawled and evaluated, but stay out of the shortlist until that date, and the report's
 **Paused** section says how many it is holding back.

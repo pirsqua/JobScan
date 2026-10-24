@@ -7,8 +7,9 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from jobscan.applications import STATUSES
 from jobscan.models import Evaluation, JobPosting, ScopeFit, Verdict, WorkFit
-from jobscan.reports.data import JobReportRow, ReportData, declined_reason, is_declined
+from jobscan.reports.data import ApplicationRow, JobReportRow, ReportData, declined_reason, is_declined
 from jobscan.timeutil import SEATTLE_TZ
 
 
@@ -122,12 +123,37 @@ def _render_applications(data: ReportData) -> list[str]:
     if not data.applications:
         lines.append("_None recorded — add them to the applications file in your data folder (`JOBSCAN_DATA_DIR`)._")
         return lines
-    lines += ["| Applied | Role | Where it stands |", "|---|---|---|"]
+    lines += [_application_summary(data), "", "| Applied | Role | Status | Where it stands |", "|---|---|---|---|"]
     for row in data.applications:
         app = row.application
         standing = row.standing.replace("|", "\\|")
-        lines.append(f"| {app.applied_on.isoformat()} | [{app.company} — {app.title}]({app.url}) | {standing} |")
+        lines.append(f"| {app.applied_on.isoformat()} | [{app.company} — {app.title}]({app.url}) | "
+                     f"{_application_status(row)} | {standing} |")
     return lines
+
+
+_STATUS_PHRASES = {
+    "applied": "awaiting a reply", "screening": "screening", "interviewing": "interviewing", "offer": "offer",
+    "rejected": "rejected", "withdrawn": "withdrawn",
+}
+
+
+def _application_summary(data: ReportData) -> str:
+    """"**20** applications — 18 awaiting a reply, 1 interviewing, 1 rejected", in STATUSES order."""
+    counts: dict[str, int] = {}
+    for row in data.applications:
+        counts[row.application.status] = counts.get(row.application.status, 0) + 1
+    parts = [f"{counts[status]} {_STATUS_PHRASES[status]}" for status in STATUSES if status in counts]
+    total = len(data.applications)
+    return f"**{total}** application{'' if total == 1 else 's'} — {', '.join(parts)}"
+
+
+def _application_status(row: ApplicationRow) -> str:
+    app = row.application
+    if row.days_waiting is not None:
+        return f"No reply yet ({row.days_waiting} day{'' if row.days_waiting == 1 else 's'})"
+    label = app.status.capitalize()
+    return f"{label} {app.status_on.isoformat()}" if app.status_on else label
 
 
 def _render_paused(data: ReportData) -> list[str]:

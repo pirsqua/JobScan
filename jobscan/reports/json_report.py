@@ -99,7 +99,9 @@ def build_json_report(data: ReportData) -> dict:
         "estimated_cost_usd": data.estimated_cost_usd,
         "applications": [
             {"company": r.application.company, "title": r.application.title, "url": r.application.url,
-             "applied_on": r.application.applied_on.isoformat(), "standing": r.standing}
+             "applied_on": r.application.applied_on.isoformat(), "status": r.application.status,
+             "status_on": r.application.status_on.isoformat() if r.application.status_on else None,
+             "days_waiting": r.days_waiting, "standing": r.standing}
             for r in data.applications
         ],
         "paused": [

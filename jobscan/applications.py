@@ -1,13 +1,16 @@
 """The candidate's job applications: one entry per posting applied to, kept in a hand-editable
 YAML file in the personal data folder (``Settings.applications_path``, under ``JOBSCAN_DATA_DIR``)
 and matched to crawled postings by URL, so a report can mark each applied role wherever it now
-stands — shortlisted, rejected, or closed since. See data/applications.example.yaml.
+stands — shortlisted, rejected, or closed since — and how the application itself is going. See
+data/applications.example.yaml.
 
     applications:
       - company: Acme
         title: Senior Software Engineer
         url: https://acme.example.com/job-detail/?gh_jid=1234567
         applied_on: 2026-01-15
+        status: rejected      # optional; one of STATUSES, "applied" when absent
+        status_on: 2026-02-02 # optional; when the status last changed
     paused:
       - company: Initech
         until: 2026-03-01
@@ -26,12 +29,19 @@ from urllib.parse import urlsplit, urlunsplit
 import yaml
 
 
+# Where an application has got to, in the order applications usually move. "applied" means no
+# reply yet; the report counts how many days it has been waiting.
+STATUSES = ("applied", "screening", "interviewing", "offer", "rejected", "withdrawn")
+
+
 @dataclass
 class Application:
     company: str
     title: str
     url: str
     applied_on: dt.date
+    status: str = "applied"
+    status_on: dt.date | None = None
 
 
 def normalize_url(url: str) -> str:
@@ -50,13 +60,22 @@ def load_applications(path: Path) -> list[Application]:
     entries = raw.get("applications", []) if isinstance(raw, dict) else raw
     applications = []
     for entry in entries:
-        applied_on = entry["applied_on"]
-        if isinstance(applied_on, str):
-            applied_on = dt.date.fromisoformat(applied_on)
+        status = str(entry.get("status") or "applied").strip().lower()
+        if status not in STATUSES:
+            # A typo would otherwise quietly count the application as still waiting for a reply.
+            raise ValueError(f"{entry['company']} — {entry['title']}: unknown status {status!r} in {path}; "
+                             f"use one of {', '.join(STATUSES)}")
         applications.append(Application(
-            company=str(entry["company"]), title=str(entry["title"]), url=str(entry["url"]), applied_on=applied_on,
+            company=str(entry["company"]), title=str(entry["title"]), url=str(entry["url"]),
+            applied_on=_date(entry["applied_on"]), status=status,
+            status_on=_date(entry["status_on"]) if entry.get("status_on") else None,
         ))
     return applications
+
+
+def _date(value: dt.date | str) -> dt.date:
+    """YAML reads an unquoted 2026-01-15 as a date already, a quoted one as a string."""
+    return dt.date.fromisoformat(value) if isinstance(value, str) else value
 
 
 @dataclass
@@ -77,8 +96,6 @@ def load_pauses(path: Path) -> list[Pause]:
     entries = raw.get("paused", []) if isinstance(raw, dict) else []
     pauses = []
     for entry in entries:
-        until = entry["until"]
-        if isinstance(until, str):
-            until = dt.date.fromisoformat(until)
-        pauses.append(Pause(company=str(entry["company"]), until=until, reason=str(entry.get("reason") or "")))
+        pauses.append(Pause(company=str(entry["company"]), until=_date(entry["until"]),
+                            reason=str(entry.get("reason") or "")))
     return pauses

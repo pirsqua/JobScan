@@ -6,6 +6,14 @@ applications:
     title: Senior Software Engineer, Backend
     url: https://job-boards.greenhouse.io/acme/jobs/1234567
     applied_on: 2026-01-15
+  # Optional: how the application is going — applied (the default: no reply yet), screening,
+  # interviewing, offer, rejected or withdrawn — and when that last changed.
+  - company: Acme
+    title: Senior Software Engineer, Platform
+    url: https://job-boards.greenhouse.io/acme/jobs/7654321
+    applied_on: 2026-01-20
+    status: rejected
+    status_on: 2026-02-03
 # Optional: companies whose roles stay out of the shortlist until a date (still crawled and
 # evaluated) — e.g. an employer that accepts only a few applications per 60 days.
 paused:

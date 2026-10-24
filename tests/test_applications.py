@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import datetime as dt
 
+import pytest
+
 from jobscan.applications import load_applications, load_pauses, normalize_url
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
+from jobscan.reports import data as report_data
 from jobscan.reports.csv_report import write_csv_report
 from jobscan.reports.data import assemble_report_data
 from jobscan.reports.json_report import build_json_report
 from jobscan.reports.markdown_report import render_markdown
+from jobscan.timeutil import SEATTLE_TZ
 
 from tests.test_reports import seed_evaluated_job, strong_match_client
 
@@ -17,8 +21,14 @@ def write_applications(settings, *entries: str) -> None:
     settings.applications_path.write_text("applications:\n" + "".join(entries), encoding="utf-8")
 
 
-def entry(url: str, applied_on: str = "2026-09-24", company: str = "Acme Corp", title: str = "Senior Backend Engineer") -> str:
-    return f"  - company: {company}\n    title: {title}\n    url: {url}\n    applied_on: {applied_on}\n"
+def entry(url: str, applied_on: str = "2026-09-24", company: str = "Acme Corp", title: str = "Senior Backend Engineer",
+          status: str | None = None, status_on: str | None = None) -> str:
+    lines = f"  - company: {company}\n    title: {title}\n    url: {url}\n    applied_on: {applied_on}\n"
+    if status:
+        lines += f"    status: {status}\n"
+    if status_on:
+        lines += f"    status_on: {status_on}\n"
+    return lines
 
 
 def write_pause(settings, company: str, until: str, reason: str = "") -> None:
@@ -35,6 +45,22 @@ class TestLoading:
         write_applications(settings, entry("https://acme.example.com/jobs/1"))
         (application,) = load_applications(settings.applications_path)
         assert application.applied_on == dt.date(2026, 9, 24)
+
+    def test_status_defaults_to_applied_and_is_read_when_given(self, settings):
+        write_applications(
+            settings,
+            entry("https://acme.example.com/jobs/1"),
+            entry("https://acme.example.com/jobs/2", status="Rejected", status_on="2026-10-02"),
+        )
+        waiting, passed = load_applications(settings.applications_path)
+        assert (waiting.status, waiting.status_on) == ("applied", None)
+        assert (passed.status, passed.status_on) == ("rejected", dt.date(2026, 10, 2))
+
+    def test_an_unknown_status_is_an_error_naming_the_choices(self, settings):
+        # A typo would otherwise count the application as still waiting for a reply.
+        write_applications(settings, entry("https://acme.example.com/jobs/1", status="rejcted"))
+        with pytest.raises(ValueError, match="unknown status 'rejcted'.*applied, screening, interviewing"):
+            load_applications(settings.applications_path)
 
     def test_pauses_are_optional(self, settings):
         write_applications(settings, entry("https://acme.example.com/jobs/1"))
@@ -72,6 +98,26 @@ class TestReport:
         report = build_json_report(data)
         assert report["best_bets"] == [] and report["applications"][0]["standing"] == "Best Bet"
         assert report["all_evaluated"][0]["applied_on"] == "2026-09-24"
+
+    def test_applications_show_their_status_and_a_summary(self, db: Database, settings, monkeypatch):
+        monkeypatch.setattr(report_data, "now_seattle", lambda: dt.datetime(2026, 10, 24, 9, tzinfo=SEATTLE_TZ))
+        write_applications(
+            settings,
+            entry("https://acme.example.com/jobs/1", applied_on="2026-10-01"),
+            entry("https://acme.example.com/jobs/2", applied_on="2026-09-10", status="rejected", status_on="2026-09-23"),
+            entry("https://acme.example.com/jobs/3", applied_on="2026-09-15", status="interviewing"),
+        )
+
+        data = assemble_report_data(db, settings)
+        markdown = render_markdown(data)
+
+        assert "**3** applications — 1 awaiting a reply, 1 interviewing, 1 rejected" in markdown
+        assert "| Applied | Role | Status | Where it stands |" in markdown
+        assert "| Rejected 2026-09-23 |" in markdown
+        assert "| Interviewing |" in markdown
+        assert "| No reply yet (23 days) |" in markdown
+        rejected = next(a for a in build_json_report(data)["applications"] if a["status"] == "rejected")
+        assert (rejected["status_on"], rejected["days_waiting"]) == ("2026-09-23", None)
 
     def test_closed_and_untracked_postings_still_listed(self, db: Database, settings):
         company, _ = seed_evaluated_job(db, settings)
