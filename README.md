@@ -1,9 +1,16 @@
 # JobScan
 
+[![Tests](https://github.com/pirsqua/JobScan/actions/workflows/tests.yml/badge.svg)](https://github.com/pirsqua/JobScan/actions/workflows/tests.yml)
+
 A personal job-search pipeline. It crawls the career boards of a curated list of companies, keeps
 the software-engineering postings, rejects the ones that fail hard facts (salary, remote
 eligibility, employment type) in code, and has Claude judge the rest against a candidate profile.
 The output is a ranked report of roles worth applying to, each linked to its posting.
+
+**At a glance:** adapters for 16 job-board platforms · a two-model Claude pipeline — a cheap Haiku
+triage, then a Sonnet evaluation returning strict structured output, with the instructions and
+profile prompt-cached · code that checks the model's claims instead of trusting them · 500+
+offline tests · a daily run usually costs a few cents.
 
 It searches only the employer registry you give it, and every report states exactly how many
 companies and postings were processed — never an implied "comprehensive" coverage.
@@ -40,6 +47,27 @@ crawl ──► title gate ──► factual filters ──► triage (Haiku) �
    posting awaiting evaluation — never rejected.
 5. **Report.** Markdown, CSV and JSON in `out/`, timestamped in Pacific time.
 
+A shortlist entry in the Markdown report looks like this (a fictional posting, judged against the
+example profile):
+
+```markdown
+### Example Freight — Senior Backend Engineer, Integrations (strong_match, at_level, 86% coverage, confidence 0.80)
+
+- Salary: $175,000 - $210,000 / year (source: structured)
+- Apply: https://jobs.example.com/example-freight/senior-backend-engineer
+- Freshness: published 2026-09-30; first seen 2026-10-02
+- Day to day: Building and running the Python services behind carrier and customer integrations —
+  REST and event-driven APIs on AWS, with an on-call rotation for them
+- Exact matches: 5+ years of backend Python; REST API design and ownership; PostgreSQL;
+  event-driven integrations with retries and idempotency
+- Minor caveats: Kafka is preferred, where the candidate's queueing is SQS; on-call rotation
+- Compensation assessment: Published base range $175,000-$210,000; the midpoint, $192,500, is above
+  the $160,000 floor
+- Why this is gettable: Every required qualification maps to demonstrated work — the tracking-API
+  rebuild and the carrier integrations — and the scope is ordinary senior ownership on a
+  structured team
+```
+
 Verdicts are cached by description text: a posting is re-judged only when its text changes, or on
 request after the rubric changes (see [Changing the rubric](#changing-the-rubric)).
 
@@ -65,6 +93,12 @@ The engineering choices worth a look, for anyone reading the code:
 - **Built for a non-deterministic model.** The same posting can come back with different verdicts,
   so a near-miss gets a second evaluation and rubric changes are judged over several runs of known
   postings, never one.
+- **Retry only what can clear up.** Every board fetch goes through one HTTP client
+  (`jobscan/http_client.py`) that retries a 429, a 5xx, a timeout or a dropped connection — twice,
+  with jittered backoff so parallel requests that failed together don't retry together — and
+  honours a short `Retry-After`. A server asking for a long wait (a daily quota block) is left for
+  the next run rather than tying up a crawl worker, and the failure is logged with what's needed to
+  diagnose it. Permanent failures, like a board that moved, aren't retried at all.
 - **Cost and speed are designed in.** The system prompt and profile are cached across calls, a cheap
   model screens before the expensive one, `--dry-run` prices a run before it spends, and every run
   reports its actual cost. Board fetches and LLM calls run in worker threads while every database
@@ -159,10 +193,12 @@ lists them under **Applications** with where each posting now stands — its tie
 closed — and leaves them out of the shortlist sections, which hold only what still needs a
 decision. Give an application a `status` as it moves (`screening`, `interviewing`, `offer`,
 `rejected` or `withdrawn`, with an optional `status_on` date); without one it counts as awaiting a
-reply, and the report shows how many days it has waited and sums up the whole funnel. To pause a company until a date — one that accepts only a few applications per 60 days,
-say — list it under `paused` in the same file with an `until` date and a reason: its postings are
-still crawled and evaluated, but stay out of the shortlist until that date, and the report's
-**Paused** section says how many it is holding back.
+reply. The report shows how many days each application has waited and sums up the whole funnel.
+
+To pause a company until a date — one that accepts only a few applications per 60 days, say — list
+it under `paused` in the same file with an `until` date and a reason. Its postings are still
+crawled and evaluated, but stay out of the shortlist until that date, and the report's **Paused**
+section says how many it is holding back.
 
 To see why postings were filtered out — useful for spotting a wrongly rejected role — run
 `python -m jobscan audit`.
