@@ -1,0 +1,25 @@
+# Runs the test suite on every push to main and every pull request. The tests use mocked HTTP and a
+# stub Anthropic client, so this needs no secrets and never spends money or touches a job board.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Windows, like the development machine.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -q
