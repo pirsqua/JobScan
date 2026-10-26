@@ -234,6 +234,8 @@ class Database:
         self._add_column_if_missing("evaluation_runs", "triage_cache_read_input_tokens", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "triage_model", "TEXT")
         self._add_column_if_missing("companies", "applied", "INTEGER")
+        self._add_column_if_missing("companies", "culture_score", "REAL")
+        self._add_column_if_missing("companies", "culture_confidence", "TEXT")
         self._add_column_if_missing("jobs", "workplace_type", "TEXT")
         self._add_column_if_missing("evaluations", "rubric_version", "TEXT")
         self._add_column_if_missing("evaluations", "working_hours_quote", "TEXT")
@@ -323,6 +325,7 @@ class Database:
             if should_update_classification:
                 self.conn.execute(
                     """UPDATE companies SET name=?, domain=?, careers_url=?, active=?, applied=?,
+                       culture_score=?, culture_confidence=?,
                        discovery_source=COALESCE(?, discovery_source), notes=COALESCE(?, notes),
                        classification=?, classification_source=?,
                        classification_confidence=COALESCE(?, classification_confidence),
@@ -330,7 +333,7 @@ class Database:
                        WHERE id=?""",
                     (
                         company.name, company.domain, company.careers_url, int(company.active),
-                        int(company.applied),
+                        int(company.applied), company.culture_score, company.culture_confidence,
                         company.discovery_source, company.notes,
                         company.classification.value,
                         (company.classification_source or ClassificationSource.SEED).value,
@@ -341,6 +344,7 @@ class Database:
             else:
                 self.conn.execute(
                     """UPDATE companies SET name=?, domain=?, careers_url=?, active=?, applied=?,
+                       culture_score=?, culture_confidence=?,
                        discovery_source=COALESCE(?, discovery_source), notes=COALESCE(?, notes)
                        WHERE id=?""",
                     (
@@ -349,6 +353,8 @@ class Database:
                         company.careers_url,
                         int(company.active),
                         int(company.applied),
+                        company.culture_score,
+                        company.culture_confidence,
                         company.discovery_source,
                         company.notes,
                         company_id,
@@ -360,8 +366,8 @@ class Database:
             """INSERT INTO companies
                (name, domain, careers_url, ats_type, board_id, classification,
                 classification_source, classification_confidence, classification_evidence,
-                active, last_crawled_at, discovery_source, notes, applied)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                active, last_crawled_at, discovery_source, notes, applied, culture_score, culture_confidence)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 company.name,
                 company.domain,
@@ -377,6 +383,8 @@ class Database:
                 company.discovery_source,
                 company.notes,
                 int(company.applied),
+                company.culture_score,
+                company.culture_confidence,
             ),
         )
         return cur.lastrowid
@@ -400,6 +408,8 @@ class Database:
             discovery_source=row["discovery_source"],
             notes=row["notes"],
             applied=bool(row["applied"]) if row["applied"] is not None else False,
+            culture_score=row["culture_score"],
+            culture_confidence=row["culture_confidence"],
         )
 
     def get_company(self, company_id: int) -> Company | None:

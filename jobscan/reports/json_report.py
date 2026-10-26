@@ -13,6 +13,8 @@ def _job_dict(row) -> dict:
     d = {
         "company": company.name,
         "company_domain": company.domain,
+        "company_culture_score": company.culture_score,
+        "company_culture_confidence": company.culture_confidence,
         "title": job.title,
         "applied_on": row.applied_on.isoformat() if row.applied_on else None,
         "location_raw": job.location_raw,

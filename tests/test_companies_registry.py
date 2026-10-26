@@ -63,6 +63,33 @@ class TestRegistryImport:
         assert by_name["NotApplied Co"].applied is False
         assert by_name["Applied Co"].applied is True
 
+    def test_culture_score_round_trips_and_updates_on_reimport(self, tmp_path: Path, db: Database):
+        path = tmp_path / "companies.yaml"
+        path.write_text(
+            "- {name: Scored Co, ats_type: greenhouse, board_id: scored, culture_score: 7.5, culture_confidence: medium}\n"
+            "- {name: Unscored Co, ats_type: greenhouse, board_id: unscored, culture_score: null, culture_confidence: none}\n"
+            "- {name: Plain Co, ats_type: greenhouse, board_id: plain}\n",
+            encoding="utf-8",
+        )
+        import_registry(db, path)
+        by_name = {c.name: c for c in db.list_companies(active_only=False)}
+        assert (by_name["Scored Co"].culture_score, by_name["Scored Co"].culture_confidence) == (7.5, "medium")
+        assert by_name["Unscored Co"].culture_score is None
+        assert by_name["Plain Co"].culture_score is None and by_name["Plain Co"].culture_confidence is None
+
+        path.write_text("- {name: Scored Co, ats_type: greenhouse, board_id: scored, culture_score: 4, culture_confidence: high}\n",
+                        encoding="utf-8")
+        import_registry(db, path)
+        rescored = next(c for c in db.list_companies(active_only=False) if c.name == "Scored Co")
+        assert (rescored.culture_score, rescored.culture_confidence) == (4.0, "high")
+
+    @pytest.mark.parametrize("value", ["great", 11, -1])
+    def test_culture_score_must_be_a_number_from_0_to_10(self, tmp_path: Path, value):
+        path = tmp_path / "companies.yaml"
+        path.write_text(f"- {{name: Bad Co, ats_type: greenhouse, board_id: bad, culture_score: {value}}}\n", encoding="utf-8")
+        with pytest.raises(RegistryImportError, match="culture_score"):
+            parse_registry_file(path)
+
     def test_reimport_updates_rather_than_duplicates(self, tmp_path: Path, db: Database):
         path = tmp_path / "companies.csv"
         path.write_text(CSV_CONTENT, encoding="utf-8")

@@ -115,6 +115,22 @@ class TestReports:
         assert csv_path.exists()
         assert "Acme Corp" in csv_path.read_text(encoding="utf-8")
 
+    def test_culture_score_is_shown_beside_each_role_when_the_registry_has_one(self, db: Database, settings):
+        company, _ = seed_evaluated_job(db, settings)
+        evaluate_all(db, settings, client=strong_match_client())
+        assert "- Culture:" not in render_markdown(assemble_report_data(db, settings))
+
+        company.culture_score, company.culture_confidence = 7.5, "medium"
+        db.upsert_company(company)
+        data = assemble_report_data(db, settings)
+        assert "- Culture: 7.5/10 (medium confidence)" in render_markdown(data)
+        best = build_json_report(data)["best_bets"][0]
+        assert (best["company_culture_score"], best["company_culture_confidence"]) == (7.5, "medium")
+        csv_path = settings.output_dir / "report.csv"
+        write_csv_report(data, csv_path)
+        header, first = csv_path.read_text(encoding="utf-8").splitlines()[:2]
+        assert header.startswith("company,culture_score,culture_confidence,") and first.startswith("Acme Corp,7.5,medium,")
+
     def test_pool_is_partitioned_and_kept_apart_from_the_latest_run(self, db: Database, settings):
         company, raw = seed_evaluated_job(db, settings)
         no_salary = RawPosting(

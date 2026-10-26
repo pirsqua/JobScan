@@ -255,6 +255,11 @@ class Company:
     # automated scoring — always keep a company the candidate has applied to, regardless of
     # what the registry's own fit/culture heuristics say about it.
     applied: bool = False
+    # The candidate's own researched grade of the employer's culture (0-10) and how much evidence
+    # is behind it, from the registry. Shown in the report beside each role; no code filters or
+    # ranks on it — JobScan doesn't judge culture itself.
+    culture_score: float | None = None
+    culture_confidence: str | None = None
 
 
 @dataclass

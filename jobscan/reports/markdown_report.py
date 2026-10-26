@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from jobscan.applications import STATUSES
-from jobscan.models import Evaluation, JobPosting, ScopeFit, Verdict, WorkFit
+from jobscan.models import Company, Evaluation, JobPosting, ScopeFit, Verdict, WorkFit
 from jobscan.reports.data import ApplicationRow, JobReportRow, ReportData, declined_reason, is_declined
 from jobscan.timeutil import SEATTLE_TZ
 
@@ -25,6 +25,14 @@ def _salary_line(job: JobPosting) -> str:
     lo = f"${job.salary_min:,.0f}" if job.salary_min is not None else "?"
     hi = f"${job.salary_max:,.0f}" if job.salary_max is not None else "?"
     return f"{lo} - {hi} / {job.salary_period or 'year'} (source: {job.salary_source.value})"
+
+
+def _culture_line(company: Company) -> list[str]:
+    """The registry's culture score for the employer, when it has one."""
+    if company.culture_score is None:
+        return []
+    confidence = f" ({company.culture_confidence} confidence)" if company.culture_confidence else ""
+    return [f"- Culture: {company.culture_score:g}/10{confidence}"]
 
 
 _VERDICT_ORDER = ("strong_match", "plausible_match", "borderline", "reject")
@@ -182,6 +190,7 @@ def _render_shortlist(title: str, intro: str, rows: list[JobReportRow], empty_no
             f"{ev.evidence_coverage_percent}% coverage, confidence {ev.confidence:.2f})",
             "",
             f"- Salary: {_salary_line(job)}",
+            *_culture_line(company),
             f"- Apply: {job.apply_url or job.posting_url or 'n/a'}",
             f"- Freshness: {_freshness(job)}",
         ]
@@ -228,6 +237,7 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
             f"### {_role(row)} ({ev.verdict.value}, {ev.scope_fit.value})",
             "",
             f"- Salary: {_salary_line(job)}",
+            *_culture_line(company),
             f"- Apply: {job.apply_url or job.posting_url or 'n/a'}",
             f"- Freshness: {_freshness(job)}",
             f"- Strong matching areas: {'; '.join(ev.required_matches) if ev.required_matches else '(none noted)'}",

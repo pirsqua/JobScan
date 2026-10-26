@@ -53,6 +53,16 @@ def _row_to_company(row: dict) -> Company:
     if applied_raw is not None and str(applied_raw).strip() != "":
         applied = str(applied_raw).strip().lower() in ("1", "true", "yes")
 
+    culture_raw = row.get("culture_score")
+    culture_score = None
+    if culture_raw is not None and str(culture_raw).strip().lower() not in ("", "null", "none"):
+        try:
+            culture_score = float(culture_raw)
+        except (TypeError, ValueError) as exc:
+            raise RegistryImportError(f"culture_score '{culture_raw}' for company '{row.get('name')}' is not a number") from exc
+        if not 0 <= culture_score <= 10:
+            raise RegistryImportError(f"culture_score {culture_score:g} for company '{row.get('name')}' is outside 0-10")
+
     return Company(
         name=str(row["name"]).strip(),
         domain=domain,
@@ -65,6 +75,8 @@ def _row_to_company(row: dict) -> Company:
         discovery_source=(row.get("discovery_source") or "").strip() or None,
         notes=(row.get("notes") or "").strip() or None,
         applied=applied,
+        culture_score=culture_score,
+        culture_confidence=str(row.get("culture_confidence") or "").strip() or None,
     )
 
 

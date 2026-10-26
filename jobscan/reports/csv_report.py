@@ -7,7 +7,7 @@ from pathlib import Path
 from jobscan.reports.data import ReportData
 
 FIELDS = [
-    "company", "title", "applied_on", "verdict", "scope_fit", "evidence_coverage_percent", "confidence",
+    "company", "culture_score", "culture_confidence", "title", "applied_on", "verdict", "scope_fit", "evidence_coverage_percent", "confidence",
     "salary_min", "salary_max", "salary_period", "salary_source", "location_raw", "remote_scope",
     "employment_type", "day_to_day_work", "work_fit", "working_hours_fit", "working_hours_quote", "posting_url", "apply_url", "published_at", "first_seen_at",
     "required_matches", "required_gaps", "preferred_only_gaps", "minor_caveats",
@@ -26,6 +26,8 @@ def write_csv_report(data: ReportData, path: Path) -> None:
             writer.writerow(
                 {
                     "company": company.name,
+                    "culture_score": company.culture_score,
+                    "culture_confidence": company.culture_confidence or "",
                     "title": job.title,
                     "applied_on": row.applied_on.isoformat() if row.applied_on else "",
                     "verdict": ev.verdict.value,

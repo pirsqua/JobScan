@@ -10,6 +10,8 @@
   classification: product
   active: true
   priority: B
+  culture_score: 7.5
+  culture_confidence: medium
   fit_lanes: [python, apis]
   remote_signal: remote_first
   compensation_signal: verified_170k_path

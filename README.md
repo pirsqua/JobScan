@@ -54,6 +54,7 @@ example profile):
 ### Example Freight — Senior Backend Engineer, Integrations (strong_match, at_level, 86% coverage, confidence 0.80)
 
 - Salary: $175,000 - $210,000 / year (source: structured)
+- Culture: 7.5/10 (medium confidence)
 - Apply: https://jobs.example.com/example-freight/senior-backend-engineer
 - Freshness: published 2026-09-30; first seen 2026-10-02
 - Day to day: Building and running the Python services behind carrier and customer integrations —
@@ -275,12 +276,15 @@ Your registry file (`jobscan_companies.yaml` in your data folder; start from
 `data/companies.example.yaml`) lists the
 companies to search. Code reads `name`, `domain`, `careers_url`, `ats_type`, `board_id`,
 `classification`, `active`, `applied` (a label shown by `companies list`; individual applications
-go in the applications file), `discovery_source` and `notes`; the rest (`priority`, `fit_lanes`,
-`remote_signal`, `compensation_signal`, `evidence_level`) is research metadata for you.
+go in the applications file), `culture_score` and `culture_confidence`, `discovery_source` and
+`notes`; the rest (`priority`, `fit_lanes`, `remote_signal`, `compensation_signal`,
+`evidence_level`) is research metadata for you.
 
 JobScan doesn't judge employer culture. Each company's `notes` carry dated evidence instead —
-recent engineering-review scores, layoffs, remote policy, what its postings actually ask for — and
-its `priority` grades all of it:
+recent engineering-review scores, layoffs, remote policy, what its postings actually ask for. An
+optional `culture_score` (0–10, your own grade of that evidence) and `culture_confidence` (how much
+evidence is behind it) appear beside each of the company's roles in the report; no code filters
+or ranks on them. Its `priority` grades all of it:
 
 | Priority | Meaning |
 |---|---|
