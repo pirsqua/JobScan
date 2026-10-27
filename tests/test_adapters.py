@@ -25,7 +25,7 @@ from jobscan.adapters.smartrecruiters import SmartRecruitersAdapter
 from jobscan.adapters.workable import WorkableAdapter
 from jobscan.adapters.workday import WorkdayAdapter
 from jobscan.http_client import RetryTransport
-from jobscan.models import EmploymentType, RemoteScope, SalarySource, WorkplaceType
+from jobscan.models import AtsType, Company, EmploymentType, RemoteScope, SalarySource, WorkplaceType
 from jobscan.normalize import normalize_posting
 
 
@@ -254,6 +254,39 @@ class TestLeverAdapter:
         assert posting.salary_source == SalarySource.STRUCTURED
         assert posting.workplace_type == WorkplaceType.REMOTE
         assert posting.published_at is not None
+
+    @respx.mock
+    def test_text_covers_the_lists_and_additional_sections(self, http_client, settings):
+        # descriptionPlain covers only the description — observed live: pay written in a
+        # "Compensation & Benefits" list section read as "no salary published", and the
+        # requirements lists never reached the evaluation.
+        respx.get("https://api.lever.co/v0/postings/acme").mock(
+            return_value=httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": "lev-3",
+                        "text": "Senior Backend Engineer",
+                        "categories": {"location": "Remote - US", "commitment": "Full-time"},
+                        "description": "<p>We build grant software.</p>",
+                        "descriptionPlain": "We build grant software.",
+                        "lists": [
+                            {"text": "What we're looking for", "content": "<li>7+ years of Python</li>"},
+                            {"text": "Compensation & Benefits",
+                             "content": "<li>The target salary range for this role is <strong>175,000 - $220,000</strong> USD</li>"},
+                        ],
+                        "additional": "<p>We are an equal opportunity employer.</p>",
+                        "hostedUrl": "https://jobs.lever.co/acme/lev-3",
+                    }
+                ],
+            )
+        )
+        posting = list(LeverAdapter(http_client).fetch_postings("acme"))[0]
+        company = Company(name="Acme", domain=None, careers_url=None, ats_type=AtsType.LEVER, board_id="acme", id=1)
+        job = normalize_posting(posting, company, settings)
+        assert "7+ years of Python" in job.description_text
+        assert "equal opportunity employer" in job.description_text
+        assert (job.salary_min, job.salary_max, job.salary_source) == (175000, 220000, SalarySource.DESCRIPTION)
 
     @respx.mock
     def test_pagination_follows_skip_until_short_page(self, http_client, monkeypatch):

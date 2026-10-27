@@ -128,6 +128,7 @@ class LeverPosting(BaseModel):
     description: str | None = None
     descriptionPlain: str | None = None
     lists: list[LeverListSection] | None = None
+    additional: str | None = None
     hostedUrl: str | None = None
     applyUrl: str | None = None
     salaryRange: LeverSalaryRange | None = None

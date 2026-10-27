@@ -8,6 +8,13 @@ page comes back) so boards with large numbers of postings are still fetched comp
 Some Lever boards publish structured pay-transparency data via a ``salaryRange`` object; where
 present it's used directly, otherwise the description text is handed to the regex-based parser
 downstream.
+
+A posting's text is its ``description`` followed by its ``lists`` sections (responsibilities,
+requirements, often "Compensation & Benefits") and its ``additional`` closing section — the order
+Lever's own posting page shows them in. The plain text is derived from all of it, not taken from
+``descriptionPlain``, which covers the description alone: observed live on Instrumentl, whose
+"175,000 - $220,000" sat in a list section, so the posting failed as "no salary published", and
+every Lever posting's requirements were missing from the text the evaluation read.
 """
 from __future__ import annotations
 
@@ -68,6 +75,8 @@ class LeverAdapter(SourceAdapter):
         for section in job.lists or []:
             if section.content:
                 description_html += f"<h4>{section.text or ''}</h4>{section.content}"
+        if job.additional:
+            description_html += job.additional
 
         salary_min = salary_max = salary_currency = salary_period = None
         if job.salaryRange and (job.salaryRange.min or job.salaryRange.max):
@@ -87,7 +96,8 @@ class LeverAdapter(SourceAdapter):
             location_raw=location or workplace_type,
             employment_type_raw=categories.commitment,
             description_html=description_html,
-            description_text=job.descriptionPlain,
+            # Derived from the full HTML downstream — descriptionPlain omits the lists and additional.
+            description_text=None,
             posting_url=job.hostedUrl,
             apply_url=job.applyUrl or job.hostedUrl,
             department=categories.team or categories.department,
