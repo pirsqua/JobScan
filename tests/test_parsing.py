@@ -120,6 +120,17 @@ class TestSalaryParsing:
         assert (grafana.salary_min, grafana.salary_max) == (174986, 209983)
         assert (affirm.salary_min, affirm.salary_max) == (165000, 225000)
 
+    def test_period_as_thousands_separator(self):
+        # Grafana: "$185.334" was read as $185, so the range was dropped and the role rejected as a
+        # flat $154,445.
+        result = parse_salary_from_text("In the US, the OTE/Base compensation range for this role is USD $154,445 - $185.334. Actual pay may vary.")
+        assert (result.salary_min, result.salary_max) == (154445, 185334)
+
+    def test_cents_are_still_cents(self):
+        assert (parse_salary_from_text("Pay range: $150,000.00 - $185,000.00").salary_max) == 185000
+        hourly = parse_salary_from_text("This contract role pays $85.50/hr - $100.25/hr")
+        assert (hourly.salary_min, hourly.salary_max) == (85.5, 100.25)
+
     def test_k_written_once_applies_to_both_ends(self):
         result = parse_salary_from_text("Salary range: $170-210K")
         assert (result.salary_min, result.salary_max) == (170000, 210000)
@@ -196,16 +207,31 @@ class TestLocationParsing:
         assert scope == RemoteScope.HYBRID
         assert note is not None
 
-    def test_structured_hybrid_wins_over_office_location_and_remote_text(self):
+    def test_structured_hybrid_wins_over_an_office_location(self):
         # Observed live (Plaid on Ashby): workplaceType "Hybrid", location "San Francisco HQ" —
-        # the location string alone looks like an ambiguous hub city, the text may mention remote
-        # in passing, but the source's own field settles it.
-        scope, _ = normalize_location("San Francisco HQ", "Flexible, remote-friendly culture.", WorkplaceType.HYBRID)
+        # the location string alone looks like an ambiguous hub city, but the source's own field
+        # settles it when the text never offers remote work.
+        scope, _ = normalize_location("San Francisco HQ", "Join the payments team in our HQ.", WorkplaceType.HYBRID)
         assert scope == RemoteScope.HYBRID
 
     def test_structured_onsite(self):
-        scope, _ = normalize_location("San Francisco, CA", "We love remote tools.", WorkplaceType.ONSITE)
+        scope, _ = normalize_location("San Francisco, CA", "We love good tools.", WorkplaceType.ONSITE)
         assert scope == RemoteScope.ONSITE
+
+    @pytest.mark.parametrize("location, text, workplace", [
+        # Radar (on-site label) and Check (hybrid label) were rejected as office roles though the
+        # text offers remote work.
+        ("New York ", "This role can either be in our NYC HQ or remote in the US.", WorkplaceType.ONSITE),
+        ("New York City, NY", "Roles can be remote, hybrid, or based in one of our offices.", WorkplaceType.HYBRID),
+    ])
+    def test_remote_text_contradicting_a_workplace_label_is_deferred(self, location, text, workplace):
+        scope, _ = normalize_location(location, text, workplace)
+        assert scope == RemoteScope.UNKNOWN
+
+    def test_hybrid_location_field_still_rejects_despite_remote_text(self):
+        # You.com: "(Hybrid)" in the location is the posting's own statement, not just a label.
+        scope, _ = normalize_location("San Francisco (Hybrid)", "A stipend for our hybrid/remote team.", WorkplaceType.HYBRID)
+        assert scope == RemoteScope.HYBRID
 
     def test_no_remote_mention_anywhere_is_onsite(self):
         # Observed live (Fivetran, Greenhouse): a city location and a full description that never

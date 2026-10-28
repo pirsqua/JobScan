@@ -13,7 +13,9 @@ from jobscan.models import EmploymentType, RemoteScope, SalarySource, WorkplaceT
 
 HOURS_PER_YEAR = 2080
 
-_NUMBER = r"(\d{1,3}(?:,\d{3})+|\d{2,6})(?:\.\d+)?"
+# A period can stand in for the thousands comma: Grafana's "USD $154,445 - $185.334" read the top
+# as $185, and its roles were rejected as paying a flat $154,445.
+_NUMBER = r"(\d{1,3}(?:,\d{3})+|\d{1,3}(?:\.\d{3})+(?![\d,])|\d{2,6})(?:\.\d+)?"
 _K_SUFFIX = r"\s?[kK]\b"
 
 # Optional unit annotation directly after a number, e.g. "$85/hr" or "$170,000/yr".
@@ -59,6 +61,8 @@ MAX_PLAUSIBLE_HOURLY = 300
 
 
 def _to_number(raw: str, has_k_suffix: bool) -> float:
+    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+", raw):
+        raw = raw.replace(".", "")
     value = float(raw.replace(",", ""))
     if has_k_suffix and value < 1000:
         value *= 1000
@@ -305,11 +309,19 @@ def normalize_location(
         return RemoteScope.REMOTE_US_RESTRICTED, f"{candidate_state_name} explicitly excluded from remote eligibility"
 
     location_says_remote = bool(_REMOTE_RE.search(location))
+    location_says_office = bool(_HYBRID_RE.search(location) or _ONSITE_LOCATION_RE.search(location))
     hybrid = workplace_type == WorkplaceType.HYBRID or _HYBRID_RE.search(location)
     if (hybrid or workplace_type == WorkplaceType.ONSITE) and location_says_remote:
         # "United States (Remote)" with a structured Hybrid label, or "Remote or Hybrid": the
         # source contradicts itself, which is not a fact to reject on.
         return RemoteScope.UNKNOWN, f"source marks it {'hybrid' if hybrid else 'on-site'} but location says '{location.strip()}' — deferred to LLM"
+    if workplace_type in (WorkplaceType.HYBRID, WorkplaceType.ONSITE) and not location_says_office \
+            and _REMOTE_MENTION_RE.search(description_text or ""):
+        # A label alone against text that mentions remote work is the same contradiction: Radar's
+        # on-site postings say "This role can either be in our NYC HQ or remote in the US", Check's
+        # hybrid ones "Roles can be remote, hybrid, or based in one of our offices". Telling that
+        # from "remote-friendly culture" takes reading the posting, so the LLM decides.
+        return RemoteScope.UNKNOWN, f"source marks it {workplace_type.value} but the text mentions remote work — deferred to LLM"
     if hybrid:
         return RemoteScope.HYBRID, "source marks it hybrid"
     if workplace_type == WorkplaceType.ONSITE:
