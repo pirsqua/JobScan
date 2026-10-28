@@ -6,6 +6,7 @@ from dataclasses import replace
 import httpx
 import respx
 
+from jobscan.adapters import ADAPTERS
 from jobscan.crawl import crawl_all
 from jobscan.db import Database
 from jobscan.models import AtsType, Company
@@ -239,3 +240,43 @@ class TestParallelFetch:
         assert stats.companies_succeeded == 2
         assert [failure.split(" (")[0] for failure in stats.boards_failed] == ["Co bravo"]
         assert db.count_jobs() == 2
+
+
+class _ExplodingAdapter:
+    incomplete = False
+
+    def __init__(self, http_client):
+        pass
+
+    def fetch_postings(self, board_id):
+        raise RuntimeError("adapter bug")
+
+
+class TestCrawlBookkeeping:
+    @respx.mock
+    def test_a_changed_description_is_counted_as_changed_not_new(self, db: Database, settings):
+        db.upsert_company(make_company("Acme", "acme"))
+        changed = _greenhouse_board(1)
+        changed["jobs"][0]["content"] = "<p>New requirements. $180,000 - $220,000</p>"
+        respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(side_effect=[
+            httpx.Response(200, json=_greenhouse_board(1)), httpx.Response(200, json=changed),
+        ])
+        companies = db.list_companies(active_only=True)
+
+        crawl_all(db, settings, companies=companies)
+        stats = crawl_all(db, settings, companies=companies)
+
+        assert (stats.new_postings, stats.changed_postings, stats.closed_postings) == (0, 1, 0)
+
+    @respx.mock
+    def test_an_adapter_that_crashes_fails_only_its_own_board(self, db: Database, settings, monkeypatch):
+        monkeypatch.setitem(ADAPTERS, AtsType.LEVER, _ExplodingAdapter)
+        db.upsert_company(make_company("Broken Co", "broken", ats_type=AtsType.LEVER))
+        db.upsert_company(make_company("Good Co", "goodco"))
+        respx.get("https://boards-api.greenhouse.io/v1/boards/goodco/jobs").mock(
+            return_value=httpx.Response(200, json=_greenhouse_board(1)))
+
+        stats = crawl_all(db, settings, companies=db.list_companies(active_only=True))
+
+        assert stats.companies_succeeded == 1
+        assert stats.boards_failed == ["Broken Co (lever/broken): unexpected error: adapter bug"]

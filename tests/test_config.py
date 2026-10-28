@@ -81,17 +81,6 @@ class TestLoadSettings:
                                  load_dotenv_file=False)
         assert settings.candidate_excluded_time_zones == ()
 
-    def test_an_older_settings_file_still_supplies_facts_the_profile_lacks(self, tmp_path: Path):
-        settings_path = tmp_path / "settings.yaml"
-        settings_path.write_text(SAMPLE_YAML + "min_base_salary: 140000\n", encoding="utf-8")
-        data_dir = data_dir_with_profile(
-            tmp_path, "candidate_state: OR\ncandidate_state_name: Oregon\ncandidate_time_zone: Pacific\n")
-
-        settings = load_settings(settings_path=settings_path, env={"JOBSCAN_DATA_DIR": str(data_dir)},
-                                 load_dotenv_file=False)
-
-        assert settings.min_base_salary == 140000
-
     def test_missing_candidate_facts_are_an_error_naming_them(self, settings_path: Path, tmp_path: Path):
         data_dir = data_dir_with_profile(tmp_path, "min_base_salary: 150000\n")
 

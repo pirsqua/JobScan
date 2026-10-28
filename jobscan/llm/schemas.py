@@ -20,28 +20,6 @@ SpecialistTenureClassification = Literal["meets", "adjacent", "insufficient", "n
 WorkingHoursFit = Literal["compatible", "conflicts"]
 WorkFit = Literal["in_lane", "partly_outside", "outside"]
 
-_LIST_FIELDS = (
-    "required_matches", "required_gaps", "preferred_only_gaps", "minor_caveats", "evidence",
-    "growth_dimensions", "hidden_staff_signals",
-)
-
-
-def _first_point(value: object) -> str | None:
-    """First one or two points from a list-shaped field, joined — or the whole thing if the
-    model sent a bare string instead of a list (this runs before _coerce_str_to_list normalizes
-    that). None if there's nothing usable."""
-    if isinstance(value, list) and value:
-        return "; ".join(str(item) for item in value[:2])
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
-
-# extra="ignore" on every model below: observed live, the model occasionally adds one stray
-# duplicate-ish field (e.g. "preferred_only_gaps_2", "specialist_tenure_assessment_dummy")
-# alongside the correctly-named ones. Drop unrecognized keys rather than rejecting an otherwise-
-# valid response over a single hallucinated extra — every field we actually read is still
-# strictly type/enum/range-checked regardless.
-
 
 class RequirementEvidenceItem(BaseModel):
     # Field order is generation order: quote the posting, classify how it frames the item, and only
@@ -66,8 +44,6 @@ class RequirementEvidenceItem(BaseModel):
     candidate_evidence: str = Field(description="What in the candidate's background supports this classification, if anything.")
     evidence_classification: EvidenceClassification
 
-    model_config = {"extra": "ignore"}
-
     @model_validator(mode="after")
     def _only_required_items_are_central(self) -> RequirementEvidenceItem:
         """Enforced rather than trusted: a nice-to-have the model also tagged central would
@@ -81,8 +57,6 @@ class SpecialistTenureAssessment(BaseModel):
     classification: SpecialistTenureClassification
     specialty: str = Field(description="The specialty in question, e.g. 'data engineering'. Empty string if not_applicable.")
     explanation: str
-
-    model_config = {"extra": "ignore"}
 
 
 class JobEvaluationResult(BaseModel):
@@ -222,67 +196,12 @@ class JobEvaluationResult(BaseModel):
         "Leave null only for strong_match/plausible_match.",
     )
 
-    model_config = {"extra": "ignore"}
-
-    @field_validator(*_LIST_FIELDS, mode="before")
-    @classmethod
-    def _coerce_str_to_list(cls, value: object) -> object:
-        """The model occasionally returns one string (e.g. a single paragraph) for these fields
-        instead of a list of short points, despite the enforced schema. Split it into lines
-        rather than failing validation and discarding an otherwise-good evaluation."""
-        if isinstance(value, str):
-            return [line.strip("-•* \t") for line in value.strip().splitlines() if line.strip()]
-        return value
-
     @field_validator("working_hours_quote")
     @classmethod
     def _strip_quote_marks(cls, value: str) -> str:
         """Observed live: an empty quote sent as a literal '""', and real ones wrapped in quote
         marks — the report adds its own."""
         return value.strip().strip("\"'“”").strip()
-
-    @model_validator(mode="before")
-    @classmethod
-    def _unwrap_single_nested_object(cls, data: object) -> object:
-        """Observed live (Lumos, 2026-10-06): the model wrapped its whole answer in one extra
-        object — {"evaluation": {...every field...}} — failing validation and losing a complete
-        evaluation. Unwrap a lone nested object that carries the verdict."""
-        if isinstance(data, dict) and len(data) == 1:
-            (inner,) = data.values()
-            if isinstance(inner, dict) and "verdict" in inner:
-                return inner
-        return data
-
-    @model_validator(mode="before")
-    @classmethod
-    def _backfill_gettability_fields_for_clear_rejects(cls, data: object) -> object:
-        """Observed live: on a clear-cut reject/borderline the model sometimes omits
-        primary_rejection_reason, why_this_is_or_is_not_gettable (a required field with no
-        default — missing it fails validation outright), or both — treating whichever
-        gap-describing field it did fill in as self-explanatory. Synthesize a reason from
-        required_gaps/growth_dimensions/credibility_assessment when primary_rejection_reason
-        itself is missing (mirroring jobscan.llm.job_eval's post-validation fallback for the
-        already-valid case), then backfill the gettability fields from that reason — only when a
-        reason is actually derivable, so a genuinely malformed response still fails as before."""
-        if not isinstance(data, dict) or data.get("verdict") not in ("reject", "borderline"):
-            return data
-
-        reason = data.get("primary_rejection_reason")
-        if not reason:
-            reason = (
-                _first_point(data.get("required_gaps"))
-                or _first_point(data.get("growth_dimensions"))
-                or data.get("credibility_assessment")
-            )
-            if reason:
-                data["primary_rejection_reason"] = reason
-
-        if reason:
-            if not data.get("why_this_is_or_is_not_gettable"):
-                data["why_this_is_or_is_not_gettable"] = f"Not gettable as described: {reason}"
-            if not data.get("credibility_assessment"):
-                data["credibility_assessment"] = f"Not a credible application given: {reason}"
-        return data
 
 
 JOB_EVALUATION_SCHEMA = JobEvaluationResult.model_json_schema()
@@ -334,8 +253,6 @@ class TriageResult(BaseModel):
     )
     reason: str = Field(description="One short sentence.")
 
-    model_config = {"extra": "ignore"}
-
 
 TRIAGE_SCHEMA = TriageResult.model_json_schema()
 
@@ -344,8 +261,6 @@ class CompanyClassificationResult(BaseModel):
     classification: CompanyClass
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: str = Field(description="One or two sentences citing what indicates product vs. consulting.")
-
-    model_config = {"extra": "ignore"}
 
 
 COMPANY_CLASSIFICATION_SCHEMA = CompanyClassificationResult.model_json_schema()

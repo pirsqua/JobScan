@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from jobscan.applications import load_applications, load_pauses, normalize_url
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
+from jobscan.models import Verdict
 from jobscan.reports import data as report_data
 from jobscan.reports.csv_report import write_csv_report
 from jobscan.reports.data import assemble_report_data
@@ -14,7 +16,13 @@ from jobscan.reports.json_report import build_json_report
 from jobscan.reports.markdown_report import render_markdown
 from jobscan.timeutil import SEATTLE_TZ
 
-from tests.test_reports import seed_evaluated_job, strong_match_client
+from tests.fakes import seed_company, seed_job, strong_match_client
+
+
+def seed_acme_posting(db: Database, settings):
+    """Acme Corp and its one posting, https://acme.example.com/jobs/1."""
+    company = seed_company(db, "Acme Corp")
+    return company, seed_job(db, settings, company)
 
 
 def write_applications(settings, *entries: str) -> None:
@@ -83,7 +91,7 @@ class TestReport:
     def test_applied_role_leaves_the_shortlist_and_shows_where_it_stands(self, db: Database, settings):
         # The shortlist holds only what still needs a decision; the Applications table says where
         # an applied posting stands.
-        seed_evaluated_job(db, settings)
+        seed_acme_posting(db, settings)
         evaluate_all(db, settings, client=strong_match_client())
         write_applications(settings, entry("https://ACME.example.com/jobs/1/"))
 
@@ -120,7 +128,7 @@ class TestReport:
         assert (rejected["status_on"], rejected["days_waiting"]) == ("2026-09-23", None)
 
     def test_closed_and_untracked_postings_still_listed(self, db: Database, settings):
-        company, _ = seed_evaluated_job(db, settings)
+        company, _ = seed_acme_posting(db, settings)
         db.close_missing_jobs(company.id, seen_source_job_ids=set())
         write_applications(
             settings,
@@ -133,11 +141,30 @@ class TestReport:
         assert standings[0] == "Not tracked (posting never crawled)"  # sorted by date: 09-10 first
         assert standings[1].startswith("Closed ")
 
+    def test_standing_says_why_an_applied_role_is_off_the_shortlist(self, db: Database, settings):
+        company, job = seed_acme_posting(db, settings)
+        write_applications(settings, entry("https://acme.example.com/jobs/1"))
+
+        def standing() -> str:
+            (row,) = assemble_report_data(db, settings).applications
+            return row.standing
+
+        assert standing() == "Not evaluated yet"
+        evaluate_all(db, settings, client=strong_match_client())
+        db.save_evaluation(dataclasses.replace(
+            db.get_evaluation_for_job(job.id), id=None, verdict=Verdict.REJECT, worth_applying=False,
+            primary_rejection_reason="Requires production Rust."))
+        assert standing() == "Rejected — Requires production Rust."
+        seed_job(db, settings, company, location="Hybrid - Seattle, WA")
+        assert standing() == "Filtered out (not_remote_explicit)"
+        db.conn.execute("UPDATE companies SET active = 0 WHERE id = ?", (company.id,))
+        assert standing() == "Company no longer searched"
+
     def test_paused_company_is_held_out_of_the_shortlist_until_its_date(self, db: Database, settings):
         # Observed: an employer accepting only three applications per 60 days. Its roles stay crawled
         # and evaluated, but leave the shortlist until the window resets — and say so, rather than
         # silently vanishing.
-        seed_evaluated_job(db, settings)
+        seed_acme_posting(db, settings)
         evaluate_all(db, settings, client=strong_match_client())
         write_pause(settings, "acme corp", "2999-01-01", reason="3 applications per 60 days")
 
@@ -153,7 +180,7 @@ class TestReport:
         ]
 
     def test_pause_ends_on_its_date(self, db: Database, settings):
-        seed_evaluated_job(db, settings)
+        seed_acme_posting(db, settings)
         evaluate_all(db, settings, client=strong_match_client())
         write_pause(settings, "Acme Corp", "2000-01-01")
 
@@ -163,7 +190,7 @@ class TestReport:
         assert "## Paused" not in render_markdown(data)
 
     def test_csv_carries_applied_on(self, db: Database, settings, tmp_path):
-        seed_evaluated_job(db, settings)
+        seed_acme_posting(db, settings)
         evaluate_all(db, settings, client=strong_match_client())
         write_applications(settings, entry("https://acme.example.com/jobs/1"))
 

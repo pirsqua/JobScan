@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import shutil
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -11,15 +9,7 @@ from jobscan.config import Settings, ModelPricing
 from jobscan.db import Database
 from jobscan.models import AtsType, Company
 
-
-EXAMPLE_PROFILE = Path(__file__).resolve().parent.parent / "config" / "candidate_profile.example.yaml"
-
-
-def data_folder(path: Path) -> Path:
-    """A personal data folder holding the committed example profile, never the owner's own."""
-    path.mkdir(parents=True, exist_ok=True)
-    shutil.copy(EXAMPLE_PROFILE, path / "candidate_profile.yaml")
-    return path
+from tests.fakes import EXAMPLE_PROFILE, data_folder
 
 
 @pytest.fixture(autouse=True)
@@ -89,7 +79,3 @@ def sample_company() -> Company:
         board_id="acme",
         discovery_source="test fixture",
     )
-
-
-def utcnow() -> datetime:
-    return datetime.now(timezone.utc)

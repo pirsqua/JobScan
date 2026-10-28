@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from jobscan.config import Settings
 from jobscan.db import Database
 from jobscan.models import (
-    AtsType,
     ClassificationSource,
     Company,
     CompanyClassification,
@@ -19,10 +18,7 @@ from jobscan.models import (
     RequirementEvidence,
     RequirementImportance,
     RequirementStrength,
-    SalarySource,
     ScopeFit,
-    SpecialistTenureAssessment,
-    SpecialistTenureClassification,
     Verdict,
     WorkFit,
     WorkingHoursFit,
@@ -30,6 +26,7 @@ from jobscan.models import (
 )
 from jobscan.normalize import compute_description_hash, normalize_posting
 
+from tests.fakes import make_evaluation
 
 def make_raw(source_job_id="1", title="Senior Backend Engineer", description="We build our own SaaS product. $180,000 - $220,000/year.", **overrides):
     defaults = dict(
@@ -236,23 +233,6 @@ class TestCompanyClassification:
         assert updated.classification_confidence == 0.9
 
 
-def make_evaluation(job_id: int, worth_applying: bool = True) -> Evaluation:
-    return Evaluation(
-        job_id=job_id, description_hash="hash-1", verdict=Verdict.BORDERLINE,
-        confidence=0.6, scope_fit=ScopeFit.TWO_PLUS_STEPS_UP, evidence_coverage_percent=45,
-        specialist_tenure_assessment=SpecialistTenureAssessment(
-            classification=SpecialistTenureClassification.NOT_APPLICABLE, specialty="", explanation="",
-        ),
-        requirement_evidence=[], growth_dimensions=[], hidden_staff_signals=[],
-        compensation_assessment="ok", remote_employment_verification="ok",
-        required_matches=[], required_gaps=[], preferred_only_gaps=[], minor_caveats=[],
-        evidence=[], credibility_assessment="ok", why_this_is_or_is_not_gettable="ok",
-        is_product_company=True, primary_rejection_reason="not gettable",
-        worth_applying=worth_applying, model_name="test-model",
-        created_at=datetime.now(timezone.utc),
-    )
-
-
 class TestEvaluationHistory:
     def _job(self, db, settings, sample_company):
         sample_company.id = db.upsert_company(sample_company)
@@ -273,7 +253,7 @@ class TestEvaluationHistory:
     def test_an_older_database_is_rebuilt_without_the_one_verdict_limit(self, settings: Settings, sample_company: Company):
         with Database(settings.db_path) as db:
             job_id = self._job(db, settings, sample_company)
-            db.save_evaluation(make_evaluation(job_id))
+            db.save_evaluation(make_evaluation(job_id, primary_rejection_reason="not gettable"))
             # Put the table back the way older databases have it.
             sql = db.conn.execute("SELECT sql FROM sqlite_master WHERE name = 'evaluations'").fetchone()["sql"]
             db.conn.executescript(
@@ -365,6 +345,19 @@ class TestEvaluationPersistence:
 
         loaded = db.get_evaluation_for_job(job_id)
         assert (loaded.day_to_day_work, loaded.work_fit) == (work, WorkFit.OUTSIDE)
+
+    def test_average_tokens_are_the_models_own_recent_evaluations(self, db: Database, settings: Settings, sample_company: Company):
+        # `evaluate --dry-run` prices a run from these averages.
+        sample_company.id = db.upsert_company(sample_company)
+        job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
+        for tokens in (1000, 3000):
+            db.save_evaluation(dataclasses.replace(make_evaluation(job_id), input_tokens=tokens, output_tokens=tokens // 10))
+        db.save_evaluation(dataclasses.replace(make_evaluation(job_id), model_name="other-model", input_tokens=99000, output_tokens=9900))
+
+        average = db.average_evaluation_tokens("test-model")
+
+        assert (average.input_tokens, average.output_tokens) == (2000, 200)
+        assert db.average_evaluation_tokens("never-used-model") is None
 
     def test_working_hours_not_assessed_round_trips_as_none(self, db: Database, settings: Settings, sample_company: Company):
         sample_company.id = db.upsert_company(sample_company)

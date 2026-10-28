@@ -16,9 +16,9 @@ import yaml
 from jobscan.cli import main
 from jobscan.config import load_settings
 from jobscan.db import Database
-from jobscan.models import AtsType, ClassificationSource, Company, CompanyClassification, RawPosting
+from jobscan.models import AtsType, ClassificationSource, Company, CompanyClassification, EvaluateStats, RawPosting
 from jobscan.normalize import normalize_posting
-from tests.conftest import data_folder
+from tests.fakes import data_folder
 
 COMPANIES_CSV = """name,domain,ats_type,board_id,classification
 Acme Corp,acme.example.com,greenhouse,acme,product
@@ -160,9 +160,8 @@ class TestCrawlCommand:
 
 
 class TestEvaluateDryRun:
-    def test_counts_what_would_be_sent_without_calling_the_api(self, settings_path, monkeypatch, capsys):
-        # A key is set, so a real client would be built — the dry run must still make no call.
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-unused")
+    @staticmethod
+    def _seed_one_posting(settings_path: Path):
         settings = load_settings(settings_path=settings_path, load_dotenv_file=False)
         with Database(settings.db_path) as db:
             company = Company(
@@ -177,12 +176,33 @@ class TestEvaluateDryRun:
                 description_html="<p>We build our own SaaS product. $180,000 - $220,000 per year.</p>",
                 description_text=None, posting_url="https://acme.example.com/jobs/1", apply_url=None,
             ), company, settings))
+        return settings
+
+    def test_counts_what_would_be_sent_without_calling_the_api(self, settings_path, monkeypatch, capsys):
+        # A key is set, so a real client would be built — the dry run must still make no call.
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-unused")
+        settings = self._seed_one_posting(settings_path)
 
         assert main(["--settings", str(settings_path), "evaluate", "--dry-run"]) == 0
 
         assert "Dry run, no API calls: 1 postings would be sent to the LLM" in capsys.readouterr().out
         with Database(settings.db_path) as db:
             assert db.latest_evaluation_run() is None
+
+    def test_prices_the_run_from_recent_evaluations(self, settings_path, monkeypatch, capsys):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-unused")
+        raw = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
+        raw.update(anthropic_model="test-model",
+                   anthropic_pricing={"test-model": {"input_per_million": 3.0, "output_per_million": 15.0}})
+        settings_path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+        monkeypatch.setattr(Database, "average_evaluation_tokens",
+                            lambda self, model_name, recent=100: EvaluateStats(input_tokens=10000, output_tokens=2000))
+        self._seed_one_posting(settings_path)
+
+        assert main(["--settings", str(settings_path), "evaluate", "--dry-run"]) == 0
+
+        # 10,000 input tokens at $3/M plus 2,000 output at $15/M.
+        assert "At $0.060 per full evaluation (recent average), about $0.06 if every one reaches it" in capsys.readouterr().out
 
 
 class TestRunBackup:

@@ -23,6 +23,7 @@ companies:
     discovery_source: manual
 """
 
+
 class TestRegistryImport:
     def test_csv_import(self, tmp_path: Path, db: Database):
         path = tmp_path / "companies.csv"
@@ -164,8 +165,7 @@ class TestRegistryImport:
     def test_recorded_unsupported_ats_types_do_not_raise(self, tmp_path: Path, db: Database):
         # These have no crawl adapter yet, but a registry curator should be able to record that a
         # company uses one (typically active=false) without the import failing — see AtsType's
-        # docstring. (Greenhouse/Ashby/Lever/Workday/Jobvite/Esri/SmartRecruiters/Avature/Rippling/
-        # JazzHR/iCIMS are the supported ones and are exercised elsewhere, not here.)
+        # docstring. (The supported ones are jobscan.adapters.ADAPTERS, exercised in test_adapters.)
         path = tmp_path / "unsupported.csv"
         path.write_text(
             "name,ats_type,board_id,active\n"

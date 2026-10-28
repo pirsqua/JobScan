@@ -196,6 +196,23 @@ class TestAshbyAdapter:
         assert "180K" in posting.description_text
 
     @respx.mock
+    def test_the_pay_summary_reaches_the_text_from_either_field_and_either_description(self, http_client):
+        # The salary filter reads pay from the text, so a summary dropped here reads as "no salary".
+        def job(job_id, **fields):
+            return {"id": job_id, "title": "Senior Software Engineer", "location": "Remote - US", **fields}
+
+        respx.get("https://api.ashbyhq.com/posting-api/job-board/acme").mock(
+            return_value=httpx.Response(200, json={"jobs": [
+                job("plain", descriptionPlain="Build it.",
+                    compensation={"scrapeableCompensationSalarySummary": "$180K - $230K"}),
+                job("html", descriptionHtml="<p>Build it.</p>", compensation={"compensationTierSummary": "$185K - $235K"}),
+            ]})
+        )
+        postings = {p.source_job_id: p for p in AshbyAdapter(http_client).fetch_postings("acme")}
+        assert postings["plain"].description_text.endswith("Compensation: $180K - $230K")
+        assert postings["html"].description_html.endswith("<p>Compensation: $185K - $235K</p>")
+
+    @respx.mock
     def test_missing_jobs_key_raises(self, http_client):
         respx.get("https://api.ashbyhq.com/posting-api/job-board/broken").mock(
             return_value=httpx.Response(200, json={})

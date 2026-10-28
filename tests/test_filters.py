@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import pytest
-
 from jobscan.filters import FilterReason, apply_factual_filters
 from jobscan.models import (
     AtsType,
@@ -79,6 +77,17 @@ class TestFactualFilters:
         job = make_job(salary_min=140000, salary_max=170000)
         result = apply_factual_filters(job, make_company(), min_base_salary=170000)
         assert result.passed
+
+    def test_hourly_pay_is_annualized_before_the_comparison(self):
+        pays_enough = make_job(salary_min=80, salary_max=90, salary_period="hour")  # up to $187,200 a year
+        pays_too_little = make_job(salary_min=60, salary_max=70, salary_period="hour")  # up to $145,600
+        assert apply_factual_filters(pays_enough, make_company(), min_base_salary=170000).passed
+        assert apply_factual_filters(pays_too_little, make_company(), min_base_salary=170000).reason == FilterReason.SALARY_BELOW_MIN
+
+    def test_a_single_published_figure_is_its_own_ceiling(self):
+        assert apply_factual_filters(make_job(salary_min=175000, salary_max=None), make_company(), min_base_salary=170000).passed
+        result = apply_factual_filters(make_job(salary_min=160000, salary_max=None), make_company(), min_base_salary=170000)
+        assert result.reason == FilterReason.SALARY_BELOW_MIN
 
     def test_no_salary_rejects(self):
         job = make_job(salary_min=None, salary_max=None)

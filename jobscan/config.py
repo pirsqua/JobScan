@@ -114,7 +114,7 @@ def load_settings(
     data_dir = Path(data_raw) if data_raw else DEFAULT_DATA_DIR
     names = {**DEFAULT_FILE_NAMES, **(raw.get("personal_files") or {})}
     profile_path = data_dir / names["profile"]
-    candidate = _candidate_facts(profile_path, raw)
+    candidate = _candidate_facts(profile_path)
 
     pricing_raw = raw.get("anthropic_pricing", {}) or {}
     pricing = {
@@ -161,14 +161,13 @@ class SettingsError(RuntimeError):
     """Raised when a required candidate fact is missing from the profile."""
 
 
-def _candidate_facts(profile_path: Path, raw_settings: dict) -> dict:
-    """The candidate's salary floor, state and time zone, read from the profile; an older
-    settings.yaml that still carries them is honoured as a fallback. ``excluded_time_zones`` is
-    optional and read from the profile only."""
+def _candidate_facts(profile_path: Path) -> dict:
+    """The candidate's salary floor, state and time zone, read from the profile.
+    ``excluded_time_zones`` is optional."""
     profile: dict = {}
     if profile_path.exists():
         profile = yaml.safe_load(profile_path.read_text(encoding="utf-8")) or {}
-    facts = {key: profile.get(key, raw_settings.get(key)) for key in _CANDIDATE_KEYS}
+    facts = {key: profile.get(key) for key in _CANDIDATE_KEYS}
     missing = [key for key, value in facts.items() if value is None]
     if missing:
         raise SettingsError(

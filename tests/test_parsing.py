@@ -161,28 +161,14 @@ class TestSalaryParsing:
         assert result.salary_max == 180000
 
 
-class TestAttainabilityRule:
-    """The $170,000 rule: reject only when the published MAX is below the minimum; the range
-    does not need to start at $170,000."""
-
-    def test_max_below_threshold_fails(self):
-        assert annualize(160000, "year") < 170000
-
-    def test_max_at_threshold_passes(self):
-        assert annualize(170000, "year") >= 170000
-
-    def test_range_straddling_threshold_has_max_above(self):
-        # e.g. $150,000 - $185,000: max is above 170k, so this should NOT be a safe rejection.
-        assert annualize(185000, "year") >= 170000
-
-    def test_hourly_annualizes_above_threshold(self):
-        # $85/hr * 2080 = $176,800/yr
+class TestAnnualize:
+    # The salary rule itself (reject only when the published maximum is below the floor) is
+    # tested on apply_factual_filters in test_filters.py.
+    def test_hourly_pay_is_annualized_at_2080_hours(self):
         assert annualize(85, "hour") == pytest.approx(176800)
 
-    def test_hourly_annualizes_below_threshold(self):
-        assert annualize(70, "hour") == pytest.approx(145600)
-
-    def test_none_passes_through(self):
+    def test_annual_pay_and_none_pass_through(self):
+        assert annualize(160000, "year") == 160000
         assert annualize(None, "year") is None
 
 

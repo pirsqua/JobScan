@@ -1,18 +1,16 @@
 """Tests for the scope-calibration ranking/grouping logic in jobscan.reports.data, including
-regression fixtures for the two real postings the ranking rework was built around.
+regression fixtures for the two kinds of stretch the ranking rework was built around.
 
 TestRankingAndGrouping builds Evaluation objects directly (no LLM involved) to unit-test section
-placement and within-section sort order precisely. TestRegressionFixtures runs the two real
-postings (captured live from Doximity and RevenueCat) through the full evaluate_all() pipeline
-with a mocked LLM response matching the scope-calibration spec's documented expected result, to
-prove the whole pipeline — not just the sort function — places them correctly.
+placement and within-section sort order precisely. TestRegressionFixtures runs two stretches — a
+specialist data-engineering role, and RevenueCat's posting captured live — through the full
+evaluate_all() pipeline with a mocked LLM response matching the scope-calibration spec's
+documented expected result, to prove the whole pipeline — not just the sort function — places
+them correctly.
 """
 from __future__ import annotations
 
 import dataclasses
-import json
-from datetime import datetime, timezone
-from types import SimpleNamespace
 
 import pytest
 
@@ -20,13 +18,7 @@ from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.llm.client import AnthropicClient
 from jobscan.models import (
-    AtsType,
-    ClassificationSource,
-    Company,
-    CompanyClassification,
-    Evaluation,
     EvidenceClassification,
-    RawPosting,
     RequirementEvidence,
     RequirementImportance,
     RequirementStrength,
@@ -37,66 +29,10 @@ from jobscan.models import (
     WorkFit,
     WorkingHoursFit,
 )
-from jobscan.normalize import normalize_posting
 from jobscan.reports.data import assemble_report_data
 from jobscan.reports.markdown_report import render_markdown
 
-NOW = datetime.now(timezone.utc)
-
-
-def seed_company(db: Database, name: str = "Acme", classification=CompanyClassification.PRODUCT) -> Company:
-    company = Company(
-        name=name, domain=f"{name.lower().replace(' ', '')}.example.com", careers_url=None,
-        ats_type=AtsType.GREENHOUSE, board_id=name.lower().replace(" ", ""),
-        classification=classification, classification_source=ClassificationSource.SEED,
-    )
-    company.id = db.upsert_company(company)
-    return company
-
-
-def seed_job(
-    db: Database, settings, company: Company, source_job_id: str, title: str, description: str,
-    salary_min: int | None = None, salary_max: int | None = None,
-):
-    salary_line = f"<p>Base salary range: ${salary_min:,} - ${salary_max:,} per year.</p>" if salary_min else ""
-    raw = RawPosting(
-        source_job_id=source_job_id, title=title, location_raw="Remote - US",
-        employment_type_raw="Full-time",
-        description_html=f"<p>{description}</p>{salary_line}", description_text=None,
-        posting_url=f"https://acme.example.com/jobs/{source_job_id}", apply_url=None,
-    )
-    job = normalize_posting(raw, company, settings)
-    job_id, _, _ = db.upsert_job(job)
-    return db.get_job(job_id)
-
-
-def make_evaluation(
-    job_id: int, verdict: Verdict, scope_fit: ScopeFit, evidence_coverage_percent: int = 50,
-    central_directly_demonstrated: int = 0, required_gaps: list[str] | None = None,
-    growth_dimensions: list[str] | None = None, hidden_staff_signals: list[str] | None = None,
-    worth_applying: bool = True,
-) -> Evaluation:
-    requirement_evidence = [
-        RequirementEvidence(
-            requirement=f"central requirement {i}", importance=RequirementImportance.CENTRAL,
-            evidence_classification=EvidenceClassification.DIRECTLY_DEMONSTRATED,
-            candidate_evidence="x", posting_evidence="y",
-        )
-        for i in range(central_directly_demonstrated)
-    ]
-    return Evaluation(
-        job_id=job_id, description_hash=f"hash-{job_id}", verdict=verdict, confidence=0.7,
-        scope_fit=scope_fit, evidence_coverage_percent=evidence_coverage_percent,
-        specialist_tenure_assessment=SpecialistTenureAssessment(
-            classification=SpecialistTenureClassification.NOT_APPLICABLE, specialty="", explanation="",
-        ),
-        requirement_evidence=requirement_evidence, growth_dimensions=growth_dimensions or [],
-        hidden_staff_signals=hidden_staff_signals or [], compensation_assessment="ok",
-        remote_employment_verification="ok", required_matches=[], required_gaps=required_gaps or [],
-        preferred_only_gaps=[], minor_caveats=[], evidence=[], credibility_assessment="ok",
-        why_this_is_or_is_not_gettable="ok", is_product_company=True, primary_rejection_reason=None,
-        worth_applying=worth_applying, model_name="test-model", created_at=NOW,
-    )
+from tests.fakes import FakeSdkClient, json_response, make_evaluation, seed_company, seed_job
 
 
 class TestRankingAndGrouping:
@@ -280,7 +216,7 @@ class TestScopeFollowsRequirementEvidence:
             posting_evidence="5+ years of Go",
         )
 
-    def _section(self, db, settings, evaluation) -> str:
+    def _section(self, db, settings) -> str:
         data = assemble_report_data(db, settings)
         for name in ("best_bets", "good_fits", "growth_bets", "attractive_stretches"):
             if getattr(data, name):
@@ -297,7 +233,7 @@ class TestScopeFollowsRequirementEvidence:
 
     def test_clean_evidence_labelled_one_step_up_is_at_level(self, db: Database, settings):
         self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP)
-        assert self._section(db, settings, None) == "good_fits"
+        assert self._section(db, settings) == "good_fits"
 
     def test_an_undemonstrated_central_requirement_makes_at_level_one_step_up(self, db: Database, settings):
         base = make_evaluation(1, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, central_directly_demonstrated=2)
@@ -310,17 +246,17 @@ class TestScopeFollowsRequirementEvidence:
         tenure = SpecialistTenureAssessment(
             classification=SpecialistTenureClassification.INSUFFICIENT, specialty="data engineering", explanation="x")
         self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.AT_LEVEL, specialist_tenure_assessment=tenure)
-        assert self._section(db, settings, None) == "growth_bets"
+        assert self._section(db, settings) == "growth_bets"
 
     def test_staff_signals_block_a_raise(self, db: Database, settings):
         self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP,
                    hidden_staff_signals=["set technical direction across several teams"])
-        assert self._section(db, settings, None) == "growth_bets"
+        assert self._section(db, settings) == "growth_bets"
 
     def test_staff_signals_never_force_a_drop(self, db: Database, settings):
         # Standard Metrics: an at_level strong match whose staff list held "we do not have a QA team".
         self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, hidden_staff_signals=["we do not have a QA team"])
-        assert self._section(db, settings, None) == "best_bets"
+        assert self._section(db, settings) == "best_bets"
 
     def test_other_labels_and_missing_evidence_are_left_alone(self, db: Database, settings):
         company = seed_company(db)
@@ -432,9 +368,8 @@ class TestWorkingHours:
         (Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP),
         (Verdict.BORDERLINE, ScopeFit.ONE_STEP_UP),
     ])
-    @pytest.mark.parametrize("fit", [WorkingHoursFit.CONFLICTS])
-    def test_hours_that_fail_the_filter_reject_whatever_the_verdict(self, db: Database, settings, verdict, scope_fit, fit):
-        self._seed(db, settings, verdict, scope_fit, fit)
+    def test_hours_that_fail_the_filter_reject_whatever_the_verdict(self, db: Database, settings, verdict, scope_fit):
+        self._seed(db, settings, verdict, scope_fit, WorkingHoursFit.CONFLICTS)
 
         data = assemble_report_data(db, settings)
 
@@ -449,9 +384,9 @@ class TestWorkingHours:
         assert len(assemble_report_data(db, settings).best_bets) == 1
 
 
-DOXIMITY_DESCRIPTION = (
-    "About Doximity: Doximity is the leading clinical AI company with the largest network of "
-    "U.S. clinicians. About the Role: Foremost a software engineer. You exemplify high code "
+DATA_STRETCH_DESCRIPTION = (
+    "About Example Freight: we run the routing and billing platform behind thousands of "
+    "regional trucking fleets. About the Role: Foremost a software engineer. You exemplify high code "
     "quality and guide others, and have at least 5 years of industry experience as a data "
     "engineer or similar role. You are an expert in Python and possess fluency in SQL and have "
     "developed maintainable data pipelines with each. Hands-on with architecting solutions. You "
@@ -468,7 +403,7 @@ DOXIMITY_DESCRIPTION = (
     "may include base salary, equity, and annual bonus."
 )
 
-DOXIMITY_EXPECTED_RESPONSE = {
+DATA_STRETCH_EXPECTED_RESPONSE = {
     "verdict": "borderline",
     "confidence": 0.6,
     "scope_fit": "two_plus_steps_up",
@@ -685,30 +620,11 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
 }
 
 
-def _tool_response(input_dict: dict, input_tokens: int = 500, output_tokens: int = 300):
-    block = SimpleNamespace(type="text", text=json.dumps(input_dict))
-    usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
-    return SimpleNamespace(content=[block], usage=usage)
-
-
-class _FakeMessages:
-    def __init__(self, responses):
-        self._responses = list(responses)
-
-    def create(self, **kwargs):
-        return self._responses.pop(0)
-
-
-class _FakeSdkClient:
-    def __init__(self, responses):
-        self.messages = _FakeMessages(responses)
-
-
 class TestRegressionFixtures:
-    def test_doximity_lands_in_attractive_stretches_not_best_or_growth_bets(self, db: Database, settings):
-        company = seed_company(db, "Doximity")
-        seed_job(db, settings, company, "8155070", "Senior Software Engineer, Data", DOXIMITY_DESCRIPTION, 165000, 221000)
-        client = AnthropicClient(api_key=None, model="test-model", client=_FakeSdkClient([_tool_response(DOXIMITY_EXPECTED_RESPONSE)]))
+    def test_data_engineering_stretch_lands_in_attractive_stretches_not_best_or_growth_bets(self, db: Database, settings):
+        company = seed_company(db, "Example Freight")
+        seed_job(db, settings, company, "2", "Senior Software Engineer, Data", DATA_STRETCH_DESCRIPTION, 165000, 221000)
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(DATA_STRETCH_EXPECTED_RESPONSE)]))
 
         evaluate_all(db, settings, client=client)
         data = assemble_report_data(db, settings)
@@ -727,7 +643,7 @@ class TestRegressionFixtures:
             db, settings, company, "c6d43e21", "Senior Backend Engineer", REVENUECAT_DESCRIPTION,
             230000, 230000,
         )
-        client = AnthropicClient(api_key=None, model="test-model", client=_FakeSdkClient([_tool_response(REVENUECAT_EXPECTED_RESPONSE)]))
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(REVENUECAT_EXPECTED_RESPONSE)]))
 
         evaluate_all(db, settings, client=client)
         data = assemble_report_data(db, settings)
@@ -743,7 +659,7 @@ class TestRegressionFixtures:
     def test_synthetic_at_level_fixture_lands_in_best_bets(self, db: Database, settings):
         company = seed_company(db, "GoodFit Fintech")
         seed_job(db, settings, company, "1", "Senior Backend Engineer", SYNTHETIC_AT_LEVEL_DESCRIPTION, 175000, 210000)
-        client = AnthropicClient(api_key=None, model="test-model", client=_FakeSdkClient([_tool_response(SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE)]))
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE)]))
 
         evaluate_all(db, settings, client=client)
         data = assemble_report_data(db, settings)
@@ -753,11 +669,11 @@ class TestRegressionFixtures:
         assert data.best_bets[0].evaluation.verdict == Verdict.STRONG_MATCH
 
     def test_synthetic_fixture_ranks_in_best_bets_above_both_higher_paying_stretches(self, db: Database, settings):
-        """End-to-end proof of the spec's central anti-goal: RevenueCat ($230K) and Doximity
+        """End-to-end proof of the spec's central anti-goal: RevenueCat ($230K) and Example Freight
         must not outrank a genuinely at-level, lower-paying role — because they're not even in
         the same report section."""
-        doximity = seed_company(db, "Doximity")
-        seed_job(db, settings, doximity, "8155070", "Senior Software Engineer, Data", DOXIMITY_DESCRIPTION, 165000, 221000)
+        freight = seed_company(db, "Example Freight")
+        seed_job(db, settings, freight, "2", "Senior Software Engineer, Data", DATA_STRETCH_DESCRIPTION, 165000, 221000)
         revenuecat = seed_company(db, "RevenueCat")
         seed_job(db, settings, revenuecat, "c6d43e21", "Senior Backend Engineer", REVENUECAT_DESCRIPTION, 230000, 230000)
         goodfit = seed_company(db, "GoodFit Fintech")
@@ -765,17 +681,17 @@ class TestRegressionFixtures:
 
         client = AnthropicClient(
             api_key=None, model="test-model",
-            client=_FakeSdkClient([
-                _tool_response(DOXIMITY_EXPECTED_RESPONSE),
-                _tool_response(REVENUECAT_EXPECTED_RESPONSE),
-                _tool_response(SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE),
+            client=FakeSdkClient([
+                json_response(DATA_STRETCH_EXPECTED_RESPONSE),
+                json_response(REVENUECAT_EXPECTED_RESPONSE),
+                json_response(SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE),
             ]),
         )
         evaluate_all(db, settings, client=client)
         data = assemble_report_data(db, settings)
 
         assert [r.company.name for r in data.best_bets] == ["GoodFit Fintech"]
-        assert {r.company.name for r in data.attractive_stretches} == {"Doximity", "RevenueCat"}
+        assert {r.company.name for r in data.attractive_stretches} == {"Example Freight", "RevenueCat"}
 
         markdown = render_markdown(data)
         best_bets_index = markdown.index("## Best Bets")
@@ -786,4 +702,4 @@ class TestRegressionFixtures:
         assert best_bets_index < goodfit_index < stretches_index
         assert stretches_index < revenuecat_index
         # Every shortlisted role carries its link, Stretches included (they once had none).
-        assert "- Apply: https://acme.example.com/jobs/c6d43e21" in markdown[stretches_index:]
+        assert "- Apply: https://acme.example.com/jobs/c6d43e21/apply" in markdown[stretches_index:]

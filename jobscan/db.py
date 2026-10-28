@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -291,16 +290,6 @@ class Database:
 
     def __exit__(self, *exc) -> None:
         self.close()
-
-    @contextmanager
-    def transaction(self):
-        self.conn.execute("BEGIN")
-        try:
-            yield
-            self.conn.execute("COMMIT")
-        except Exception:
-            self.conn.execute("ROLLBACK")
-            raise
 
     # ------------------------------------------------------------------
     # Companies
@@ -613,11 +602,8 @@ class Database:
             rows = self.conn.execute("SELECT * FROM jobs WHERE status='active' ORDER BY id").fetchall()
         return [self._row_to_job(r) for r in rows]
 
-    def count_jobs(self, status: JobStatus | None = None) -> int:
-        if status:
-            (n,) = self.conn.execute("SELECT COUNT(*) FROM jobs WHERE status=?", (status.value,)).fetchone()
-        else:
-            (n,) = self.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
+    def count_jobs(self) -> int:
+        (n,) = self.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
         return n
 
     # ------------------------------------------------------------------
@@ -631,16 +617,7 @@ class Database:
         )
         return cur.lastrowid
 
-    def filter_log_for_job(self, job_id: int) -> list[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM filter_log WHERE job_id=? ORDER BY created_at DESC", (job_id,)
-        ).fetchall()
-
-    def all_filter_log_entries(self, since: datetime | None = None) -> list[sqlite3.Row]:
-        if since:
-            return self.conn.execute(
-                "SELECT * FROM filter_log WHERE created_at >= ? ORDER BY created_at", (_dt(since),)
-            ).fetchall()
+    def all_filter_log_entries(self) -> list[sqlite3.Row]:
         return self.conn.execute("SELECT * FROM filter_log ORDER BY created_at").fetchall()
 
     def has_filter_log(self, job_id: int, reason: str) -> bool:

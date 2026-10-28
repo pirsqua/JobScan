@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import dataclasses
-import json
 import threading
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import httpx
 import pytest
+import respx
 
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
+from jobscan.filters import FilterReason
 from jobscan.llm.client import AnthropicClient
 from jobscan.llm import prompts
 from jobscan.llm.prompts import (
@@ -18,72 +20,9 @@ from jobscan.llm.prompts import (
     render_profile_text,
     triage_rubric_version,
 )
-from jobscan.models import (
-    AtsType,
-    ClassificationSource,
-    Company,
-    CompanyClassification,
-    EvaluateStats,
-    ManualOverride,
-    RawPosting,
-    ScopeFit,
-    Verdict,
-)
-from jobscan.normalize import normalize_posting
+from jobscan.models import CompanyClassification, EvaluateStats, ManualOverride, ScopeFit, Verdict
 
-VALID_EVAL_INPUT = {
-    "verdict": "strong_match",
-    "confidence": 0.8,
-    "scope_fit": "at_level",
-    "evidence_coverage_percent": 85,
-    "specialist_tenure_assessment": {
-        "classification": "not_applicable",
-        "specialty": "",
-        "explanation": "No specialized tenure requirement beyond general backend experience.",
-    },
-    "requirement_evidence": [],
-    "growth_dimensions": [],
-    "hidden_staff_signals": [],
-    "is_product_company": True,
-    "compensation_assessment": "Comfortably above $170,000.",
-    "remote_employment_verification": "US remote, no restrictions noted.",
-    "day_to_day_work": "Building backend services.",
-    "work_fit": "in_lane",
-    "working_hours_quote": "",
-    "working_hours_fit": "compatible",
-    "required_matches": ["C#", "Azure"],
-    "required_gaps": [],
-    "preferred_only_gaps": [],
-    "minor_caveats": [],
-    "evidence": ["quoted text"],
-    "credibility_assessment": "Strong fit.",
-    "why_this_is_or_is_not_gettable": "At-level scope, strong direct evidence, credible near-term interview.",
-    "primary_rejection_reason": None,
-    "worth_applying": True,
-}
-
-
-class FakeMessages:
-    def __init__(self, responses):
-        self._responses = list(responses)
-        self.call_count = 0
-
-    def create(self, **kwargs):
-        self.call_count += 1
-        if not self._responses:
-            raise AssertionError("LLM was called more times than expected")
-        return self._responses.pop(0)
-
-
-class FakeSdkClient:
-    def __init__(self, responses):
-        self.messages = FakeMessages(responses)
-
-
-def eval_response(input_dict, input_tokens=100, output_tokens=50):
-    block = SimpleNamespace(type="text", text=json.dumps(input_dict))
-    usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
-    return SimpleNamespace(content=[block], usage=usage)
+from tests.fakes import VALID_EVALUATION, FakeSdkClient, json_response, refusal_response, seed_company, seed_job
 
 
 def triage_response(
@@ -96,40 +35,10 @@ def triage_response(
         disqualifier = "excluded_industry" if skip_full_evaluation else "none"
     if quote is None:
         quote = "We build our own SaaS product." if skip_full_evaluation else ""
-    block = SimpleNamespace(type="text", text=json.dumps({
+    return json_response({
         "disqualifier_quote": quote, "quote_is_hard_requirement": skip_full_evaluation,
         "disqualifier": disqualifier, "skip_full_evaluation": skip_full_evaluation, "reason": reason,
-    }))
-    usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
-    return SimpleNamespace(content=[block], usage=usage)
-
-
-def seed_company(db: Database, name="Acme", board_id="acme", classification=None) -> Company:
-    company = Company(
-        name=name, domain=f"{board_id}.example.com", careers_url=None,
-        ats_type=AtsType.GREENHOUSE, board_id=board_id,
-    )
-    if classification is not None:
-        company.classification = classification
-        company.classification_source = ClassificationSource.SEED
-    company.id = db.upsert_company(company)
-    return company
-
-
-def seed_job(db: Database, settings, company: Company, source_job_id="1", title="Senior Backend Engineer", description="We build our own SaaS product. $180,000 - $220,000 per year."):
-    raw = RawPosting(
-        source_job_id=source_job_id,
-        title=title,
-        location_raw="Remote - US",
-        employment_type_raw="Full-time",
-        description_html=f"<p>{description}</p>",
-        description_text=None,
-        posting_url=f"https://acme.example.com/jobs/{source_job_id}",
-        apply_url=f"https://acme.example.com/jobs/{source_job_id}/apply",
-    )
-    job = normalize_posting(raw, company, settings)
-    job_id, _, _ = db.upsert_job(job)
-    return db.get_job(job_id)
+    }, input_tokens, output_tokens)
 
 
 class ConcurrentSdk:
@@ -148,15 +57,12 @@ class ConcurrentSdk:
             self.calls += 1
         if self._barrier is not None:
             self._barrier.wait(timeout=10)
-        if self._fail:
-            return SimpleNamespace(content=[], usage=SimpleNamespace(input_tokens=1, output_tokens=0),
-                                   stop_reason="refusal", stop_details=SimpleNamespace(category="cyber"))
-        return eval_response(VALID_EVAL_INPUT)
+        return refusal_response() if self._fail else json_response(VALID_EVALUATION)
 
 
 class TestParallelEvaluation:
     def _seed(self, db, settings, descriptions):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         return [seed_job(db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}",
                          description=f"{text} $180,000 - $220,000 per year.")
                 for i, text in enumerate(descriptions)]
@@ -223,25 +129,25 @@ class TestEvaluateAll:
         assert stats.sent_to_llm == 0
 
     def test_llm_evaluation_happy_path(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([eval_response(VALID_EVAL_INPUT)]))
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(VALID_EVALUATION)]))
 
         stats = evaluate_all(db, settings, client=client)
 
         assert stats.sent_to_llm == 1
         assert stats.verdict_counts["strong_match"] == 1
 
-    NEAR_MISS = {**VALID_EVAL_INPUT, "verdict": "borderline", "scope_fit": "one_step_up",
+    NEAR_MISS = {**VALID_EVALUATION, "verdict": "borderline", "scope_fit": "one_step_up",
                  "worth_applying": False, "primary_rejection_reason": "Go and React day to day"}
 
     def test_near_miss_gets_a_second_look_and_keeps_the_more_favourable(self, db: Database, settings):
         # The same posting came back not-worth-applying twice and worth-applying once in three
         # live runs; one unlucky sample shouldn't decide it.
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         job = seed_job(db, settings, company)
         second = {**self.NEAR_MISS, "worth_applying": True}
-        sdk = FakeSdkClient([eval_response(self.NEAR_MISS), eval_response(second)])
+        sdk = FakeSdkClient([json_response(self.NEAR_MISS), json_response(second)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         stats = evaluate_all(db, settings, client=client)
@@ -252,11 +158,11 @@ class TestEvaluateAll:
         assert db.get_evaluation_for_job(job.id).worth_applying is True
 
     def test_a_less_favourable_second_look_is_discarded(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         job = seed_job(db, settings, company)
         worse = {**self.NEAR_MISS, "verdict": "reject"}
         client = AnthropicClient(api_key=None, model="test-model",
-                                 client=FakeSdkClient([eval_response(self.NEAR_MISS), eval_response(worse)]))
+                                 client=FakeSdkClient([json_response(self.NEAR_MISS), json_response(worse)]))
 
         stats = evaluate_all(db, settings, client=client)
 
@@ -264,20 +170,31 @@ class TestEvaluateAll:
         assert db.get_evaluation_for_job(job.id).verdict == Verdict.BORDERLINE
 
     def test_a_clear_reject_gets_no_second_look(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
         reject = {**self.NEAR_MISS, "verdict": "reject"}
-        sdk = FakeSdkClient([eval_response(reject)])
+        sdk = FakeSdkClient([json_response(reject)])
 
         stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
 
         assert sdk.messages.call_count == 1
         assert stats.second_looks == 0
 
+    def test_a_failed_second_look_keeps_the_first_evaluation(self, db: Database, settings):
+        company = seed_company(db)
+        job = seed_job(db, settings, company)
+        sdk = FakeSdkClient([json_response(self.NEAR_MISS), refusal_response()])
+
+        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert sdk.messages.call_count == 2
+        assert (stats.second_looks, stats.llm_errors, stats.sent_to_llm) == (0, 0, 1)
+        assert db.get_evaluation_for_job(job.id).verdict == Verdict.BORDERLINE
+
     def test_second_run_uses_cache_not_new_llm_call(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
-        sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
+        sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         evaluate_all(db, settings, client=client)
@@ -288,12 +205,12 @@ class TestEvaluateAll:
         assert stats2.sent_to_llm == 0
 
     def test_duplicate_description_across_jobs_reuses_cache(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         same_description = "We build our own SaaS product. $180,000 - $220,000 per year."
         seed_job(db, settings, company, source_job_id="1", description=same_description)
         seed_job(db, settings, company, source_job_id="2", title="Senior Backend Engineer II", description=same_description)
 
-        sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
+        sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         stats = evaluate_all(db, settings, client=client)
@@ -339,11 +256,11 @@ class TestEvaluateAll:
         assert db.conn.execute("SELECT COUNT(*) FROM evaluations WHERE job_id = ?", (job.id,)).fetchone()[0] == 1
 
     def test_postings_sharing_a_description_do_not_grow_the_history_every_run(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         same_description = "We build our own SaaS product. $180,000 - $220,000 per year."
         seed_job(db, settings, company, source_job_id="1", description=same_description)
         seed_job(db, settings, company, source_job_id="2", title="Senior Backend Engineer II", description=same_description)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([eval_response(VALID_EVAL_INPUT)]))
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(VALID_EVALUATION)]))
 
         for _ in range(3):
             evaluate_all(db, settings, client=client)
@@ -351,7 +268,7 @@ class TestEvaluateAll:
         assert db.conn.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0] == 2
 
     def test_company_classification_override_rejects_without_llm_classification_call(self, db: Database, settings):
-        company = seed_company(db)  # unknown by default
+        company = seed_company(db, classification=CompanyClassification.UNKNOWN)
         seed_job(db, settings, company)
         db.set_manual_override(
             ManualOverride("company", company.id, "classification", "consulting", "known staffing shop", datetime.now(timezone.utc))
@@ -366,9 +283,9 @@ class TestEvaluateAll:
     def test_run_stats_are_persisted_and_recoverable(self, db: Database, settings):
         # A standalone `report` invocation (run separately from `evaluate`) needs to recover the
         # most recent run's stats from the database rather than showing nothing.
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([eval_response(VALID_EVAL_INPUT)]))
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(VALID_EVALUATION)]))
 
         stats = evaluate_all(db, settings, client=client)
 
@@ -382,10 +299,10 @@ class TestEvaluateAll:
 
     def test_this_runs_work_is_counted_apart_from_the_pool(self, db: Database, settings):
         # Observed: a run with no new postings reported "1744 factually rejected" — the whole pool.
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company, source_job_id="1")
         seed_job(db, settings, company, source_job_id="2", description="No salary mentioned here at all.")
-        sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
+        sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         first = evaluate_all(db, settings, client=client)
@@ -399,7 +316,7 @@ class TestEvaluateAll:
         assert (recovered.newly_filtered, recovered.new_verdict_counts) == (0, {})
 
     def test_a_deactivated_companys_postings_leave_the_pool(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
         db.conn.execute("UPDATE companies SET active = 0 WHERE id = ?", (company.id,))
         sdk = FakeSdkClient([])
@@ -410,19 +327,54 @@ class TestEvaluateAll:
         assert sdk.messages.call_count == 0
 
     def test_limit_caps_real_llm_calls_not_free_work(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         for i in range(3):
             seed_job(
                 db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}",
                 description=f"We build our own SaaS product, role variant {i}. $180,000 - $220,000 per year.",
             )
-        sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT), eval_response(VALID_EVAL_INPUT)])
+        sdk = FakeSdkClient([json_response(VALID_EVALUATION), json_response(VALID_EVALUATION)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
         stats = evaluate_all(db, settings, client=client, limit=2)
 
         assert stats.sent_to_llm == 2
         assert sdk.messages.call_count == 2
+
+
+class TestCompanyClassification:
+    """An unclassified employer is classified once by the LLM, and a consulting answer rejects its
+    postings before any job evaluation — the one LLM answer that is final."""
+
+    @respx.mock
+    def test_a_company_classified_as_consulting_has_its_postings_rejected(self, db: Database, settings):
+        respx.get("https://acme.example.com/").mock(return_value=httpx.Response(200, text="<main>We staff your teams.</main>"))
+        company = seed_company(db, classification=CompanyClassification.UNKNOWN)
+        job = seed_job(db, settings, company)
+        sdk = FakeSdkClient([json_response({"classification": "consulting", "confidence": 0.9, "evidence": "A staffing firm."})])
+
+        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert (stats.companies_classified, stats.factual_rejected, stats.sent_to_llm) == (1, 1, 0)
+        assert db.get_company(company.id).classification == CompanyClassification.CONSULTING
+        assert db.has_filter_log(job.id, FilterReason.CONSULTING_EMPLOYER)
+
+    @respx.mock
+    def test_a_failed_classification_never_rejects(self, db: Database, settings):
+        # Neither an unreachable homepage nor an unusable answer is evidence of a staffing firm: the
+        # posting goes on to its evaluation and the company stays unclassified.
+        respx.get("https://acme.example.com/").mock(return_value=httpx.Response(404))
+        company = seed_company(db, classification=CompanyClassification.UNKNOWN)
+        seed_job(db, settings, company)
+        sdk = FakeSdkClient([
+            json_response({"classification": "nonprofit", "confidence": 0.5, "evidence": "unclear"}),
+            json_response(VALID_EVALUATION),
+        ])
+
+        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert (stats.companies_classified, stats.factual_rejected, stats.sent_to_llm) == (0, 0, 1)
+        assert db.get_company(company.id).classification == CompanyClassification.UNKNOWN
 
 
 class TestEstimatedCost:
@@ -473,7 +425,7 @@ class TestEstimatedCost:
 
 class TestTriageIntegration:
     def test_skip_avoids_the_full_evaluation_call(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
 
         full_eval_sdk = FakeSdkClient([])  # no responses queued — an unexpected call raises
@@ -499,9 +451,9 @@ class TestTriageIntegration:
     def test_skip_the_posting_does_not_support_goes_to_the_full_evaluation(self, db: Database, settings):
         # Observed live: Haiku skipped a Software Engineer II as "overqualified" despite being told
         # level is not a skip reason. A skip now needs an allowed category and a real quote.
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
-        full_eval_sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
+        full_eval_sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         triage_sdk = FakeSdkClient([triage_response(
             skip_full_evaluation=True, disqualifier="required_specialty", quote="would be overqualified",
         )])
@@ -516,7 +468,7 @@ class TestTriageIntegration:
         assert (stats.triage_overruled, stats.triage_skipped, stats.sent_to_llm) == (1, 0, 1)
 
     def test_triage_screen_out_is_marked_not_assessed(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         job = seed_job(db, settings, company)
         triage_client = AnthropicClient(
             api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_response(skip_full_evaluation=True)])
@@ -528,10 +480,10 @@ class TestTriageIntegration:
         assert db.get_evaluation_for_job(job.id).scope_fit == ScopeFit.NOT_ASSESSED
 
     def test_no_skip_proceeds_to_the_full_evaluation(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
 
-        full_eval_sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
+        full_eval_sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
         triage_sdk = FakeSdkClient([triage_response(skip_full_evaluation=False, reason="Real overlap.")])
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
@@ -546,10 +498,10 @@ class TestTriageIntegration:
     def test_failed_triage_call_fails_safe_to_full_evaluation(self, db: Database, settings):
         # A triage error must never be silently treated as "safe to skip" — it should behave as
         # if triage were never configured for that posting.
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
 
-        full_eval_sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
+        full_eval_sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
         triage_sdk = FakeSdkClient([SimpleNamespace(content=[], usage=SimpleNamespace(input_tokens=0, output_tokens=0))])
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
@@ -563,10 +515,10 @@ class TestTriageIntegration:
     def test_no_triage_client_skips_triage_entirely(self, db: Database, settings):
         # No triage_model configured (or no triage_client override) — behavior must be identical
         # to before triage existed.
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
 
-        full_eval_sdk = FakeSdkClient([eval_response(VALID_EVAL_INPUT)])
+        full_eval_sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
 
         stats = evaluate_all(db, settings, client=full_eval_client)
@@ -576,7 +528,7 @@ class TestTriageIntegration:
         assert stats.sent_to_llm == 1
 
     def test_limit_counts_triage_calls(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         for i in range(2):
             seed_job(db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}")
 
@@ -591,7 +543,7 @@ class TestTriageIntegration:
         assert full_eval_sdk.messages.call_count == 0
 
     def test_triage_stats_are_persisted_and_recoverable(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
 
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
@@ -627,10 +579,10 @@ class TestRubricVersion:
     profile would never reach a posting already judged (observed live: Posit's wrongful
     "not worth applying" would have stood forever after the rubric was corrected)."""
 
-    def _evaluate_once(self, db, settings, input_dict=VALID_EVAL_INPUT):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+    def _evaluate_once(self, db, settings, input_dict=VALID_EVALUATION):
+        company = seed_company(db)
         job = seed_job(db, settings, company)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([eval_response(input_dict)]))
+        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(input_dict)]))
         evaluate_all(db, settings, client=client)
         return job
 
@@ -643,7 +595,7 @@ class TestRubricVersion:
         assert db.get_evaluation_for_job(job.id).rubric_version == full_rubric(settings)
 
     def test_triage_skip_records_the_current_rubric(self, db: Database, settings):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         job = seed_job(db, settings, company)
         triage_client = AnthropicClient(
             api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_response(skip_full_evaluation=True)])
@@ -690,7 +642,7 @@ class TestRubricVersion:
         assert stats.cache_hits == 1
 
     def test_a_triage_prompt_change_makes_triage_screen_outs_stale(self, db: Database, settings, monkeypatch):
-        company = seed_company(db, classification=CompanyClassification.PRODUCT)
+        company = seed_company(db)
         seed_job(db, settings, company)
         triage_client = AnthropicClient(
             api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_response(skip_full_evaluation=True)])
@@ -717,8 +669,8 @@ class TestRubricVersion:
     def test_refresh_stale_re_screens_a_verdict_from_an_older_rubric(self, db: Database, settings):
         job = self._evaluate_once(db, settings)
         self._age(db, job)
-        rejected = dict(VALID_EVAL_INPUT, verdict="reject", worth_applying=False, primary_rejection_reason="Requires Rust.")
-        sdk = FakeSdkClient([eval_response(rejected)])
+        rejected = dict(VALID_EVALUATION, verdict="reject", worth_applying=False, primary_rejection_reason="Requires Rust.")
+        sdk = FakeSdkClient([json_response(rejected)])
 
         stats = evaluate_all(
             db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
@@ -765,7 +717,7 @@ class TestRubricVersion:
         job = self._evaluate_once(db, settings)
         self._age(db, job)
 
-        stats = evaluate_all(db, settings, refresh_stale=True)
+        stats = evaluate_all(db, settings, refresh_stale=True, dry_run=True)
 
         assert stats.unverified == 1
         assert stats.cache_hits == 0
