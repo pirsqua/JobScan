@@ -11,6 +11,7 @@ from jobscan.models import (
     CompanyClassification,
     Evaluation,
     EvidenceClassification,
+    FrontendFit,
     JobStatus,
     ManualOverride,
     RawPosting,
@@ -341,10 +342,11 @@ class TestEvaluationPersistence:
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
         work = "Maintaining and extending npm, a JavaScript/Node.js package manager."
-        db.save_evaluation(dataclasses.replace(make_evaluation(job_id), day_to_day_work=work, work_fit=WorkFit.OUTSIDE))
+        db.save_evaluation(dataclasses.replace(
+            make_evaluation(job_id), day_to_day_work=work, work_fit=WorkFit.OUTSIDE, frontend_fit=FrontendFit.TOO_HEAVY))
 
         loaded = db.get_evaluation_for_job(job_id)
-        assert (loaded.day_to_day_work, loaded.work_fit) == (work, WorkFit.OUTSIDE)
+        assert (loaded.day_to_day_work, loaded.work_fit, loaded.frontend_fit) == (work, WorkFit.OUTSIDE, FrontendFit.TOO_HEAVY)
 
     def test_average_tokens_are_the_models_own_recent_evaluations(self, db: Database, settings: Settings, sample_company: Company):
         # `evaluate --dry-run` prices a run from these averages.

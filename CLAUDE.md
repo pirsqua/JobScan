@@ -56,11 +56,12 @@ Rules the model must apply while writing a field work far better in that field's
 than in the system prompt alone (observed: a rule stated only in the prompt was ignored; repeated
 in the field description, it held), and a concrete example beats an abstract rule.
 
-`day_to_day_work` and `work_fit` come first: what the team's engineers actually do, judged apart
-from whether the qualifications list can be met. The alternative-language and "technologies like
+`day_to_day_work`, `work_fit` and `frontend_fit` come first: what the team's engineers actually
+do, judged apart from whether the qualifications list can be met. The alternative-language and "technologies like
 X" rules (added because Sonnet 5 over-rejected) decide the hiring bar, and Sonnet 5.5 applies them
 literally — it called GitHub's npm team a plausible match because the list accepted C#. `work_fit`
-caps the report tier in code (`reports.data._report_section`), as `working_hours_fit` does; the
+caps the report tier in code (`reports.data._report_section`), and `frontend_fit: too_heavy` (more
+frontend than the profile accepts) takes a role off the shortlist, as `working_hours_fit` does; the
 tiers themselves come from the requirement evidence (`_missing_requirements`), not the verdict
 label alone, which Sonnet 5.5 hands out generously.
 

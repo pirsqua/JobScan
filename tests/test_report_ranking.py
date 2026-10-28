@@ -19,6 +19,7 @@ from jobscan.evaluate import evaluate_all
 from jobscan.llm.client import AnthropicClient
 from jobscan.models import (
     EvidenceClassification,
+    FrontendFit,
     RequirementEvidence,
     RequirementImportance,
     RequirementStrength,
@@ -384,6 +385,39 @@ class TestWorkingHours:
         assert len(assemble_report_data(db, settings).best_bets) == 1
 
 
+class TestFrontendFit:
+    # Without professional React or Angular experience, a role whose work is half React features goes
+    # to applicants who have it, however well the backend half fits.
+    WORK = "Shipping product features across a React frontend and the Python API behind it."
+
+    def _seed(self, db, settings, verdict, scope_fit, fit):
+        company = seed_company(db)
+        job = seed_job(db, settings, company, "1", "Senior Full-Stack Engineer", "x", 190000, 230000)
+        db.save_evaluation(dataclasses.replace(
+            make_evaluation(job.id, verdict, scope_fit), day_to_day_work=self.WORK, frontend_fit=fit))
+
+    @pytest.mark.parametrize("verdict, scope_fit", [
+        (Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL),
+        (Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP),
+        (Verdict.BORDERLINE, ScopeFit.ONE_STEP_UP),
+    ])
+    def test_frontend_heavy_work_leaves_the_shortlist_whatever_the_verdict(self, db: Database, settings, verdict, scope_fit):
+        self._seed(db, settings, verdict, scope_fit, FrontendFit.TOO_HEAVY)
+
+        data = assemble_report_data(db, settings)
+
+        assert data.best_bets == data.good_fits == data.growth_bets == data.attractive_stretches == []
+        markdown = render_markdown(data)
+        assert f"{verdict.value}, but frontend-heavy" in markdown
+        assert f"more frontend work than your profile accepts: {self.WORK}" in markdown
+
+    @pytest.mark.parametrize("fit", [FrontendFit.COMPATIBLE, None])  # None: not assessed
+    def test_an_accepted_frontend_share_changes_nothing(self, db: Database, settings, fit):
+        self._seed(db, settings, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, fit)
+
+        assert len(assemble_report_data(db, settings).best_bets) == 1
+
+
 DATA_STRETCH_DESCRIPTION = (
     "About Example Freight: we run the routing and billing platform behind thousands of "
     "regional trucking fleets. About the Role: Foremost a software engineer. You exemplify high code "
@@ -448,6 +482,7 @@ DATA_STRETCH_EXPECTED_RESPONSE = {
     "no state-specific exclusion for Washington noted.",
     "day_to_day_work": "Building backend services.",
     "work_fit": "in_lane",
+    "frontend_fit": "compatible",
     "working_hours_quote": "",
     "working_hours_fit": "compatible",
     "required_matches": ["Python", "SQL", "automated testing", "maintainable pipeline experience"],
@@ -522,6 +557,7 @@ REVENUECAT_EXPECTED_RESPONSE = {
     "remote_employment_verification": "Remote-first team, described as 'Americas' — plausibly open to Washington.",
     "day_to_day_work": "Building backend services.",
     "work_fit": "in_lane",
+    "frontend_fit": "compatible",
     "working_hours_quote": "",
     "working_hours_fit": "compatible",
     "required_matches": ["SQL", "backend ownership", "production feature delivery", "mentorship"],
@@ -604,6 +640,7 @@ SYNTHETIC_AT_LEVEL_EXPECTED_RESPONSE = {
     "remote_employment_verification": "No location restriction noted; treated as open to Washington-based remote.",
     "day_to_day_work": "Building backend services.",
     "work_fit": "in_lane",
+    "frontend_fit": "compatible",
     "working_hours_quote": "",
     "working_hours_fit": "compatible",
     "required_matches": ["Python/C#", "SQL", "REST APIs", "Azure", "testing/CI/CD", "production support", "mentoring"],

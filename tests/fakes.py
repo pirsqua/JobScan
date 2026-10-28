@@ -42,6 +42,7 @@ def data_folder(path: Path) -> Path:
 VALID_EVALUATION = {
     "day_to_day_work": "Building backend services.",
     "work_fit": "in_lane",
+    "frontend_fit": "compatible",
     "requirement_evidence": [
         {
             "requirement": "5+ years backend engineering",

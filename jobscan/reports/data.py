@@ -187,6 +187,11 @@ def _section_from_verdict(evaluation: Evaluation | None) -> str:
     # out came out a strong-match Best Bet.
     if evaluation.working_hours_fit is not None and evaluation.working_hours_fit.disqualifies:
         return "rejected_or_unverified"
+    # Likewise more frontend than the profile accepts: without professional React or Angular
+    # experience, the backend half fitting doesn't win the role (Sonnet 5.5 made a Growth Bet of a
+    # Senior Full-Stack role whose work was half React features).
+    if evaluation.frontend_fit is not None and evaluation.frontend_fit.disqualifies:
+        return "rejected_or_unverified"
     if evaluation.verdict in (Verdict.STRONG_MATCH, Verdict.PLAUSIBLE_MATCH):
         # The tiers split on what the candidate lacks, read from the requirement-by-requirement
         # evidence, not the one-word verdict alone: Sonnet 5.5 called far more postings plausible
@@ -306,6 +311,8 @@ def is_declined(evaluation: Evaluation) -> bool:
 def declined_reason(evaluation: Evaluation) -> str:
     if evaluation.verdict != Verdict.REJECT and evaluation.working_hours_fit is not None and evaluation.working_hours_fit.disqualifies:
         return f'working hours fail the hours filter: "{evaluation.working_hours_quote}"'
+    if evaluation.verdict != Verdict.REJECT and evaluation.frontend_fit is not None and evaluation.frontend_fit.disqualifies:
+        return f"more frontend work than your profile accepts: {evaluation.day_to_day_work}"
     return evaluation.primary_rejection_reason or "no reason recorded"
 
 

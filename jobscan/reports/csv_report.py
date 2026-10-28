@@ -9,7 +9,7 @@ from jobscan.reports.data import ReportData
 FIELDS = [
     "company", "culture_score", "culture_confidence", "title", "applied_on", "verdict", "scope_fit", "evidence_coverage_percent", "confidence",
     "salary_min", "salary_max", "salary_period", "salary_source", "location_raw", "remote_scope",
-    "employment_type", "day_to_day_work", "work_fit", "working_hours_fit", "working_hours_quote", "posting_url", "apply_url", "published_at", "first_seen_at",
+    "employment_type", "day_to_day_work", "work_fit", "frontend_fit", "working_hours_fit", "working_hours_quote", "posting_url", "apply_url", "published_at", "first_seen_at",
     "required_matches", "required_gaps", "preferred_only_gaps", "minor_caveats",
     "growth_dimensions", "hidden_staff_signals", "specialist_tenure_classification",
     "primary_rejection_reason", "worth_applying", "is_product_company", "model_name",
@@ -43,6 +43,7 @@ def write_csv_report(data: ReportData, path: Path) -> None:
                     "employment_type": job.employment_type.value,
                     "day_to_day_work": ev.day_to_day_work,
                     "work_fit": ev.work_fit.value if ev.work_fit else "",
+                    "frontend_fit": ev.frontend_fit.value if ev.frontend_fit else "",
                     "working_hours_fit": ev.working_hours_fit.value if ev.working_hours_fit else "",
                     "working_hours_quote": ev.working_hours_quote,
                     "posting_url": job.posting_url,

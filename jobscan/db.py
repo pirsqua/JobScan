@@ -24,6 +24,7 @@ from jobscan.models import (
     Evaluation,
     EvidenceClassification,
     FilterLogEntry,
+    FrontendFit,
     JobPosting,
     JobStatus,
     ManualOverride,
@@ -241,6 +242,7 @@ class Database:
         self._add_column_if_missing("evaluations", "working_hours_fit", "TEXT")
         self._add_column_if_missing("evaluations", "day_to_day_work", "TEXT")
         self._add_column_if_missing("evaluations", "work_fit", "TEXT")
+        self._add_column_if_missing("evaluations", "frontend_fit", "TEXT")
         self._add_column_if_missing("evaluation_runs", "newly_filtered", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "new_verdict_counts", "TEXT")
         # Working-hours conflicts were once stored under the owner's own time zones.
@@ -725,6 +727,7 @@ class Database:
             working_hours_fit=WorkingHoursFit(row["working_hours_fit"]) if row["working_hours_fit"] else None,
             day_to_day_work=row["day_to_day_work"] or "",
             work_fit=WorkFit(row["work_fit"]) if row["work_fit"] else None,
+            frontend_fit=FrontendFit(row["frontend_fit"]) if row["frontend_fit"] else None,
         )
 
     def save_evaluation(self, evaluation: Evaluation) -> int:
@@ -757,8 +760,8 @@ class Database:
                 credibility_assessment, why_this_is_or_is_not_gettable, is_product_company,
                 primary_rejection_reason, worth_applying, model_name, input_tokens, output_tokens,
                 cache_creation_input_tokens, cache_read_input_tokens, created_at, rubric_version,
-                working_hours_quote, working_hours_fit, day_to_day_work, work_fit)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                working_hours_quote, working_hours_fit, day_to_day_work, work_fit, frontend_fit)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                """,
             (
                 evaluation.job_id, evaluation.description_hash, evaluation.verdict.value,
@@ -778,6 +781,7 @@ class Database:
                 evaluation.working_hours_fit.value if evaluation.working_hours_fit else None,
                 evaluation.day_to_day_work,
                 evaluation.work_fit.value if evaluation.work_fit else None,
+                evaluation.frontend_fit.value if evaluation.frontend_fit else None,
             ),
         )
         return cur.lastrowid

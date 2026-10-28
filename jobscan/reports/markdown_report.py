@@ -284,6 +284,8 @@ def _render_rejected_or_unverified(data: ReportData) -> list[str]:
             verdict_label = "reject"
         elif ev.working_hours_fit and ev.working_hours_fit.disqualifies:
             verdict_label = f"{ev.verdict.value}, but hours fail"
+        elif ev.frontend_fit and ev.frontend_fit.disqualifies:
+            verdict_label = f"{ev.verdict.value}, but frontend-heavy"
         elif not ev.worth_applying:
             verdict_label = f"{ev.verdict.value}, not worth applying"
         else:

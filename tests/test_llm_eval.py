@@ -19,6 +19,7 @@ from jobscan.models import (
     Company,
     EmploymentType,
     EvidenceClassification,
+    FrontendFit,
     JobPosting,
     RemoteScope,
     RequirementImportance,
@@ -177,6 +178,7 @@ class TestJobEvaluation:
         assert evaluation.worth_applying is True
         assert evaluation.verdict == Verdict.STRONG_MATCH
         assert evaluation.work_fit == WorkFit.IN_LANE
+        assert evaluation.frontend_fit == FrontendFit.COMPATIBLE
         assert evaluation.day_to_day_work == "Building backend services."
         assert evaluation.confidence == pytest.approx(0.85)
         assert evaluation.scope_fit == ScopeFit.AT_LEVEL
@@ -241,7 +243,7 @@ class TestJobEvaluation:
         properties = list(JOB_EVALUATION_SCHEMA["properties"])
         # What the job's work is comes before any requirement (observed: GitHub's npm team judged a
         # plausible match off a qualifications list that accepted C#).
-        assert properties[:3] == ["day_to_day_work", "work_fit", "requirement_evidence"]
+        assert properties[:4] == ["day_to_day_work", "work_fit", "frontend_fit", "requirement_evidence"]
         for analysis_field in ("requirement_evidence", "growth_dimensions", "hidden_staff_signals", "compensation_assessment", "scope_fit"):
             assert properties.index(analysis_field) < properties.index("verdict")
         item_properties = list(JOB_EVALUATION_SCHEMA["$defs"]["RequirementEvidenceItem"]["properties"])

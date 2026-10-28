@@ -170,6 +170,21 @@ class WorkFit(str, Enum):
     OUTSIDE = "outside"
 
 
+class FrontendFit(str, Enum):
+    """Whether the share of a role's work that is frontend UI work is one the candidate profile
+    accepts. A candidate without professional React or Angular experience loses a frontend-heavy
+    full-stack role to applicants who have it, however well the backend half fits."""
+
+    COMPATIBLE = "compatible"
+    # More frontend than the profile accepts. Takes the role off the shortlist: see
+    # reports.data._report_section.
+    TOO_HEAVY = "too_heavy"
+
+    @property
+    def disqualifies(self) -> bool:
+        return self is not FrontendFit.COMPATIBLE
+
+
 class WorkingHoursFit(str, Enum):
     """Whether the hours a posting states pass the working-hours filter in the candidate
     profile's hard filters."""
@@ -375,6 +390,8 @@ class Evaluation:
     # None when not assessed, as above.
     day_to_day_work: str = ""
     work_fit: WorkFit | None = None
+    # Whether that work's frontend share is one the profile accepts. None when not assessed, as above.
+    frontend_fit: FrontendFit | None = None
 
 
 @dataclass

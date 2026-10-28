@@ -183,8 +183,10 @@ Open the newest `out\report_<timestamp>PT.md`. It has the run statistics, then:
 
 The tiers are drawn from the evaluation's requirement-by-requirement evidence, not its one-word
 verdict alone. Each role also says what its engineers do day to day; work partly outside your lane
-(say, a real frontend half) caps the role at Growth Bet, and work outside it (a Node.js tool, a Go
-proxy) at Attractive Stretch, however well the qualifications list reads.
+caps the role at Growth Bet, and work outside it (a Node.js tool, a Go proxy) at Attractive
+Stretch, however well the qualifications list reads. A role with more frontend work than your
+profile accepts (say, a full-stack role that is half React, when it rules out frontend-heavy work)
+is left off the shortlist.
 
 A posting's own words on working hours are shown with the role whenever it states any; hours that
 fail the working-hours filter in your profile reject it.

@@ -102,8 +102,9 @@ the candidate.
 Work through these steps, in order:
 
 0. WHAT THE JOB IS. Before any qualification, say what the team's engineers actually do day to day \
-and in which stack (`day_to_day_work`), from the responsibilities and the team's description, and \
-how that work sits with the candidate's lane (`work_fit`). A qualifications list the candidate's \
+and in which stack (`day_to_day_work`), from the responsibilities and the team's description, \
+how that work sits with the candidate's lane (`work_fit`), and whether its share of frontend UI \
+work is one the candidate's profile accepts (`frontend_fit`). A qualifications list the candidate's \
 languages satisfy doesn't make the work theirs: a team maintaining a JavaScript/Node.js tool is \
 outside the lane even when its list accepts "C#, Python, JavaScript". The rules below on \
 alternatives and examples decide whether the candidate clears the hiring bar; `work_fit` decides \
@@ -329,9 +330,8 @@ frontend-centered role.
 
 A full-stack role whose backend is in one of the candidate's languages is neither of the last two: \
 owning features end-to-end "from the React/TypeScript UI through the API it calls", with that \
-API in a language the candidate uses, is backend work the candidate does plus a frontend tier to \
-grow into — the full evaluation weighs \
-that, so don't skip on it.
+API in a language the candidate uses, is backend work the candidate does plus a frontend tier, \
+and how large a share of the job that tier is, the full evaluation judges — so don't skip on it.
 
 For a skip, copy into disqualifier_quote the posting's exact words that establish it — one phrase \
 or sentence, character for character from the title or text, no paraphrase or ellipsis — and set \

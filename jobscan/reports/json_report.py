@@ -60,6 +60,7 @@ def _job_dict(row) -> dict:
             "working_hours_fit": ev.working_hours_fit.value if ev.working_hours_fit else None,
             "day_to_day_work": ev.day_to_day_work,
             "work_fit": ev.work_fit.value if ev.work_fit else None,
+            "frontend_fit": ev.frontend_fit.value if ev.frontend_fit else None,
             "required_matches": ev.required_matches,
             "required_gaps": ev.required_gaps,
             "preferred_only_gaps": ev.preferred_only_gaps,

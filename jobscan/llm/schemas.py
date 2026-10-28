@@ -19,6 +19,7 @@ EvidenceClassification = Literal["directly_demonstrated", "credibly_transferable
 SpecialistTenureClassification = Literal["meets", "adjacent", "insufficient", "not_applicable"]
 WorkingHoursFit = Literal["compatible", "conflicts"]
 WorkFit = Literal["in_lane", "partly_outside", "outside"]
+FrontendFit = Literal["compatible", "too_heavy"]
 
 
 class RequirementEvidenceItem(BaseModel):
@@ -91,6 +92,20 @@ class JobEvaluationResult(BaseModel):
         "JavaScript/Node.js tool, a Go proxy codebase, ML infrastructure, mobile apps — even when "
         "the qualifications list accepts the candidate's languages. Judge the work, not whether "
         "the written bar can be met."
+    )
+    frontend_fit: FrontendFit = Field(
+        description="How much of that day-to-day work is building user interfaces (React, "
+        "Angular, Vue, TypeScript UIs), against what the candidate's profile accepts — its "
+        "do-not-target list and qualification rules. too_heavy: the profile rules out "
+        "frontend-heavy work and building UI is a substantial, regular part of this job, roughly "
+        "a third of it or more — e.g. a full-stack role shipping product features across a React "
+        "frontend and the API behind it. compatible: the profile accepts that share — "
+        "backend-centered work with no frontend or a minor share (\"approximately 80% backend "
+        "focused and 20% frontend focused\", occasional UI changes, one line asking for end-to-end "
+        "features), where a required React or Angular item is a requirement gap judged with the "
+        "others, not a reason for too_heavy — or a profile that targets frontend work. Judge the "
+        "work described, not the title: a \"Full-Stack\" title on backend-centered work is "
+        "compatible, and a plain \"Software Engineer\" title on mostly UI work is too_heavy."
     )
     requirement_evidence: list[RequirementEvidenceItem] = Field(default_factory=list)
     specialist_tenure_assessment: SpecialistTenureAssessment
