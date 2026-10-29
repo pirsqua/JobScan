@@ -47,12 +47,15 @@ _NOT_REMOTE_RE = re.compile(
 # A location quote that offers remote work, or binds only people near some office, isn't a
 # disqualifier. Observed live (SeatGeek): "as many days a week in the office as you'd like or 100%
 # remotely" was quoted as not_remote; (Discord) "Candidates in the San Francisco area are required
-# to be in the office 2 days a week" binds only SF locals.
+# to be in the office 2 days a week" binds only SF locals; (Mesh) "Employees based in our San
+# Francisco, New York, and Bangalore hubs are expected to work from the office" skipped a posting
+# located "United States - Remote".
 _REMOTE_OFFERED_RE = re.compile(
     r"100% remote|fully remote|remote[- ]first|remote[- ]friendly|or (work )?remotely|work from anywhere|"
     r"#li-remote|remote (option|eligible)|"
     r"(candidates|employees|those|people|you) (who are |who live |who reside )?(in|near|within|based in|located in) "
-    r"(the |our )?[\w .,'-]{0,40}(area|metro|region|office)s? (are|will|must|should|is)|if you (live|are|reside)\b|local to"
+    r"(the |our |one of our )?[\w .,'-]{0,60}(area|metro|region|office|hub|location|campus)(e?s)? "
+    r"(are|will|must|should|is)|if you (live|are|reside)\b|local to"
 )
 # A quote that rules some places out disqualifies only when the candidate's state is one of them.
 # Observed live (Samsara): "a remote position open to candidates residing in the US except the San

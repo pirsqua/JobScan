@@ -152,6 +152,8 @@ class TestLocation:
         "Flexible work environment, allowing you to work as many days a week in the office as you'd like or 100% remotely",
         # Discord: binds only people near San Francisco.
         "Candidates in the San Francisco area are required to be in the office 2 days a week",
+        # Mesh: binds only people at its hubs, on a posting located "United States - Remote".
+        "Employees based in our  San Francisco, New York, and Bangalore  hubs are expected to work from the office at least 40% of the time",
         "Remote-first company with an optional office in Austin",
     ])
     def test_location_quote_that_offers_remote_work_or_binds_only_locals(self, quote):
