@@ -42,6 +42,13 @@ without `--limit` against the full registry:
 6. Evaluations keep their history — re-judging adds a row and the newest is current. Reverting a
    rubric change makes the earlier verdicts current again on the next `--refresh-stale` with no API
    calls (a cache hit is copied forward), and before/after comparisons are a query, not a re-run.
+7. The cache key is the description hash plus `compute_details_hash` (`jobscan/normalize.py`):
+   everything else the prompts print about the posting except its URL. A field newly added to
+   `build_*_user_message` must go into it too, or postings that differ only in that field share a
+   verdict (observed: Mesh's "United States - Remote" copy carried its New York copy's hybrid
+   rejection). Changing its formula invalidates every stored `details_hash`, which would re-judge
+   the whole pool; set the column to NULL in the same change so `Database._backfill_details_hash`
+   recomputes it from the posting each verdict was judged on, then dry-run for the count.
 
 ## LLM output schema — field order is reasoning order
 

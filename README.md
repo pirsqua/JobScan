@@ -69,8 +69,11 @@ example profile):
   structured team
 ```
 
-Verdicts are cached by description text: a posting is re-judged only when its text changes, or on
-request after the rubric changes (see [Changing the rubric](#changing-the-rubric)).
+Verdicts are cached by description text plus the details the evaluation reads beside it (title,
+location, workplace type, employment type, salary): a posting is re-judged only when those change,
+or on request after the rubric changes (see [Changing the rubric](#changing-the-rubric)). A role
+posted twice costs one evaluation, but a copy in another location is judged on its own, since the
+location decides remote eligibility.
 
 ## Design notes
 

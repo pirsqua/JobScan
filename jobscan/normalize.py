@@ -26,6 +26,20 @@ def compute_description_hash(description_text: str) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
+def compute_details_hash(job: JobPosting) -> str:
+    """Hash of what an evaluation reads about a posting besides its description: the company,
+    title, location, workplace type, employment type and published salary (see
+    ``build_job_eval_user_message``). Postings with the same description share a verdict only when
+    these match too, so a role posted once per city has its remote copy judged as remote. Observed:
+    Mesh's "United States - Remote" Senior Backend Engineer carried the verdict of its New York
+    copy, rejected as hybrid."""
+    parts = [
+        job.company_id, job.title, job.location_raw, job.workplace_type.value if job.workplace_type else None,
+        job.employment_type_raw, job.salary_min, job.salary_max, job.salary_period, job.salary_source.value,
+    ]
+    return hashlib.sha256("\x00".join("" if part is None else str(part) for part in parts).encode("utf-8")).hexdigest()
+
+
 def _parse_published_at(raw: str | None) -> datetime | None:
     if not raw:
         return None

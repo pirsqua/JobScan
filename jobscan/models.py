@@ -378,9 +378,14 @@ class Evaluation:
     # Fingerprint of the prompt, tool schema and candidate profile this verdict was made under
     # (jobscan.llm.prompts.evaluation_rubric_version, or triage_rubric_version for a triage
     # screen-out); None on evaluations from before it was recorded. The
-    # cache is keyed by description hash alone, so without this a rubric fix would never reach a
-    # posting already judged — see evaluate_all(refresh_stale=...).
+    # cache is keyed by the posting's text and details, so without this a rubric fix would never
+    # reach a posting already judged — see evaluate_all(refresh_stale=...).
     rubric_version: str | None = None
+    # jobscan.normalize.compute_details_hash of the posting this verdict was judged on — its title,
+    # location, salary and the rest of what the prompt reads besides the description. The cache
+    # reuses a verdict only for a posting whose description and details both match. A copy keeps
+    # its original's.
+    details_hash: str | None = None
     # The posting's own words on working hours or time zone, and how they fit the profile's
     # working-hours filter. None when not assessed (triage screen-outs, manual overrides,
     # evaluations from before the field).

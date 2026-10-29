@@ -40,6 +40,7 @@ from jobscan.models import (
     SpecialistTenureClassification,
     Verdict,
 )
+from jobscan.normalize import compute_details_hash
 
 logger = get_logger("evaluate")
 
@@ -128,6 +129,7 @@ def _build_triage_skip_evaluation(
         model_name=f"triage:{triage_model}",
         created_at=_now(),
         rubric_version=rubric,
+        details_hash=compute_details_hash(job),
     )
 
 
@@ -163,6 +165,7 @@ def _manual_override_evaluation(job: JobPosting, company: Company, verdict: Verd
         worth_applying=True,
         model_name="manual_override",
         created_at=_now(),
+        details_hash=compute_details_hash(job),
     )
 
 
@@ -291,11 +294,12 @@ def evaluate_all(
         stats.triage_model = triage_client.model
 
     workers = 1 if limit is not None else max(1, settings.evaluate_workers)
-    # Postings waiting for their LLM calls, and later postings with the same description text,
-    # which take a copy of that verdict when it lands — so a role posted in several locations still
-    # costs one evaluation (as the cache gives it when screening runs one at a time).
+    # Postings waiting for their LLM calls, and later postings with the same description and
+    # details, which take a copy of that verdict when it lands — so a role posted twice still costs
+    # one evaluation (as the cache gives it when screening runs one at a time). A copy in another
+    # location or at another title or salary is judged on its own: see compute_details_hash.
     pending: list[tuple[JobPosting, Company]] = []
-    followers: dict[str, list[JobPosting]] = {}
+    followers: dict[tuple[str, str], list[JobPosting]] = {}
 
     def screen(job: JobPosting, company: Company) -> _Screening:
         assert client is not None
@@ -351,7 +355,7 @@ def evaluate_all(
             db.save_evaluation(saved)
             stats._bump_new_verdict(saved.verdict.value)
 
-        for follower in followers.pop(job.description_hash, []):
+        for follower in followers.pop((job.description_hash, compute_details_hash(job)), []):
             if saved is None:
                 stats.unverified += 1
             else:
@@ -436,8 +440,10 @@ def evaluate_all(
                 stats.factual_rejected += 1
                 continue
 
+            key = (job.description_hash, compute_details_hash(job))
             cached = db.get_evaluation_by_hash(
-                job.description_hash, rubric_versions=(full_rubric, triage_rubric) if refresh_stale else None
+                job.description_hash, rubric_versions=(full_rubric, triage_rubric) if refresh_stale else None,
+                details_hash=key[1],
             )
             if cached is not None:
                 stats.cache_hits += 1
@@ -453,13 +459,13 @@ def evaluate_all(
                 stats.unverified += 1
                 continue
 
-            if job.description_hash in followers:
-                followers[job.description_hash].append(job)
+            if key in followers:
+                followers[key].append(job)
             elif workers == 1:
-                followers[job.description_hash] = []
+                followers[key] = []
                 record(screen(job, company))
             else:
-                followers[job.description_hash] = []
+                followers[key] = []
                 pending.append((job, company))
 
     if pending:

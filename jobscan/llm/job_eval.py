@@ -29,6 +29,7 @@ from jobscan.models import (
     WorkFit,
     WorkingHoursFit,
 )
+from jobscan.normalize import compute_details_hash
 
 
 def evaluate_job(
@@ -130,4 +131,5 @@ def evaluate_job(
         output_tokens=result.output_tokens,
         cache_creation_input_tokens=result.cache_creation_input_tokens,
         cache_read_input_tokens=result.cache_read_input_tokens,
+        details_hash=compute_details_hash(job),
     )

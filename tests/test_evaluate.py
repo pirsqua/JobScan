@@ -21,8 +21,11 @@ from jobscan.llm.prompts import (
     triage_rubric_version,
 )
 from jobscan.models import CompanyClassification, EvaluateStats, ManualOverride, ScopeFit, Verdict
+from jobscan.normalize import compute_details_hash
 
-from tests.fakes import VALID_EVALUATION, FakeSdkClient, json_response, refusal_response, seed_company, seed_job
+from tests.fakes import (
+    VALID_EVALUATION, FakeSdkClient, json_response, make_evaluation, refusal_response, seed_company, seed_job,
+)
 
 
 def triage_response(
@@ -63,7 +66,7 @@ class ConcurrentSdk:
 class TestParallelEvaluation:
     def _seed(self, db, settings, descriptions):
         company = seed_company(db)
-        return [seed_job(db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}",
+        return [seed_job(db, settings, company, source_job_id=str(i),
                          description=f"{text} $180,000 - $220,000 per year.")
                 for i, text in enumerate(descriptions)]
 
@@ -208,7 +211,7 @@ class TestEvaluateAll:
         company = seed_company(db)
         same_description = "We build our own SaaS product. $180,000 - $220,000 per year."
         seed_job(db, settings, company, source_job_id="1", description=same_description)
-        seed_job(db, settings, company, source_job_id="2", title="Senior Backend Engineer II", description=same_description)
+        seed_job(db, settings, company, source_job_id="2", description=same_description)
 
         sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
@@ -218,6 +221,42 @@ class TestEvaluateAll:
         assert sdk.messages.call_count == 1
         assert stats.sent_to_llm == 1
         assert stats.cache_hits == 1
+
+    @pytest.mark.parametrize("other", [{"location": "New York, NY (Remote)"}, {"title": "Senior Backend Engineer II"}])
+    def test_same_description_with_other_details_is_judged_on_its_own(self, db: Database, settings, other):
+        # Mesh posted one Senior Backend Engineer text in New York, San Francisco and "United States -
+        # Remote"; the remote copy carried the New York copy's hybrid rejection.
+        company = seed_company(db)
+        same_description = "We build our own SaaS product. $180,000 - $220,000 per year."
+        seed_job(db, settings, company, source_job_id="1", description=same_description)
+        seed_job(db, settings, company, source_job_id="2", description=same_description, **other)
+
+        sdk = FakeSdkClient([json_response(VALID_EVALUATION), json_response(VALID_EVALUATION)])
+        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert sdk.messages.call_count == 2
+        assert (stats.sent_to_llm, stats.cache_hits) == (2, 0)
+
+    def test_a_verdict_from_before_details_were_recorded_counts_for_the_posting_it_was_judged_on(
+        self, db: Database, settings
+    ):
+        company = seed_company(db)
+        same_description = "We build our own SaaS product. $180,000 - $220,000 per year."
+        judged = seed_job(db, settings, company, source_job_id="1", description=same_description)
+        elsewhere = seed_job(db, settings, company, source_job_id="2", description=same_description,
+                             location="New York, NY (Remote)")
+        original = make_evaluation(judged.id, description_hash=judged.description_hash)
+        db.save_evaluation(original)
+        db.save_evaluation(dataclasses.replace(original, job_id=elsewhere.id))  # an old cache-hit copy
+        db.conn.execute("UPDATE evaluations SET details_hash = NULL")
+
+        db._backfill_details_hash()
+        sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
+        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+
+        assert sdk.messages.call_count == 1  # only the copy in New York is judged again
+        assert (stats.sent_to_llm, stats.cache_hits) == (1, 1)
+        assert db.get_evaluation_for_job(elsewhere.id).details_hash == compute_details_hash(elsewhere)
 
     def test_no_api_key_marks_unverified_not_rejected(self, db: Database, settings):
         company = seed_company(db)
@@ -259,7 +298,7 @@ class TestEvaluateAll:
         company = seed_company(db)
         same_description = "We build our own SaaS product. $180,000 - $220,000 per year."
         seed_job(db, settings, company, source_job_id="1", description=same_description)
-        seed_job(db, settings, company, source_job_id="2", title="Senior Backend Engineer II", description=same_description)
+        seed_job(db, settings, company, source_job_id="2", description=same_description)
         client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(VALID_EVALUATION)]))
 
         for _ in range(3):
