@@ -8,6 +8,7 @@ Oracle board a 503 once), and Siemens' Avature board times out on ~5% of its par
 requests, a different handful each run. The other 78 board failures were permanent (Workday boards
 that moved, board IDs that no longer exist), and retrying those would only slow the crawl down.
 """
+
 from __future__ import annotations
 
 import random
@@ -47,7 +48,9 @@ def _pause(seconds: float) -> None:
 
 
 class RetryTransport(httpx.BaseTransport):
-    def __init__(self, inner: httpx.BaseTransport | None = None, sleep: Callable[[float], None] | None = None):
+    def __init__(
+        self, inner: httpx.BaseTransport | None = None, sleep: Callable[[float], None] | None = None
+    ):
         """``inner`` sends the requests (default: httpx's own transport); ``sleep`` waits between
         attempts (default: a real sleep — tests pass a recorder)."""
         self._inner = inner or httpx.HTTPTransport()
@@ -67,21 +70,36 @@ class RetryTransport(httpx.BaseTransport):
                     return response
                 retry_after = response.headers.get("retry-after")
                 asked = _retry_after_seconds(retry_after)
-                if retries == MAX_RETRIES or (asked is not None and asked > MAX_RETRY_AFTER_SECONDS):
+                if retries == MAX_RETRIES or (
+                    asked is not None and asked > MAX_RETRY_AFTER_SECONDS
+                ):
                     # Retry-After and Cloudflare's ray ID say how long a block lasts and let the
                     # board's operator find it; the caller only sees the status.
                     logger.warning(
                         "http request gave up",
-                        extra=log_extra(url=str(request.url), status=response.status_code, retries=retries,
-                                        retry_after=retry_after, cf_ray=response.headers.get("cf-ray")),
+                        extra=log_extra(
+                            url=str(request.url),
+                            status=response.status_code,
+                            retries=retries,
+                            retry_after=retry_after,
+                            cf_ray=response.headers.get("cf-ray"),
+                        ),
                     )
                     return response
-                problem, wait = str(response.status_code), asked if asked is not None else _backoff(retries)
+                problem, wait = (
+                    str(response.status_code),
+                    asked if asked is not None else _backoff(retries),
+                )
                 response.close()
             retries += 1
             logger.info(
                 "http retry",
-                extra=log_extra(url=str(request.url), problem=problem, attempt=retries, wait_seconds=round(wait, 1)),
+                extra=log_extra(
+                    url=str(request.url),
+                    problem=problem,
+                    attempt=retries,
+                    wait_seconds=round(wait, 1),
+                ),
             )
             self._sleep(wait)
 

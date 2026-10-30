@@ -11,6 +11,7 @@ CX_1) with no bot-gating — a check on 2026-10-06 had found its branded jobs pa
 ``board_id`` is "{fusion host}/{site number}". The list only carries titles, so the job-family
 title gate runs before the per-job detail fetch.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -44,7 +45,9 @@ class OracleAdapter(SourceAdapter):
     def fetch_postings(self, board_id: str) -> Iterable[RawPosting]:
         host, _, site = board_id.partition("/")
         if not host or not site:
-            raise AdapterError(f"oracle board '{board_id}': expected '{{fusion host}}/{{site number}}'")
+            raise AdapterError(
+                f"oracle board '{board_id}': expected '{{fusion host}}/{{site number}}'"
+            )
         api = API.format(host=host)
         briefs: list[OracleRequisitionBrief] = []
         for page_number in range(MAX_PAGES):
@@ -59,7 +62,9 @@ class OracleAdapter(SourceAdapter):
             except httpx.HTTPError as exc:
                 raise AdapterError(f"oracle board '{board_id}': request failed: {exc}") from exc
             except ValidationError as exc:  # before ValueError, which it subclasses
-                raise AdapterError(f"oracle board '{board_id}': unexpected response shape: {exc}") from exc
+                raise AdapterError(
+                    f"oracle board '{board_id}': unexpected response shape: {exc}"
+                ) from exc
             except ValueError as exc:
                 raise AdapterError(f"oracle board '{board_id}': invalid JSON: {exc}") from exc
             page = result.items[0] if result.items else None
@@ -69,11 +74,15 @@ class OracleAdapter(SourceAdapter):
             if len(briefs) >= page.TotalJobsCount:
                 break
         else:
-            raise AdapterError(f"oracle board '{board_id}': more than {MAX_PAGES} pages — paging did not end")
+            raise AdapterError(
+                f"oracle board '{board_id}': more than {MAX_PAGES} pages — paging did not end"
+            )
 
         matched = [b for b in briefs if is_engineering_title(b.Title)]
         with ThreadPoolExecutor(max_workers=DETAIL_CONCURRENCY) as pool:
-            results = pool.map(lambda brief: self._fetch_detail(api, host, site, brief, board_id), matched)
+            results = pool.map(
+                lambda brief: self._fetch_detail(api, host, site, brief, board_id), matched
+            )
             return [posting for posting in results if posting is not None]
 
     def _fetch_detail(
@@ -95,9 +104,13 @@ class OracleAdapter(SourceAdapter):
             return None
 
         description_html = "".join(
-            section for section in (
-                detail.ExternalDescriptionStr, detail.ExternalResponsibilitiesStr, detail.ExternalQualificationsStr,
-            ) if section
+            section
+            for section in (
+                detail.ExternalDescriptionStr,
+                detail.ExternalResponsibilitiesStr,
+                detail.ExternalQualificationsStr,
+            )
+            if section
         )
         posting_url = f"https://{host}/hcmUI/CandidateExperience/en/sites/{site}/job/{detail.Id}"
         return RawPosting(

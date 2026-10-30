@@ -1,5 +1,6 @@
 """Test doubles shared across the suite: a stand-in for the Anthropic SDK, the model's answers,
 and a database seeded with companies, postings and evaluations."""
+
 from __future__ import annotations
 
 import json
@@ -28,7 +29,9 @@ from jobscan.models import (
 )
 from jobscan.normalize import normalize_posting
 
-EXAMPLE_PROFILE = Path(__file__).resolve().parent.parent / "config" / "candidate_profile.example.yaml"
+EXAMPLE_PROFILE = (
+    Path(__file__).resolve().parent.parent / "config" / "candidate_profile.example.yaml"
+)
 
 
 def data_folder(path: Path) -> Path:
@@ -68,7 +71,7 @@ VALID_EVALUATION = {
     "working_hours_quote": "",
     "working_hours_fit": "compatible",
     "compensation_assessment": "Range comfortably clears $170,000.",
-    "evidence": ["\"We build our own SaaS platform using C# and Azure.\""],
+    "evidence": ['"We build our own SaaS platform using C# and Azure."'],
     "minor_caveats": [],
     "scope_fit": "at_level",
     "evidence_coverage_percent": 85,
@@ -93,7 +96,9 @@ def json_response(data: dict, input_tokens: int = 100, output_tokens: int = 50) 
 def refusal_response(category: str = "cyber") -> SimpleNamespace:
     """The ordinary 200 the model answers with when it declines a request."""
     return SimpleNamespace(
-        content=[], usage=SimpleNamespace(input_tokens=10, output_tokens=0), stop_reason="refusal",
+        content=[],
+        usage=SimpleNamespace(input_tokens=10, output_tokens=0),
+        stop_reason="refusal",
         stop_details=SimpleNamespace(type="refusal", category=category, explanation=None),
     )
 
@@ -135,32 +140,55 @@ def strong_match_client() -> AnthropicClient:
 
 
 def seed_company(
-    db: Database, name: str = "Acme", classification: CompanyClassification = CompanyClassification.PRODUCT,
+    db: Database,
+    name: str = "Acme",
+    classification: CompanyClassification = CompanyClassification.PRODUCT,
     board_id: str | None = None,
 ) -> Company:
     """A registry company, classified as a product company unless told otherwise — so evaluating
     its postings makes no classification call. Pass UNKNOWN to exercise that call."""
     board_id = board_id or name.lower().replace(" ", "")
     company = Company(
-        name=name, domain=f"{board_id}.example.com", careers_url=None, ats_type=AtsType.GREENHOUSE, board_id=board_id,
+        name=name,
+        domain=f"{board_id}.example.com",
+        careers_url=None,
+        ats_type=AtsType.GREENHOUSE,
+        board_id=board_id,
     )
     if classification != CompanyClassification.UNKNOWN:
-        company.classification, company.classification_source = classification, ClassificationSource.SEED
+        company.classification, company.classification_source = (
+            classification,
+            ClassificationSource.SEED,
+        )
     company.id = db.upsert_company(company)
     return company
 
 
 def seed_job(
-    db: Database, settings, company: Company, source_job_id: str = "1", title: str = "Senior Backend Engineer",
+    db: Database,
+    settings,
+    company: Company,
+    source_job_id: str = "1",
+    title: str = "Senior Backend Engineer",
     description: str = "We build our own SaaS product. $180,000 - $220,000 per year.",
-    salary_min: int | None = None, salary_max: int | None = None, location: str = "Remote - US",
+    salary_min: int | None = None,
+    salary_max: int | None = None,
+    location: str = "Remote - US",
 ) -> JobPosting:
     """A crawled posting, normalized as the crawl would; seeding the same source_job_id again
     updates it. ``salary_min``/``salary_max`` append a published base-salary range."""
-    salary_line = f"<p>Base salary range: ${salary_min:,} - ${salary_max:,} per year.</p>" if salary_min else ""
+    salary_line = (
+        f"<p>Base salary range: ${salary_min:,} - ${salary_max:,} per year.</p>"
+        if salary_min
+        else ""
+    )
     raw = RawPosting(
-        source_job_id=source_job_id, title=title, location_raw=location, employment_type_raw="Full-time",
-        description_html=f"<p>{description}</p>{salary_line}", description_text=None,
+        source_job_id=source_job_id,
+        title=title,
+        location_raw=location,
+        employment_type_raw="Full-time",
+        description_html=f"<p>{description}</p>{salary_line}",
+        description_text=None,
         posting_url=f"https://acme.example.com/jobs/{source_job_id}",
         apply_url=f"https://acme.example.com/jobs/{source_job_id}/apply",
     )
@@ -169,29 +197,52 @@ def seed_job(
 
 
 def make_evaluation(
-    job_id: int, verdict: Verdict = Verdict.STRONG_MATCH, scope_fit: ScopeFit = ScopeFit.AT_LEVEL, *,
-    central_directly_demonstrated: int = 0, **fields,
+    job_id: int,
+    verdict: Verdict = Verdict.STRONG_MATCH,
+    scope_fit: ScopeFit = ScopeFit.AT_LEVEL,
+    *,
+    central_directly_demonstrated: int = 0,
+    **fields,
 ) -> Evaluation:
     """An evaluation to save straight to the database, no LLM involved. ``fields`` set any other
     Evaluation field; ``central_directly_demonstrated`` adds that many met central requirements."""
     requirement_evidence = [
         RequirementEvidence(
-            requirement=f"central requirement {i}", importance=RequirementImportance.CENTRAL,
+            requirement=f"central requirement {i}",
+            importance=RequirementImportance.CENTRAL,
             evidence_classification=EvidenceClassification.DIRECTLY_DEMONSTRATED,
-            candidate_evidence="x", posting_evidence="y",
+            candidate_evidence="x",
+            posting_evidence="y",
         )
         for i in range(central_directly_demonstrated)
     ]
     values = {
-        "job_id": job_id, "description_hash": f"hash-{job_id}", "verdict": verdict, "confidence": 0.7,
-        "scope_fit": scope_fit, "evidence_coverage_percent": 50,
+        "job_id": job_id,
+        "description_hash": f"hash-{job_id}",
+        "verdict": verdict,
+        "confidence": 0.7,
+        "scope_fit": scope_fit,
+        "evidence_coverage_percent": 50,
         "specialist_tenure_assessment": SpecialistTenureAssessment(
-            classification=SpecialistTenureClassification.NOT_APPLICABLE, specialty="", explanation="",
+            classification=SpecialistTenureClassification.NOT_APPLICABLE,
+            specialty="",
+            explanation="",
         ),
-        "requirement_evidence": requirement_evidence, "growth_dimensions": [], "hidden_staff_signals": [],
-        "compensation_assessment": "ok", "remote_employment_verification": "ok", "required_matches": [],
-        "required_gaps": [], "preferred_only_gaps": [], "minor_caveats": [], "evidence": [], "credibility_assessment": "ok",
-        "why_this_is_or_is_not_gettable": "ok", "is_product_company": True, "primary_rejection_reason": None,
-        "model_name": "test-model", "created_at": datetime.now(UTC),
+        "requirement_evidence": requirement_evidence,
+        "growth_dimensions": [],
+        "hidden_staff_signals": [],
+        "compensation_assessment": "ok",
+        "remote_employment_verification": "ok",
+        "required_matches": [],
+        "required_gaps": [],
+        "preferred_only_gaps": [],
+        "minor_caveats": [],
+        "evidence": [],
+        "credibility_assessment": "ok",
+        "why_this_is_or_is_not_gettable": "ok",
+        "is_product_company": True,
+        "primary_rejection_reason": None,
+        "model_name": "test-model",
+        "created_at": datetime.now(UTC),
     }
     return Evaluation(**{**values, **fields})

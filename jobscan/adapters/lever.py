@@ -16,6 +16,7 @@ Lever's own posting page shows them in. The plain text is derived from all of it
 "175,000 - $220,000" sat in a list section, so the posting failed as "no salary published", and
 every Lever posting's requirements were missing from the text the evaluation read.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -56,7 +57,9 @@ class LeverAdapter(SourceAdapter):
             try:
                 page = LeverPostingsAdapter.validate_python(payload)
             except ValidationError as exc:
-                raise AdapterError(f"lever board '{board_id}': unexpected response shape: {exc}") from exc
+                raise AdapterError(
+                    f"lever board '{board_id}': unexpected response shape: {exc}"
+                ) from exc
 
             postings.extend(self._parse_job(job) for job in page)
 
@@ -106,6 +109,8 @@ class LeverAdapter(SourceAdapter):
             salary_max=salary_max,
             salary_currency=salary_currency,
             salary_period=salary_period,
-            salary_source=SalarySource.STRUCTURED if (salary_min or salary_max) else SalarySource.NONE,
+            salary_source=SalarySource.STRUCTURED
+            if (salary_min or salary_max)
+            else SalarySource.NONE,
             workplace_type=parse_workplace_type(workplace_type),
         )

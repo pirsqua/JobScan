@@ -3,6 +3,7 @@
 Kept deliberately small and injectable: tests pass in a stub with a ``messages.create`` method
 instead of hitting the network, and the rest of the codebase only ever sees ``StructuredResult``.
 """
+
 from __future__ import annotations
 
 import json
@@ -29,10 +30,20 @@ class StructuredResult:
 
 # Keywords structured outputs can't enforce (numeric/length bounds) or that conflict with every
 # property being required (defaults). Pydantic still enforces the bounds on the way back in.
-_UNSUPPORTED_STRICT_KEYWORDS = frozenset({
-    "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
-    "minLength", "maxLength", "minItems", "maxItems", "default",
-})
+_UNSUPPORTED_STRICT_KEYWORDS = frozenset(
+    {
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum",
+        "multipleOf",
+        "minLength",
+        "maxLength",
+        "minItems",
+        "maxItems",
+        "default",
+    }
+)
 
 
 def strict_input_schema(schema: Any) -> Any:
@@ -46,7 +57,9 @@ def strict_input_schema(schema: Any) -> Any:
     if not isinstance(schema, dict):
         return schema
     converted = {
-        key: strict_input_schema(value) for key, value in schema.items() if key not in _UNSUPPORTED_STRICT_KEYWORDS
+        key: strict_input_schema(value)
+        for key, value in schema.items()
+        if key not in _UNSUPPORTED_STRICT_KEYWORDS
     }
     if converted.get("type") == "object" and "properties" in converted:
         converted["additionalProperties"] = False
@@ -118,7 +131,9 @@ class AnthropicClient:
                 max_tokens=max_tokens,
                 system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": content}],
-                output_config={"format": {"type": "json_schema", "schema": strict_input_schema(schema)}},
+                output_config={
+                    "format": {"type": "json_schema", "schema": strict_input_schema(schema)}
+                },
                 **request,
             )
         except anthropic.APIError as exc:
@@ -127,13 +142,18 @@ class AnthropicClient:
         stop_reason = getattr(response, "stop_reason", None)
         if stop_reason == "refusal":
             # A safety decline (HTTP 200), not an answer — it must never be read as a verdict.
-            category = getattr(getattr(response, "stop_details", None), "category", None) or "unspecified"
+            category = (
+                getattr(getattr(response, "stop_details", None), "category", None) or "unspecified"
+            )
             raise LlmCallError(f"model declined to answer (refusal category: {category})")
         if stop_reason == "max_tokens":
             raise LlmCallError(f"response was cut off at max_tokens={max_tokens}")
 
         # Read by block type: with thinking on, thinking blocks come before the answer.
-        text = next((block.text for block in response.content if getattr(block, "type", None) == "text"), None)
+        text = next(
+            (block.text for block in response.content if getattr(block, "type", None) == "text"),
+            None,
+        )
         if text is None:
             raise LlmCallError("model response did not include a text block")
         try:

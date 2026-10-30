@@ -1,5 +1,6 @@
 """Audit report: every posting the pipeline filtered out (factually or by the LLM) and why, so
 false negatives can be reviewed by hand rather than trusted blindly."""
+
 from __future__ import annotations
 
 import csv
@@ -73,12 +74,19 @@ def write_audit_csv(rows: list[AuditRow], path: Path) -> None:
         writer = csv.writer(f)
         writer.writerow(["company", "title", "posting_url", "stage", "reason", "detail"])
         for row in rows:
-            writer.writerow([row.company, row.title, row.posting_url, row.stage, row.reason, row.detail])
+            writer.writerow(
+                [row.company, row.title, row.posting_url, row.stage, row.reason, row.detail]
+            )
 
 
 def write_audit_markdown(rows: list[AuditRow], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    lines = ["# Audit report: every filtered posting", "", f"Total filtered postings: {len(rows)}", ""]
+    lines = [
+        "# Audit report: every filtered posting",
+        "",
+        f"Total filtered postings: {len(rows)}",
+        "",
+    ]
     if not rows:
         lines.append("_Nothing has been filtered yet — run `crawl` and `evaluate` first._")
     else:
@@ -89,5 +97,7 @@ def write_audit_markdown(rows: list[AuditRow], path: Path) -> None:
             detail = (row.detail or "").replace("|", "\\|").replace("\n", " ")
             if len(detail) > 200:
                 detail = detail[:200] + "…"
-            lines.append(f"| {row.company} | {row.title} | {row.stage} | {row.reason} | {detail} | {link} |")
+            lines.append(
+                f"| {row.company} | {row.title} | {row.stage} | {row.reason} | {detail} | {link} |"
+            )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

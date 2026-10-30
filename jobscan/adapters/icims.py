@@ -17,6 +17,7 @@ newer career-site front end instead, which this adapter doesn't read).
 As with Jobvite/JazzHR, the list page doesn't carry the full posting, so the job-family title
 gate runs before the per-posting detail fetch.
 """
+
 from __future__ import annotations
 
 import re

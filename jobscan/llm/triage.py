@@ -8,6 +8,7 @@ wasted cost of a false positive reaching the full evaluation anyway — the prom
 lenient accordingly, and callers should treat a failed triage call as "don't skip", not as
 evidence the posting is a safe reject.
 """
+
 from __future__ import annotations
 
 import re
@@ -34,8 +35,12 @@ from jobscan.models import Company, JobPosting
 # remaining checks are near-objective: the title (Staff+, manager) and location wording. Every
 # check can only turn a skip into a full evaluation — never the reverse.
 
-_TITLE_ABOVE_SENIOR_RE = re.compile(r"\b(staff|principal|distinguished|director|head of|vice president|vp)\b")
-_DUAL_LEVEL_TITLE_RE = re.compile(r"\bsenior\s*(/|or|and|,)\s*staff\b|\bstaff\s*(/|or|and|,)\s*senior\b")
+_TITLE_ABOVE_SENIOR_RE = re.compile(
+    r"\b(staff|principal|distinguished|director|head of|vice president|vp)\b"
+)
+_DUAL_LEVEL_TITLE_RE = re.compile(
+    r"\bsenior\s*(/|or|and|,)\s*staff\b|\bstaff\s*(/|or|and|,)\s*senior\b"
+)
 # A Staff-titled posting whose text hires at Senior too. Observed live: Twilio's "Staff Software
 # Engineer, Fraud" ("Hiring at either the Senior or Staff level") and GitLab's "Staff Backend
 # Engineer" ("As a Senior or Staff Backend Engineer"). Only "or" and "/": "mentor Senior and Staff
@@ -64,7 +69,9 @@ _REMOTE_OFFERED_RE = re.compile(
 # A quote that rules some places out disqualifies only when the candidate's state is one of them.
 # Observed live (Samsara): "a remote position open to candidates residing in the US except the San
 # Francisco Bay Metro Area, NYC Metro Area, and Washington, D.C. Metro Area" skipped as not_remote.
-_EXCLUSION_RE = re.compile(r"except|exclud|not (eligible|available)|cannot|can't|unable to (hire|employ)")
+_EXCLUSION_RE = re.compile(
+    r"except|exclud|not (eligible|available)|cannot|can't|unable to (hire|employ)"
+)
 # A time-zone quote that names the candidate's own zone isn't a disqualifier. Observed live (Scribe):
 # "Remote based permanently in PST (Pacific Standard Time)" skipped as not_remote for a Seattle
 # candidate.
@@ -72,10 +79,27 @@ _TIME_ZONE_RE = re.compile(r"time ?zone|\b(eastern|central|mountain|pacific)\b|\
 
 # Any other location preference ("Preferred locations: New York or San Francisco") is a negative
 # the full evaluation weighs, not a disqualifier.
-_PREFERENCE_RE = re.compile(r"\b(ideally|prefer(red|ably)?|a plus|nice to have|bonus|where possible|if possible)\b")
-_TRANSLATE = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"', "‐": "-",
-                            "‑": "-", "‒": "-", "–": "-", "—": "-", "−": "-",
-                            " ": " ", " ": " ", "·": " ", "•": " "})
+_PREFERENCE_RE = re.compile(
+    r"\b(ideally|prefer(red|ably)?|a plus|nice to have|bonus|where possible|if possible)\b"
+)
+_TRANSLATE = str.maketrans(
+    {
+        "‘": "'",
+        "’": "'",
+        "“": '"',
+        "”": '"',
+        "‐": "-",
+        "‑": "-",
+        "‒": "-",
+        "–": "-",
+        "—": "-",
+        "−": "-",
+        " ": " ",
+        " ": " ",
+        "·": " ",
+        "•": " ",
+    }
+)
 
 
 @lru_cache
@@ -127,12 +151,25 @@ def skip_is_substantiated(
         if not _TITLE_ABOVE_SENIOR_RE.search(title) or _DUAL_LEVEL_TITLE_RE.search(title):
             return False
         return not _HIRES_AT_SENIOR_TOO_RE.search(_normalize(job.description_text or ""))
-    posting = _normalize(" ".join(filter(None, [
-        job.title, job.location_raw, job.workplace_type.value if job.workplace_type else None, job.description_text,
-    ])))
+    posting = _normalize(
+        " ".join(
+            filter(
+                None,
+                [
+                    job.title,
+                    job.location_raw,
+                    job.workplace_type.value if job.workplace_type else None,
+                    job.description_text,
+                ],
+            )
+        )
+    )
     if not _quoted_from(result.disqualifier_quote, posting):
         return False
-    if result.disqualifier in ("required_unfamiliar_language", "required_specialty") and not result.quote_is_hard_requirement:
+    if (
+        result.disqualifier in ("required_unfamiliar_language", "required_specialty")
+        and not result.quote_is_hard_requirement
+    ):
         # The model's own answer about its quote, asked narrowly before the decision. Observed: a
         # skip quoting "Exposure to, or strong interest in, building on top of large language
         # models" — the very example its instructions forbid — while the decision field said skip.
@@ -155,7 +192,9 @@ def skip_is_substantiated(
             return False
         if _EXCLUSION_RE.search(quote):
             names_state = re.search(
-                rf"\b({re.escape(state_abbr)}|{re.escape(state_name)})\b(?!,? ?d\.? ?c\b)", quote, re.IGNORECASE
+                rf"\b({re.escape(state_abbr)}|{re.escape(state_name)})\b(?!,? ?d\.? ?c\b)",
+                quote,
+                re.IGNORECASE,
             )
             if not names_state:
                 return False
@@ -186,6 +225,9 @@ def triage_job(
     except ValidationError as exc:
         raise LlmCallError(f"triage response failed schema validation: {exc}") from exc
     return (
-        parsed, result.input_tokens, result.output_tokens,
-        result.cache_creation_input_tokens, result.cache_read_input_tokens,
+        parsed,
+        result.input_tokens,
+        result.output_tokens,
+        result.cache_creation_input_tokens,
+        result.cache_read_input_tokens,
     )

@@ -14,7 +14,15 @@ from jobscan.models import AtsType, Company
 
 def seed(settings) -> None:
     with Database(settings.db_path) as db:
-        db.upsert_company(Company(name="Acme", domain=None, careers_url=None, ats_type=AtsType.GREENHOUSE, board_id="acme"))
+        db.upsert_company(
+            Company(
+                name="Acme",
+                domain=None,
+                careers_url=None,
+                ats_type=AtsType.GREENHOUSE,
+                board_id="acme",
+            )
+        )
 
 
 def restore(snapshot, tmp_path):
@@ -35,17 +43,25 @@ def test_snapshot_is_a_complete_compressed_copy_and_replaces_the_previous_one(se
     assert snapshot.name == "jobscan.db.gz"
     with sqlite3.connect(restore(snapshot, tmp_path)) as copy:
         assert copy.execute("select name from companies").fetchall() == [("Acme",)]
-    assert sorted(p.name for p in target_dir.iterdir()) == ["jobscan.db.gz"]  # no partial, no plain copy
-    assert not [p for p in settings.db_path.parent.iterdir() if p.is_dir() and p.name.startswith("tmp")]  # scratch removed
+    assert sorted(p.name for p in target_dir.iterdir()) == [
+        "jobscan.db.gz"
+    ]  # no partial, no plain copy
+    assert not [
+        p for p in settings.db_path.parent.iterdir() if p.is_dir() and p.name.startswith("tmp")
+    ]  # scratch removed
 
 
-def test_a_snapshot_failing_its_integrity_check_never_replaces_the_previous_one(settings, tmp_path, monkeypatch):
+def test_a_snapshot_failing_its_integrity_check_never_replaces_the_previous_one(
+    settings, tmp_path, monkeypatch
+):
     seed(settings)
     target_dir = tmp_path / "drive"
     target_dir.mkdir()
     previous = target_dir / f"{settings.db_path.name}.gz"
     previous.write_bytes(b"the last good snapshot")
-    monkeypatch.setattr(backup, "_integrity_problem", lambda path: "*** in database main *** Page 7 is never used")
+    monkeypatch.setattr(
+        backup, "_integrity_problem", lambda path: "*** in database main *** Page 7 is never used"
+    )
 
     with pytest.raises(BackupError, match="previous backup was kept"):
         backup_database(settings.db_path, target_dir)

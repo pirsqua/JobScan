@@ -8,6 +8,7 @@ careers.infor.com serves the same feed.
 
 ``board_id`` is the company's pinpointhq.com subdomain.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -34,19 +35,28 @@ class PinpointAdapter(SourceAdapter):
         except httpx.HTTPError as exc:
             raise AdapterError(f"pinpoint board '{board_id}': request failed: {exc}") from exc
         except ValidationError as exc:  # before ValueError, which it subclasses
-            raise AdapterError(f"pinpoint board '{board_id}': unexpected response shape: {exc}") from exc
+            raise AdapterError(
+                f"pinpoint board '{board_id}': unexpected response shape: {exc}"
+            ) from exc
         except ValueError as exc:
             raise AdapterError(f"pinpoint board '{board_id}': invalid JSON: {exc}") from exc
         return [self._parse_posting(posting) for posting in feed.data]
 
     def _parse_posting(self, posting: PinpointPosting) -> RawPosting:
         description_html = "".join(
-            section for section in (
-                posting.description, posting.key_responsibilities, posting.skills_knowledge_expertise, posting.benefits,
-            ) if section
+            section
+            for section in (
+                posting.description,
+                posting.key_responsibilities,
+                posting.skills_knowledge_expertise,
+                posting.benefits,
+            )
+            if section
         )
         salary_min = salary_max = salary_period = None
-        if posting.compensation_visible and (posting.compensation_minimum or posting.compensation_maximum):
+        if posting.compensation_visible and (
+            posting.compensation_minimum or posting.compensation_maximum
+        ):
             salary_min, salary_max = posting.compensation_minimum, posting.compensation_maximum
             frequency = (posting.compensation_frequency or "year").lower()
             if "hour" in frequency:
@@ -60,9 +70,20 @@ class PinpointAdapter(SourceAdapter):
                 salary_period = "year"
 
         location = posting.location
-        place = ", ".join(dict.fromkeys(part for part in (
-            location.city or location.name, location.province,
-        ) if part)) if location else None
+        place = (
+            ", ".join(
+                dict.fromkeys(
+                    part
+                    for part in (
+                        location.city or location.name,
+                        location.province,
+                    )
+                    if part
+                )
+            )
+            if location
+            else None
+        )
         department = posting.job.department.name if posting.job and posting.job.department else None
         return RawPosting(
             source_job_id=posting.id,

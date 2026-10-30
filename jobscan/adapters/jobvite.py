@@ -12,6 +12,7 @@ before the per-posting detail fetch rather than only afterward in the crawl orch
 otherwise a board with a handful of engineering roles among many departments would cost one
 wasted detail request per non-engineering posting.
 """
+
 from __future__ import annotations
 
 import re
@@ -64,7 +65,8 @@ class JobviteAdapter(SourceAdapter):
             response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning(
-                "jobvite job detail fetch failed", extra=log_extra(board_id=board_id, path=path, error=str(exc))
+                "jobvite job detail fetch failed",
+                extra=log_extra(board_id=board_id, path=path, error=str(exc)),
             )
             self.incomplete = True
             return None

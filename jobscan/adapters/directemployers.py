@@ -10,6 +10,7 @@ careers.alaskaair.com with no bot-gating.
 ``board_id`` is the microsite's host. ``https://{host}/{guid}/job/`` redirects to the job's
 canonical page, so it serves as the posting URL.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -32,19 +33,29 @@ class DirectEmployersAdapter(SourceAdapter):
         postings: list[RawPosting] = []
         for page_number in range(1, MAX_PAGES + 1):
             try:
-                response = self.client.get(SEARCH_URL, params={"page": page_number}, headers={"x-origin": board_id})
+                response = self.client.get(
+                    SEARCH_URL, params={"page": page_number}, headers={"x-origin": board_id}
+                )
                 response.raise_for_status()
                 page = DirectEmployersSearchResponse.model_validate(response.json())
             except httpx.HTTPError as exc:
-                raise AdapterError(f"directemployers board '{board_id}': request failed: {exc}") from exc
+                raise AdapterError(
+                    f"directemployers board '{board_id}': request failed: {exc}"
+                ) from exc
             except ValidationError as exc:  # before ValueError, which it subclasses
-                raise AdapterError(f"directemployers board '{board_id}': unexpected response shape: {exc}") from exc
+                raise AdapterError(
+                    f"directemployers board '{board_id}': unexpected response shape: {exc}"
+                ) from exc
             except ValueError as exc:
-                raise AdapterError(f"directemployers board '{board_id}': invalid JSON: {exc}") from exc
+                raise AdapterError(
+                    f"directemployers board '{board_id}': invalid JSON: {exc}"
+                ) from exc
             postings.extend(self._parse_job(board_id, job) for job in page.jobs)
             if not page.pagination.has_more_pages or not page.jobs:
                 return postings
-        raise AdapterError(f"directemployers board '{board_id}': more than {MAX_PAGES} pages — paging did not end")
+        raise AdapterError(
+            f"directemployers board '{board_id}': more than {MAX_PAGES} pages — paging did not end"
+        )
 
     def _parse_job(self, host: str, job: DirectEmployersJob) -> RawPosting:
         posting_url = f"https://{host}/{job.guid}/job/"

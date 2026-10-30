@@ -3,6 +3,7 @@
 Plain dataclasses are used (not an ORM) so the SQLite layer in ``db.py`` can stay a thin,
 explicit mapping instead of hiding schema decisions behind a framework.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -491,13 +492,22 @@ class EvaluateStats:
 
     @staticmethod
     def _tier_cost(
-        input_tokens: int, output_tokens: int, cache_creation_input_tokens: int,
-        cache_read_input_tokens: int, pricing: ModelPricing,
+        input_tokens: int,
+        output_tokens: int,
+        cache_creation_input_tokens: int,
+        cache_read_input_tokens: int,
+        pricing: ModelPricing,
     ) -> float:
         return (
             input_tokens / 1_000_000 * pricing.input_per_million
-            + cache_creation_input_tokens / 1_000_000 * pricing.input_per_million * EvaluateStats._CACHE_WRITE_MULTIPLIER
-            + cache_read_input_tokens / 1_000_000 * pricing.input_per_million * EvaluateStats._CACHE_READ_MULTIPLIER
+            + cache_creation_input_tokens
+            / 1_000_000
+            * pricing.input_per_million
+            * EvaluateStats._CACHE_WRITE_MULTIPLIER
+            + cache_read_input_tokens
+            / 1_000_000
+            * pricing.input_per_million
+            * EvaluateStats._CACHE_READ_MULTIPLIER
             + output_tokens / 1_000_000 * pricing.output_per_million
         )
 
@@ -506,15 +516,20 @@ class EvaluateStats:
         if pricing is None:
             return None
         cost = self._tier_cost(
-            self.input_tokens, self.output_tokens,
-            self.cache_creation_input_tokens, self.cache_read_input_tokens, pricing,
+            self.input_tokens,
+            self.output_tokens,
+            self.cache_creation_input_tokens,
+            self.cache_read_input_tokens,
+            pricing,
         )
         if self.triage_model:
             triage_pricing = settings.pricing_for(self.triage_model)
             if triage_pricing is not None:
                 cost += self._tier_cost(
-                    self.triage_input_tokens, self.triage_output_tokens,
-                    self.triage_cache_creation_input_tokens, self.triage_cache_read_input_tokens,
+                    self.triage_input_tokens,
+                    self.triage_output_tokens,
+                    self.triage_cache_creation_input_tokens,
+                    self.triage_cache_read_input_tokens,
                     triage_pricing,
                 )
         return cost

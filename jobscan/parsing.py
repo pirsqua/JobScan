@@ -4,6 +4,7 @@ These are deliberately narrow, well-tested heuristics — not an attempt to unde
 qualification language. Anything the regexes can't confidently resolve is left as
 ``unknown``/``None`` so the caller can route it to the LLM instead of guessing.
 """
+
 from __future__ import annotations
 
 import re
@@ -96,10 +97,15 @@ def parse_salary_from_text(text: str | None) -> ParsedSalary:
     if not text:
         return ParsedSalary(None, None, None, None, SalarySource.NONE)
 
-    candidates: list[tuple[int, float, float, str | None, str]] = []  # (score, min, max, currency, period)
+    candidates: list[
+        tuple[int, float, float, str | None, str]
+    ] = []  # (score, min, max, currency, period)
     for match in _RANGE_RE.finditer(text):
         # "$170-210K": the K written once applies to both ends.
-        low_k = bool(match.group("low_k") or (match.group("high_k") and float(match.group("low").replace(",", "")) < 1000))
+        low_k = bool(
+            match.group("low_k")
+            or (match.group("high_k") and float(match.group("low").replace(",", "")) < 1000)
+        )
         low = _to_number(match.group("low"), low_k)
         high = _to_number(match.group("high"), bool(match.group("high_k")))
         if low > high:
@@ -115,7 +121,9 @@ def parse_salary_from_text(text: str | None) -> ParsedSalary:
         window_start = max(0, match.start() - 60)
         context = text[window_start : match.start()]
         score = 1 if _SALARY_CONTEXT_RE.search(context) else 0
-        candidates.append((score, low, high, match.group("currency") or match.group("pre_currency"), period))
+        candidates.append(
+            (score, low, high, match.group("currency") or match.group("pre_currency"), period)
+        )
 
     if candidates:
         # Several ranges usually mean geographic pay zones, listed in no reliable order (Twilio
@@ -127,7 +135,9 @@ def parse_salary_from_text(text: str | None) -> ParsedSalary:
         _, low, high, currency, period = max(
             (c for c in candidates if c[0] == top_score), key=lambda c: annualize(c[2], c[4]) or 0
         )
-        return ParsedSalary(low, high, (currency or "USD").upper(), period, SalarySource.DESCRIPTION)
+        return ParsedSalary(
+            low, high, (currency or "USD").upper(), period, SalarySource.DESCRIPTION
+        )
 
     # Fall back to a single dollar figure (e.g. "starting at $190,000").
     single_candidates: list[tuple[int, float, str]] = []
@@ -198,24 +208,64 @@ _REMOTE_RE = re.compile(r"\bremote\b|\bdistributed\b|\banywhere\b", re.IGNORECAS
 # end-of-string, which made "Remote (U.S.)" fall through to UNKNOWN.
 _US_RE = re.compile(r"\b(?:us|usa|united states|north america)\b|\bu\.s\.?(?!\w)", re.IGNORECASE)
 # Any sign the posting offers remote work at all, anywhere in the location field or the text.
-_REMOTE_MENTION_RE = re.compile(r"\bremote(ly)?\b|\bwork(ing)? from (home|anywhere)\b|\btelecommut", re.IGNORECASE)
+_REMOTE_MENTION_RE = re.compile(
+    r"\bremote(ly)?\b|\bwork(ing)? from (home|anywhere)\b|\btelecommut", re.IGNORECASE
+)
 _HYBRID_RE = re.compile(r"\bhybrid\b", re.IGNORECASE)
 # Deliberately excludes generic "on-site" mentions inside benefits blurbs by requiring the word
 # to appear where a location would (raw location field, or immediately near "only"/"required").
 _ONSITE_LOCATION_RE = re.compile(r"\bon-?site\b", re.IGNORECASE)
 
 _US_STATE_NAMES = {
-    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
-    "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
-    "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
-    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
-    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
-    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
-    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
-    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma",
-    "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
-    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
-    "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin",
+    "AL": "Alabama",
+    "AK": "Alaska",
+    "AZ": "Arizona",
+    "AR": "Arkansas",
+    "CA": "California",
+    "CO": "Colorado",
+    "CT": "Connecticut",
+    "DE": "Delaware",
+    "FL": "Florida",
+    "GA": "Georgia",
+    "HI": "Hawaii",
+    "ID": "Idaho",
+    "IL": "Illinois",
+    "IN": "Indiana",
+    "IA": "Iowa",
+    "KS": "Kansas",
+    "KY": "Kentucky",
+    "LA": "Louisiana",
+    "ME": "Maine",
+    "MD": "Maryland",
+    "MA": "Massachusetts",
+    "MI": "Michigan",
+    "MN": "Minnesota",
+    "MS": "Mississippi",
+    "MO": "Missouri",
+    "MT": "Montana",
+    "NE": "Nebraska",
+    "NV": "Nevada",
+    "NH": "New Hampshire",
+    "NJ": "New Jersey",
+    "NM": "New Mexico",
+    "NY": "New York",
+    "NC": "North Carolina",
+    "ND": "North Dakota",
+    "OH": "Ohio",
+    "OK": "Oklahoma",
+    "OR": "Oregon",
+    "PA": "Pennsylvania",
+    "RI": "Rhode Island",
+    "SC": "South Carolina",
+    "SD": "South Dakota",
+    "TN": "Tennessee",
+    "TX": "Texas",
+    "UT": "Utah",
+    "VT": "Vermont",
+    "VA": "Virginia",
+    "WA": "Washington",
+    "WV": "West Virginia",
+    "WI": "Wisconsin",
     "WY": "Wyoming",
 }
 
@@ -306,7 +356,10 @@ def normalize_location(
     text_blob = f"{location}\n{description_text or ''}"
 
     if _state_excluded(text_blob, candidate_state_abbr, candidate_state_name):
-        return RemoteScope.REMOTE_US_RESTRICTED, f"{candidate_state_name} explicitly excluded from remote eligibility"
+        return (
+            RemoteScope.REMOTE_US_RESTRICTED,
+            f"{candidate_state_name} explicitly excluded from remote eligibility",
+        )
 
     location_says_remote = bool(_REMOTE_RE.search(location))
     location_says_office = bool(_HYBRID_RE.search(location) or _ONSITE_LOCATION_RE.search(location))
@@ -314,14 +367,23 @@ def normalize_location(
     if (hybrid or workplace_type == WorkplaceType.ONSITE) and location_says_remote:
         # "United States (Remote)" with a structured Hybrid label, or "Remote or Hybrid": the
         # source contradicts itself, which is not a fact to reject on.
-        return RemoteScope.UNKNOWN, f"source marks it {'hybrid' if hybrid else 'on-site'} but location says '{location.strip()}' — deferred to LLM"
-    if workplace_type in (WorkplaceType.HYBRID, WorkplaceType.ONSITE) and not location_says_office \
-            and _REMOTE_MENTION_RE.search(description_text or ""):
+        return (
+            RemoteScope.UNKNOWN,
+            f"source marks it {'hybrid' if hybrid else 'on-site'} but location says '{location.strip()}' — deferred to LLM",
+        )
+    if (
+        workplace_type in (WorkplaceType.HYBRID, WorkplaceType.ONSITE)
+        and not location_says_office
+        and _REMOTE_MENTION_RE.search(description_text or "")
+    ):
         # A label alone against text that mentions remote work is the same contradiction: Radar's
         # on-site postings say "This role can either be in our NYC HQ or remote in the US", Check's
         # hybrid ones "Roles can be remote, hybrid, or based in one of our offices". Telling that
         # from "remote-friendly culture" takes reading the posting, so the LLM decides.
-        return RemoteScope.UNKNOWN, f"source marks it {workplace_type.value} but the text mentions remote work — deferred to LLM"
+        return (
+            RemoteScope.UNKNOWN,
+            f"source marks it {workplace_type.value} but the text mentions remote work — deferred to LLM",
+        )
     if hybrid:
         return RemoteScope.HYBRID, "source marks it hybrid"
     if workplace_type == WorkplaceType.ONSITE:
@@ -330,7 +392,11 @@ def normalize_location(
     is_remote = workplace_type == WorkplaceType.REMOTE or location_says_remote
 
     if is_remote:
-        if _US_RE.search(location) or location.strip().lower() in ("remote", "distributed", "anywhere"):
+        if _US_RE.search(location) or location.strip().lower() in (
+            "remote",
+            "distributed",
+            "anywhere",
+        ):
             return RemoteScope.REMOTE_US, None
         if _NON_US_LOCATION_RE.search(location) and not _US_STATE_LOCATION_RE.search(location):
             return (
@@ -354,14 +420,19 @@ def normalize_location(
     if not _REMOTE_MENTION_RE.search(text_blob):
         return RemoteScope.ONSITE, "posting never mentions remote work in its location or text"
 
-    return RemoteScope.UNKNOWN, "remote work mentioned in the text but not in the location field — deferred to LLM"
+    return (
+        RemoteScope.UNKNOWN,
+        "remote work mentioned in the text but not in the location field — deferred to LLM",
+    )
 
 
 # ---------------------------------------------------------------------------
 # Employment type parsing
 # ---------------------------------------------------------------------------
 
-_CONTRACT_RE = re.compile(r"\bcontract(?:or)?\b|\bcontract-to-hire\b|\bc2h\b|\btemporary\b|\btemp\b", re.IGNORECASE)
+_CONTRACT_RE = re.compile(
+    r"\bcontract(?:or)?\b|\bcontract-to-hire\b|\bc2h\b|\btemporary\b|\btemp\b", re.IGNORECASE
+)
 _PART_TIME_RE = re.compile(r"\bpart[\s-]?time\b", re.IGNORECASE)
 _INTERN_RE = re.compile(r"\bintern(ship)?\b", re.IGNORECASE)
 _FULL_TIME_RE = re.compile(r"\bfull[\s-]?time\b", re.IGNORECASE)

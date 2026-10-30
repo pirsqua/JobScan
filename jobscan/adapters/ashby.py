@@ -6,6 +6,7 @@ Ashby returns every open posting for a board in one response (no pagination para
 published for this endpoint), including a compensation summary string when the company has
 opted in to publishing it.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -38,7 +39,9 @@ class AshbyAdapter(SourceAdapter):
         try:
             parsed = AshbyJobBoardResponse.model_validate(payload)
         except ValidationError as exc:
-            raise AdapterError(f"ashby board '{board_id}': unexpected response shape: {exc}") from exc
+            raise AdapterError(
+                f"ashby board '{board_id}': unexpected response shape: {exc}"
+            ) from exc
 
         return [self._parse_job(job) for job in parsed.jobs]
 

@@ -1,4 +1,5 @@
 """Prompt construction for the LLM calls, built from the candidate profile."""
+
 from __future__ import annotations
 
 import hashlib
@@ -20,59 +21,59 @@ def _bullets(items: list[str]) -> str:
 
 
 def render_profile_text(profile: dict) -> str:
-    return f"""Candidate headline: {profile.get('headline', '').strip()}
-Location: {profile.get('location', '')}
+    return f"""Candidate headline: {profile.get("headline", "").strip()}
+Location: {profile.get("location", "")}
 
 Education:
-{_bullets(profile.get('education', []))}
+{_bullets(profile.get("education", []))}
 
 Certifications:
-{_bullets(profile.get('certifications', []))}
+{_bullets(profile.get("certifications", []))}
 
 Work history:
-{_bullets(profile.get('work_history', []))}
+{_bullets(profile.get("work_history", []))}
 
 Strongest skills:
-{_bullets(profile.get('strongest_skills', []))}
+{_bullets(profile.get("strongest_skills", []))}
 
 Representative accomplishments:
-{_bullets(profile.get('accomplishments', []))}
+{_bullets(profile.get("accomplishments", []))}
 
 Other skills listed on the resume (working familiarity — credit as transferable, not as
 demonstrated production tenure, unless an accomplishment above shows depth):
-{_bullets(profile.get('additional_skills', []))}
+{_bullets(profile.get("additional_skills", []))}
 
 Specialty areas outside current focus (no direct demonstrated evidence — do not credit a
 posting's overlap with these as if it were already proven):
-{_bullets(profile.get('specialty_areas_outside_current_focus', []))}
+{_bullets(profile.get("specialty_areas_outside_current_focus", []))}
 
 Do not inflate the evidence above:
-{_bullets(profile.get('non_inflation_rules', []))}
+{_bullets(profile.get("non_inflation_rules", []))}
 
 Prioritized target roles:
-{_bullets(profile.get('target_roles_prioritized', []))}
+{_bullets(profile.get("target_roles_prioritized", []))}
 
 Favored hands-on work:
-{_bullets(profile.get('favored_work', []))}
+{_bullets(profile.get("favored_work", []))}
 
 Stretch categories (one_step_up at best, and only when the specific posting reads as ordinary
 senior scope rather than de facto staff/org-wide scope):
-{_bullets(profile.get('stretch_categories', []))}
+{_bullets(profile.get("stretch_categories", []))}
 
 Do NOT target (roles to avoid recommending):
-{_bullets(profile.get('do_not_target', []))}
+{_bullets(profile.get("do_not_target", []))}
 
 Company-fit preferences:
-{_bullets(profile.get('company_preferences', []))}
+{_bullets(profile.get("company_preferences", []))}
 
 Qualification-language interpretation rules:
-{_bullets(profile.get('qualification_interpretation_rules', []))}
+{_bullets(profile.get("qualification_interpretation_rules", []))}
 
-Compensation rule: {profile.get('compensation_rule', '').strip()}
-Minimum acceptable base salary: ${profile['min_base_salary']:,}
+Compensation rule: {profile.get("compensation_rule", "").strip()}
+Minimum acceptable base salary: ${profile["min_base_salary"]:,}
 
 Hard employment filters (already partially checked by code, verify from the text):
-{_bullets(profile.get('hard_filters', []))}
+{_bullets(profile.get("hard_filters", []))}
 """
 
 
@@ -276,17 +277,17 @@ def build_job_eval_user_message(company: Company, job: JobPosting) -> str:
     return f"""# Company
 
 Name: {company.name}
-Domain: {company.domain or 'unknown'}
-Known classification: {company.classification.value} (source: {company.classification_source.value if company.classification_source else 'none'})
+Domain: {company.domain or "unknown"}
+Known classification: {company.classification.value} (source: {company.classification_source.value if company.classification_source else "none"})
 
 # Job posting
 
 Title: {job.title}
-Location (raw): {job.location_raw or 'unknown'}
-Workplace type (the ATS's own structured field): {job.workplace_type.value if job.workplace_type else 'not provided'}
-Employment type (raw): {job.employment_type_raw or 'unknown'}
+Location (raw): {job.location_raw or "unknown"}
+Workplace type (the ATS's own structured field): {job.workplace_type.value if job.workplace_type else "not provided"}
+Employment type (raw): {job.employment_type_raw or "unknown"}
 Published salary: {salary_line}
-Posting URL: {job.posting_url or 'unknown'}
+Posting URL: {job.posting_url or "unknown"}
 
 Full description:
 ---
@@ -363,14 +364,14 @@ def build_triage_user_message(company: Company, job: JobPosting) -> str:
     return f"""# Company
 
 Name: {company.name}
-Domain: {company.domain or 'unknown'}
+Domain: {company.domain or "unknown"}
 
 # Job posting
 
 Title: {job.title}
-Location (raw): {job.location_raw or 'unknown'}
-Workplace type (the ATS's own structured field): {job.workplace_type.value if job.workplace_type else 'not provided'}
-Employment type (raw): {job.employment_type_raw or 'unknown'}
+Location (raw): {job.location_raw or "unknown"}
+Workplace type (the ATS's own structured field): {job.workplace_type.value if job.workplace_type else "not provided"}
+Employment type (raw): {job.employment_type_raw or "unknown"}
 Published salary: {salary_line}
 
 Full description:
@@ -391,14 +392,24 @@ def evaluation_rubric_version(profile_text: str, model: str, thinking: str | Non
     them. Recorded on every evaluation so verdicts made under an older rubric can be found and
     refreshed (``evaluate --refresh-stale``)."""
     return _fingerprint(
-        JOB_EVAL_SYSTEM, json.dumps(JOB_EVALUATION_SCHEMA, sort_keys=True), profile_text, model, thinking or ""
+        JOB_EVAL_SYSTEM,
+        json.dumps(JOB_EVALUATION_SCHEMA, sort_keys=True),
+        profile_text,
+        model,
+        thinking or "",
     )
 
 
 def triage_rubric_version(profile_text: str, model: str, thinking: str | None) -> str:
     """The same for a triage screen-out. Kept separate so a change to the cheap triage prompt or
     model only re-screens triage screen-outs, not every full evaluation (which never sees them)."""
-    return _fingerprint(TRIAGE_SYSTEM, json.dumps(TRIAGE_SCHEMA, sort_keys=True), profile_text, model, thinking or "")
+    return _fingerprint(
+        TRIAGE_SYSTEM,
+        json.dumps(TRIAGE_SCHEMA, sort_keys=True),
+        profile_text,
+        model,
+        thinking or "",
+    )
 
 
 COMPANY_EVAL_SYSTEM = """You classify companies as either a PRODUCT company (builds and operates its \
@@ -408,18 +419,20 @@ projects, e.g. a digital agency, dev shop, staffing firm, or IT services vendor)
 only on the text given."""
 
 
-def build_company_eval_user_message(company_name: str, domain: str | None, homepage_text: str, sample_job_text: str) -> str:
+def build_company_eval_user_message(
+    company_name: str, domain: str | None, homepage_text: str, sample_job_text: str
+) -> str:
     return f"""Company name: {company_name}
-Domain: {domain or 'unknown'}
+Domain: {domain or "unknown"}
 
 Homepage/About text (may be truncated):
 ---
-{homepage_text or '(not available)'}
+{homepage_text or "(not available)"}
 ---
 
 Sample job posting text from this company (may be truncated):
 ---
-{sample_job_text or '(not available)'}
+{sample_job_text or "(not available)"}
 ---
 
 Classify this company as product, consulting, or unknown (only if genuinely indeterminate)."""

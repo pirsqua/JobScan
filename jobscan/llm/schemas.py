@@ -4,6 +4,7 @@ These double as (a) the JSON Schema handed to Claude as its structured-output fo
 response is structurally guaranteed, and (b) the validator applied to whatever comes back, so a
 malformed or hallucinated response is rejected rather than silently cached.
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -15,7 +16,9 @@ CompanyClass = Literal["product", "consulting", "unknown"]
 ScopeFit = Literal["at_level", "one_step_up", "two_plus_steps_up", "below_level"]
 RequirementImportance = Literal["central", "secondary"]
 RequirementStrength = Literal["required", "strongly_implied", "preferred", "trait_or_interest"]
-EvidenceClassification = Literal["directly_demonstrated", "credibly_transferable", "weakly_inferred", "not_demonstrated"]
+EvidenceClassification = Literal[
+    "directly_demonstrated", "credibly_transferable", "weakly_inferred", "not_demonstrated"
+]
 SpecialistTenureClassification = Literal["meets", "adjacent", "insufficient", "not_applicable"]
 WorkingHoursFit = Literal["compatible", "conflicts"]
 WorkFit = Literal["in_lane", "partly_outside", "outside"]
@@ -26,23 +29,27 @@ class RequirementEvidenceItem(BaseModel):
     # Field order is generation order: quote the posting, classify how it frames the item, and only
     # then decide importance and evidence — so the wording is on the page before it's weighed.
     requirement: str
-    posting_evidence: str = Field(description="The posting language this requirement is drawn from, quoted with its qualifiers (\"ideally\", \"helpful\", \"or a willingness to learn\", ...).")
+    posting_evidence: str = Field(
+        description='The posting language this requirement is drawn from, quoted with its qualifiers ("ideally", "helpful", "or a willingness to learn", ...).'
+    )
     stated_as: RequirementStrength = Field(
         description="How the posting's own wording frames it: required (must/required/minimum/N+ "
-        "years/\"you have\" in a requirements list), strongly_implied (unstated but plainly "
+        'years/"you have" in a requirements list), strongly_implied (unstated but plainly '
         "unavoidable to do the job), preferred (helpful, a plus, bonus, nice to have, preferred, "
-        "ideally, familiarity with, exposure to, \"or willingness to learn\", and technologies "
-        "named as examples — \"technologies like ...\", \"such as ...\"), or trait_or_interest "
+        'ideally, familiarity with, exposure to, "or willingness to learn", and technologies '
+        'named as examples — "technologies like ...", "such as ..."), or trait_or_interest '
         "(curiosity, high agency, eagerness to learn, interest in a topic). A requirement that "
         "interest can satisfy is trait_or_interest even in a minimum-requirements list: "
-        "\"Experience or demonstrated interest in AI-native development\" is met by interest — "
+        '"Experience or demonstrated interest in AI-native development" is met by interest — '
         "never treat it as required experience."
     )
     importance: RequirementImportance = Field(
         description="central only for required or strongly_implied items the hiring bar rests on; "
         "preferred and trait_or_interest items are always secondary."
     )
-    candidate_evidence: str = Field(description="What in the candidate's background supports this classification, if anything.")
+    candidate_evidence: str = Field(
+        description="What in the candidate's background supports this classification, if anything."
+    )
     evidence_classification: EvidenceClassification
 
     @model_validator(mode="after")
@@ -56,7 +63,9 @@ class RequirementEvidenceItem(BaseModel):
 
 class SpecialistTenureAssessment(BaseModel):
     classification: SpecialistTenureClassification
-    specialty: str = Field(description="The specialty in question, e.g. 'data engineering'. Empty string if not_applicable.")
+    specialty: str = Field(
+        description="The specialty in question, e.g. 'data engineering'. Empty string if not_applicable."
+    )
     explanation: str
 
 
@@ -77,9 +86,9 @@ class JobEvaluationResult(BaseModel):
         description="Before any requirement: what this team's engineers actually spend their days "
         "building or running, and in which stack or domain — read from the responsibilities and "
         "the team's description, not the qualifications list alone, which is often generic (\"4+ "
-        "years in C#, Python, JavaScript, ...\"). One or two sentences, e.g. \"Maintaining and "
+        'years in C#, Python, JavaScript, ..."). One or two sentences, e.g. "Maintaining and '
         "extending npm, a JavaScript/Node.js open-source package manager, across its CLI and "
-        "registry services.\""
+        'registry services."'
     )
     work_fit: WorkFit = Field(
         description="That day-to-day work against the candidate's demonstrated lane (strongest "
@@ -100,12 +109,12 @@ class JobEvaluationResult(BaseModel):
         "frontend-heavy work and building UI is a substantial, regular part of this job, roughly "
         "a third of it or more — e.g. a full-stack role shipping product features across a React "
         "frontend and the API behind it. compatible: the profile accepts that share — "
-        "backend-centered work with no frontend or a minor share (\"approximately 80% backend "
-        "focused and 20% frontend focused\", occasional UI changes, one line asking for end-to-end "
+        'backend-centered work with no frontend or a minor share ("approximately 80% backend '
+        'focused and 20% frontend focused", occasional UI changes, one line asking for end-to-end '
         "features), where a required React or Angular item is a requirement gap judged with the "
         "others, not a reason for too_heavy — or a profile that targets frontend work. Judge the "
-        "work described, not the title: a \"Full-Stack\" title on backend-centered work is "
-        "compatible, and a plain \"Software Engineer\" title on mostly UI work is too_heavy."
+        'work described, not the title: a "Full-Stack" title on backend-centered work is '
+        'compatible, and a plain "Software Engineer" title on mostly UI work is too_heavy.'
     )
     requirement_evidence: list[RequirementEvidenceItem] = Field(default_factory=list)
     specialist_tenure_assessment: SpecialistTenureAssessment
@@ -121,8 +130,8 @@ class JobEvaluationResult(BaseModel):
         "roughly the required level. Never a preferred/helpful/learnable item, a new business "
         "domain the posting doesn't require prior experience in, working with ambiguity, "
         "tech-leading or owning delivery within the team (technical leadership is a match), a "
-        "technology named only as an example (\"using technologies like AWS, MySQL and "
-        "Kubernetes\" — equivalent Azure/SQL Server experience meets it), or an interest. Omit "
+        'technology named only as an example ("using technologies like AWS, MySQL and '
+        'Kubernetes" — equivalent Azure/SQL Server experience meets it), or an interest. Omit '
         "minor tool differences.",
     )
     hidden_staff_signals: list[str] = Field(
@@ -146,15 +155,15 @@ class JobEvaluationResult(BaseModel):
     )
     working_hours_quote: str = Field(
         description="The posting's own words about working hours, time-zone overlap or the time "
-        "zone employees must live in, copied from the text — e.g. \"ideally with the ability to "
-        "work within Eastern Time hours\". Empty string when the posting says nothing about hours."
+        'zone employees must live in, copied from the text — e.g. "ideally with the ability to '
+        'work within Eastern Time hours". Empty string when the posting says nothing about hours.'
     )
     working_hours_fit: WorkingHoursFit = Field(
         description="Those words against the working-hours filter in the candidate's hard "
         "filters, applied exactly as that filter words it. conflicts: the stated hours, overlap or "
         "time zone fail that filter — as a requirement, or as an expectation or preference "
-        "(\"ideally with the ability to work within ... hours\", \"core hours 9-5 ... "
-        "preferred\") when the filter says a stated preference fails it too. A conflict fails a "
+        '("ideally with the ability to work within ... hours", "core hours 9-5 ... '
+        'preferred") when the filter says a stated preference fails it too. A conflict fails a '
         "hard filter, so the verdict is reject. compatible: nothing stated, flexible hours, or "
         "hours and overlap the filter allows."
     )
@@ -172,14 +181,15 @@ class JobEvaluationResult(BaseModel):
         "above, or below demonstrated experience — independent of title or keyword overlap. "
         "below_level only when the work itself is junior (close supervision, early-career or "
         "new-grad scope) — never because the stated requirements are modest or easy to meet: a "
-        "\"Senior Software Engineer, Backend\" asking for \"3+ years\" to own APIs and services is "
+        '"Senior Software Engineer, Backend" asking for "3+ years" to own APIs and services is '
         "at_level for a candidate far past that bar, since the bar says who may apply, not what "
         "the work is. "
         "below_level is never by itself a reason to reject: with passing pay and backend work, "
         "the verdict follows the evidence as for an at_level role."
     )
     evidence_coverage_percent: int = Field(
-        ge=0, le=100,
+        ge=0,
+        le=100,
         description="0 to 100: weighted coverage of important required qualifications by "
         "demonstrated or transferable evidence — not a mechanical keyword-overlap count.",
     )
@@ -223,8 +233,14 @@ JOB_EVALUATION_SCHEMA = JobEvaluationResult.model_json_schema()
 
 
 TriageDisqualifier = Literal[
-    "none", "staff_or_higher_title", "people_management", "not_remote", "excluded_industry",
-    "not_engineering", "required_unfamiliar_language", "required_specialty",
+    "none",
+    "staff_or_higher_title",
+    "people_management",
+    "not_remote",
+    "excluded_industry",
+    "not_engineering",
+    "required_unfamiliar_language",
+    "required_specialty",
 ]
 
 
@@ -237,22 +253,22 @@ class TriageResult(BaseModel):
         "copied character for character from the title or text — one phrase or sentence, no "
         "paraphrase or ellipsis. Empty string when not skipping. For a skill category the quote "
         "must be a stated requirement the candidate cannot meet — never a responsibility (\"You'll "
-        "help build the authentication, authorization, and access-management primitives\"), never "
-        "a \"familiarity with\" or \"exposure to\" item, and never one with an alternative the "
-        "candidate meets (\"Go, Java, or another applicable backend language\"; \"Proficiency in Go "
-        "(or a strong willingness to ramp quickly)\"; \"Exposure to, or strong interest in, "
-        "building on top of large language models\"). If that is the strongest quote there is, "
+        'help build the authentication, authorization, and access-management primitives"), never '
+        'a "familiarity with" or "exposure to" item, and never one with an alternative the '
+        'candidate meets ("Go, Java, or another applicable backend language"; "Proficiency in Go '
+        '(or a strong willingness to ramp quickly)"; "Exposure to, or strong interest in, '
+        'building on top of large language models"). If that is the strongest quote there is, '
         "don't skip."
     )
     quote_is_hard_requirement: bool = Field(
         description="About the quote alone: is it a hard requirement this candidate cannot meet? "
         "False when it is a responsibility rather than a requirement; when it asks only for "
         "familiarity, exposure, interest or willingness to learn; when it offers an alternative "
-        "the candidate meets (\"or another applicable backend language\", \"or a strong "
-        "willingness to ramp quickly\", \"or strong interest in\"); when it is preferred, ideal "
+        'the candidate meets ("or another applicable backend language", "or a strong '
+        'willingness to ramp quickly", "or strong interest in"); when it is preferred, ideal '
         "or a plus; when it asks for full-stack, end-to-end ownership whose backend is in one of "
         "the candidate's languages (\"Own a feature end-to-end, from the React/TypeScript UI "
-        "through the API it calls\", with that API in a language the candidate uses); or when the "
+        'through the API it calls", with that API in a language the candidate uses); or when the '
         "candidate's profile "
         "shows they meet it (e.g. hands-on use of AI "
         "coding tools such as Claude Code). True for a quote that really rules the candidate out, "
@@ -275,7 +291,9 @@ TRIAGE_SCHEMA = TriageResult.model_json_schema()
 class CompanyClassificationResult(BaseModel):
     classification: CompanyClass
     confidence: float = Field(ge=0.0, le=1.0)
-    evidence: str = Field(description="One or two sentences citing what indicates product vs. consulting.")
+    evidence: str = Field(
+        description="One or two sentences citing what indicates product vs. consulting."
+    )
 
 
 COMPANY_CLASSIFICATION_SCHEMA = CompanyClassificationResult.model_json_schema()

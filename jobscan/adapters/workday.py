@@ -23,6 +23,7 @@ request's ``appliedFacets`` so the server does the narrowing — e.g.
 shows which exist), but the United States value id above is Workday-global — confirmed identical
 across six registry tenants.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -69,7 +70,12 @@ class WorkdayAdapter(SourceAdapter):
             try:
                 response = self.client.post(
                     list_url,
-                    json={"appliedFacets": facets, "limit": PAGE_SIZE, "offset": offset, "searchText": ""},
+                    json={
+                        "appliedFacets": facets,
+                        "limit": PAGE_SIZE,
+                        "offset": offset,
+                        "searchText": "",
+                    },
                 )
                 response.raise_for_status()
                 payload = response.json()
@@ -81,7 +87,9 @@ class WorkdayAdapter(SourceAdapter):
             try:
                 page = WorkdayJobsListResponse.model_validate(payload)
             except ValidationError as exc:
-                raise AdapterError(f"workday board '{board_id}': unexpected response shape: {exc}") from exc
+                raise AdapterError(
+                    f"workday board '{board_id}': unexpected response shape: {exc}"
+                ) from exc
 
             if not page.jobPostings:
                 break
@@ -102,10 +110,14 @@ class WorkdayAdapter(SourceAdapter):
 
         matched = [b for b in briefs if b.externalPath and is_engineering_title(b.title)]
         with ThreadPoolExecutor(max_workers=DETAIL_CONCURRENCY) as pool:
-            results = pool.map(lambda brief: self._fetch_detail(detail_base, brief, board_id), matched)
+            results = pool.map(
+                lambda brief: self._fetch_detail(detail_base, brief, board_id), matched
+            )
             return [posting for posting in results if posting is not None]
 
-    def _fetch_detail(self, detail_base: str, brief: WorkdayJobBrief, board_id: str) -> RawPosting | None:
+    def _fetch_detail(
+        self, detail_base: str, brief: WorkdayJobBrief, board_id: str
+    ) -> RawPosting | None:
         url = f"{detail_base}{brief.externalPath}"
         try:
             response = self.client.get(url)
@@ -116,7 +128,9 @@ class WorkdayAdapter(SourceAdapter):
             # the rest of an otherwise-healthy board — log it and move on.
             logger.warning(
                 "workday job detail fetch failed",
-                extra=log_extra(board_id=board_id, external_path=brief.externalPath, error=str(exc)),
+                extra=log_extra(
+                    board_id=board_id, external_path=brief.externalPath, error=str(exc)
+                ),
             )
             self.incomplete = True
             return None

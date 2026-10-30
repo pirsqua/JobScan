@@ -13,6 +13,7 @@ a small thread pool.
 board_id may carry the list endpoint's own filter parameters as a query string, forwarded on every
 list request — e.g. "Experian?country=us" (confirmed live: 400 global postings -> 35, all US).
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -57,14 +58,20 @@ class SmartRecruitersAdapter(SourceAdapter):
                 response.raise_for_status()
                 payload = response.json()
             except httpx.HTTPError as exc:
-                raise AdapterError(f"smartrecruiters board '{board_id}': request failed: {exc}") from exc
+                raise AdapterError(
+                    f"smartrecruiters board '{board_id}': request failed: {exc}"
+                ) from exc
             except ValueError as exc:
-                raise AdapterError(f"smartrecruiters board '{board_id}': invalid JSON: {exc}") from exc
+                raise AdapterError(
+                    f"smartrecruiters board '{board_id}': invalid JSON: {exc}"
+                ) from exc
 
             try:
                 page = SmartRecruitersPostingsListResponse.model_validate(payload)
             except ValidationError as exc:
-                raise AdapterError(f"smartrecruiters board '{board_id}': unexpected response shape: {exc}") from exc
+                raise AdapterError(
+                    f"smartrecruiters board '{board_id}': unexpected response shape: {exc}"
+                ) from exc
 
             briefs.extend(page.content)
             if len(page.content) < PAGE_SIZE:
@@ -130,7 +137,9 @@ class SmartRecruitersAdapter(SourceAdapter):
             salary_max=salary_max,
             salary_currency=salary_currency,
             salary_period=salary_period,
-            salary_source=SalarySource.STRUCTURED if (salary_min or salary_max) else SalarySource.NONE,
+            salary_source=SalarySource.STRUCTURED
+            if (salary_min or salary_max)
+            else SalarySource.NONE,
             workplace_type=_workplace_type(location),
         )
 

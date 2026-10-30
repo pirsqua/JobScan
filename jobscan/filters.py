@@ -9,6 +9,7 @@ Whether a posting is a software-engineering role at all is decided earlier, at c
 jobscan.job_family) — a non-engineering posting never reaches this stage because it's never
 persisted in the first place.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -58,7 +59,11 @@ def apply_factual_filters(job: JobPosting, company: Company, min_base_salary: in
             f"location_raw={job.location_raw!r} is not confirmed open to a remote employee in the candidate's state",
         )
 
-    if job.employment_type in (EmploymentType.CONTRACT, EmploymentType.PART_TIME, EmploymentType.INTERN):
+    if job.employment_type in (
+        EmploymentType.CONTRACT,
+        EmploymentType.PART_TIME,
+        EmploymentType.INTERN,
+    ):
         return FilterResult(
             False,
             FilterReason.NOT_FULL_TIME,
@@ -69,7 +74,11 @@ def apply_factual_filters(job: JobPosting, company: Company, min_base_salary: in
     annual_max = annualize(job.salary_max, job.salary_period)
 
     if annual_min is None and annual_max is None:
-        return FilterResult(False, FilterReason.NO_SALARY_PUBLISHED, "no salary range found in structured fields or description text")
+        return FilterResult(
+            False,
+            FilterReason.NO_SALARY_PUBLISHED,
+            "no salary range found in structured fields or description text",
+        )
 
     ceiling = annual_max if annual_max is not None else annual_min
     if ceiling is not None and ceiling < min_base_salary:

@@ -4,6 +4,7 @@
 behavior is covered at the `evaluate_all()` level in test_evaluate.py instead of faking a client
 through the CLI layer. The `run` tests below set an empty API key, so no client is built at all.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -37,8 +38,15 @@ def _clean_jobscan_env(monkeypatch):
     # main() loads settings from the real environment/.env — strip anything that could make
     # these tests depend on the host machine's ambient configuration. (The personal data folder is
     # pinned to a temporary one holding the example profile by conftest's _isolate_personal_paths.)
-    for key in ("JOBSCAN_DB_PATH", "JOBSCAN_OUTPUT_DIR", "JOBSCAN_ANTHROPIC_MODEL", "JOBSCAN_LOG_LEVEL",
-                "JOBSCAN_ANTHROPIC_THINKING", "JOBSCAN_TRIAGE_MODEL", "JOBSCAN_TRIAGE_THINKING"):
+    for key in (
+        "JOBSCAN_DB_PATH",
+        "JOBSCAN_OUTPUT_DIR",
+        "JOBSCAN_ANTHROPIC_MODEL",
+        "JOBSCAN_LOG_LEVEL",
+        "JOBSCAN_ANTHROPIC_THINKING",
+        "JOBSCAN_TRIAGE_MODEL",
+        "JOBSCAN_TRIAGE_THINKING",
+    ):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -74,11 +82,15 @@ class TestCompaniesCommands:
         assert "greenhouse" in out
 
     def test_import_missing_file_returns_error(self, settings_path: Path, capsys):
-        exit_code = main(["--settings", str(settings_path), "companies", "import", "does_not_exist.csv"])
+        exit_code = main(
+            ["--settings", str(settings_path), "companies", "import", "does_not_exist.csv"]
+        )
         assert exit_code == 1
         assert "File not found" in capsys.readouterr().err
 
-    def test_import_replace_deactivates_companies_not_in_new_file(self, settings_path: Path, tmp_path: Path, capsys):
+    def test_import_replace_deactivates_companies_not_in_new_file(
+        self, settings_path: Path, tmp_path: Path, capsys
+    ):
         csv_path = tmp_path / "companies.csv"
         csv_path.write_text(COMPANIES_CSV, encoding="utf-8")
         main(["--settings", str(settings_path), "companies", "import", str(csv_path)])
@@ -89,7 +101,9 @@ class TestCompaniesCommands:
             "name,domain,ats_type,board_id,classification\nOther Co,other.example.com,ashby,other,product\n",
             encoding="utf-8",
         )
-        exit_code = main(["--settings", str(settings_path), "companies", "import", str(other_csv), "--replace"])
+        exit_code = main(
+            ["--settings", str(settings_path), "companies", "import", str(other_csv), "--replace"]
+        )
         assert exit_code == 0
         assert "Deactivated 1" in capsys.readouterr().out
 
@@ -103,14 +117,34 @@ class TestCompaniesCommands:
 class TestOverridesCommand:
     def test_set_job_override(self, settings_path: Path, capsys):
         exit_code = main(
-            ["--settings", str(settings_path), "overrides", "set", "job", "5", "verdict", "strong_match", "--reason", "known team"]
+            [
+                "--settings",
+                str(settings_path),
+                "overrides",
+                "set",
+                "job",
+                "5",
+                "verdict",
+                "strong_match",
+                "--reason",
+                "known team",
+            ]
         )
         assert exit_code == 0
         assert "Override set: job#5.verdict = strong_match" in capsys.readouterr().out
 
     def test_set_company_override(self, settings_path: Path, capsys):
         exit_code = main(
-            ["--settings", str(settings_path), "overrides", "set", "company", "3", "classification", "consulting"]
+            [
+                "--settings",
+                str(settings_path),
+                "overrides",
+                "set",
+                "company",
+                "3",
+                "classification",
+                "consulting",
+            ]
         )
         assert exit_code == 0
         assert "Override set: company#3.classification = consulting" in capsys.readouterr().out
@@ -146,11 +180,13 @@ class TestCrawlCommand:
                 json={
                     "jobs": [
                         {
-                            "id": 1, "title": "Senior Backend Engineer",
+                            "id": 1,
+                            "title": "Senior Backend Engineer",
                             "location": {"name": "Remote - US"},
                             "absolute_url": "https://acme.example.com/jobs/1",
                             "content": "<p>$180,000 - $220,000</p>",
-                            "metadata": [], "departments": [],
+                            "metadata": [],
+                            "departments": [],
                         }
                     ]
                 },
@@ -172,44 +208,74 @@ class TestEvaluateDryRun:
         settings = load_settings(settings_path=settings_path, load_dotenv_file=False)
         with Database(settings.db_path) as db:
             company = Company(
-                name="Acme", domain="acme.example.com", careers_url=None, ats_type=AtsType.GREENHOUSE,
-                board_id="acme", classification=CompanyClassification.PRODUCT,
+                name="Acme",
+                domain="acme.example.com",
+                careers_url=None,
+                ats_type=AtsType.GREENHOUSE,
+                board_id="acme",
+                classification=CompanyClassification.PRODUCT,
                 classification_source=ClassificationSource.SEED,
             )
             company.id = db.upsert_company(company)
-            db.upsert_job(normalize_posting(RawPosting(
-                source_job_id="1", title="Senior Backend Engineer", location_raw="Remote - US",
-                employment_type_raw="Full-time",
-                description_html="<p>We build our own SaaS product. $180,000 - $220,000 per year.</p>",
-                description_text=None, posting_url="https://acme.example.com/jobs/1", apply_url=None,
-            ), company, settings))
+            db.upsert_job(
+                normalize_posting(
+                    RawPosting(
+                        source_job_id="1",
+                        title="Senior Backend Engineer",
+                        location_raw="Remote - US",
+                        employment_type_raw="Full-time",
+                        description_html="<p>We build our own SaaS product. $180,000 - $220,000 per year.</p>",
+                        description_text=None,
+                        posting_url="https://acme.example.com/jobs/1",
+                        apply_url=None,
+                    ),
+                    company,
+                    settings,
+                )
+            )
         return settings
 
-    def test_counts_what_would_be_sent_without_calling_the_api(self, settings_path, monkeypatch, capsys):
+    def test_counts_what_would_be_sent_without_calling_the_api(
+        self, settings_path, monkeypatch, capsys
+    ):
         # A key is set, so a real client would be built — the dry run must still make no call.
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-unused")
         settings = self._seed_one_posting(settings_path)
 
         assert main(["--settings", str(settings_path), "evaluate", "--dry-run"]) == 0
 
-        assert "Dry run, no API calls: 1 postings would be sent to the LLM" in capsys.readouterr().out
+        assert (
+            "Dry run, no API calls: 1 postings would be sent to the LLM" in capsys.readouterr().out
+        )
         with Database(settings.db_path) as db:
             assert db.latest_evaluation_run() is None
 
     def test_prices_the_run_from_recent_evaluations(self, settings_path, monkeypatch, capsys):
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-unused")
         raw = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
-        raw.update(anthropic_model="test-model",
-                   anthropic_pricing={"test-model": {"input_per_million": 3.0, "output_per_million": 15.0}})
+        raw.update(
+            anthropic_model="test-model",
+            anthropic_pricing={
+                "test-model": {"input_per_million": 3.0, "output_per_million": 15.0}
+            },
+        )
         settings_path.write_text(yaml.safe_dump(raw), encoding="utf-8")
-        monkeypatch.setattr(Database, "average_evaluation_tokens",
-                            lambda self, model_name, recent=100: EvaluateStats(input_tokens=10000, output_tokens=2000))
+        monkeypatch.setattr(
+            Database,
+            "average_evaluation_tokens",
+            lambda self, model_name, recent=100: EvaluateStats(
+                input_tokens=10000, output_tokens=2000
+            ),
+        )
         self._seed_one_posting(settings_path)
 
         assert main(["--settings", str(settings_path), "evaluate", "--dry-run"]) == 0
 
         # 10,000 input tokens at $3/M plus 2,000 output at $15/M.
-        assert "At $0.060 per full evaluation (recent average), about $0.06 if every one reaches it" in capsys.readouterr().out
+        assert (
+            "At $0.060 per full evaluation (recent average), about $0.06 if every one reaches it"
+            in capsys.readouterr().out
+        )
 
 
 class TestRunBackup:
@@ -240,8 +306,11 @@ class TestRunBackup:
 
         assert not (backups / "jobscan.db.gz").exists()
 
-    def test_a_failed_backup_is_reported_on_stdout_and_fails_the_run(self, settings_path, tmp_path, monkeypatch, capsys):
+    def test_a_failed_backup_is_reported_on_stdout_and_fails_the_run(
+        self, settings_path, tmp_path, monkeypatch, capsys
+    ):
         from jobscan import backup
+
         monkeypatch.setenv("JOBSCAN_DATA_DIR", str(data_folder(tmp_path / "drive")))
         monkeypatch.setattr(backup, "_integrity_problem", lambda path: "malformed")
 

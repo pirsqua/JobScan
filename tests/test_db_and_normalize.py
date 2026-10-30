@@ -28,7 +28,12 @@ from jobscan.normalize import compute_description_hash, normalize_posting
 from tests.fakes import make_evaluation
 
 
-def make_raw(source_job_id="1", title="Senior Backend Engineer", description="We build our own SaaS product. $180,000 - $220,000/year.", **overrides):
+def make_raw(
+    source_job_id="1",
+    title="Senior Backend Engineer",
+    description="We build our own SaaS product. $180,000 - $220,000/year.",
+    **overrides,
+):
     defaults = {
         "source_job_id": source_job_id,
         "title": title,
@@ -80,9 +85,17 @@ class TestUpsertCompany:
         assert updated.classification == CompanyClassification.PRODUCT
         assert updated.classification_source == ClassificationSource.SEED
 
-    def test_reimport_does_not_overwrite_a_manual_classification(self, db: Database, sample_company: Company):
+    def test_reimport_does_not_overwrite_a_manual_classification(
+        self, db: Database, sample_company: Company
+    ):
         company_id = db.upsert_company(sample_company)
-        db.set_company_classification(company_id, CompanyClassification.CONSULTING, ClassificationSource.MANUAL, None, "confirmed manually")
+        db.set_company_classification(
+            company_id,
+            CompanyClassification.CONSULTING,
+            ClassificationSource.MANUAL,
+            None,
+            "confirmed manually",
+        )
 
         reimported = Company(
             **{
@@ -101,9 +114,13 @@ class TestUpsertCompany:
         self, db: Database, sample_company: Company
     ):
         company_id = db.upsert_company(sample_company)
-        db.set_company_classification(company_id, CompanyClassification.PRODUCT, ClassificationSource.LLM, 0.9, "evidence")
+        db.set_company_classification(
+            company_id, CompanyClassification.PRODUCT, ClassificationSource.LLM, 0.9, "evidence"
+        )
 
-        reimported = Company(**{**sample_company.__dict__, "classification": CompanyClassification.UNKNOWN})
+        reimported = Company(
+            **{**sample_company.__dict__, "classification": CompanyClassification.UNKNOWN}
+        )
         db.upsert_company(reimported)
 
         updated = db.get_company(company_id)
@@ -112,7 +129,9 @@ class TestUpsertCompany:
 
 
 class TestUpsertJob:
-    def test_workplace_type_round_trips_and_reaches_the_llm_prompt(self, db: Database, settings: Settings, sample_company: Company):
+    def test_workplace_type_round_trips_and_reaches_the_llm_prompt(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         # A remote role that lists a city stays UNKNOWN (ambiguous region) and goes to the LLM,
         # which must see the ATS's "remote" field — otherwise "affirmative remote evidence" is
         # invisible to it and a genuinely remote role whose text never says so gets rejected.
@@ -124,7 +143,10 @@ class TestUpsertJob:
         stored = db.get_job(job_id)
         assert stored.workplace_type == WorkplaceType.REMOTE
         assert stored.remote_scope == RemoteScope.UNKNOWN
-        for message in (build_job_eval_user_message(sample_company, stored), build_triage_user_message(sample_company, stored)):
+        for message in (
+            build_job_eval_user_message(sample_company, stored),
+            build_triage_user_message(sample_company, stored),
+        ):
             assert "Workplace type (the ATS's own structured field): remote" in message
 
     def test_new_job_is_new(self, db: Database, settings: Settings, sample_company: Company):
@@ -135,7 +157,9 @@ class TestUpsertJob:
         assert not changed
         assert db.get_job(job_id).status == JobStatus.ACTIVE
 
-    def test_reseeing_unchanged_job_is_not_new_or_changed(self, db: Database, settings: Settings, sample_company: Company):
+    def test_reseeing_unchanged_job_is_not_new_or_changed(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         raw = make_raw()
         job1 = normalize_posting(raw, sample_company, settings)
@@ -145,12 +169,24 @@ class TestUpsertJob:
         assert not is_new
         assert not changed
 
-    def test_changed_description_is_flagged_and_snapshotted(self, db: Database, settings: Settings, sample_company: Company):
+    def test_changed_description_is_flagged_and_snapshotted(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
-        job1 = normalize_posting(make_raw(description="Original description. $180,000-$220,000/year."), sample_company, settings)
+        job1 = normalize_posting(
+            make_raw(description="Original description. $180,000-$220,000/year."),
+            sample_company,
+            settings,
+        )
         job_id, _, _ = db.upsert_job(job1)
 
-        job2 = normalize_posting(make_raw(description="Updated description with new requirements. $180,000-$220,000/year."), sample_company, settings)
+        job2 = normalize_posting(
+            make_raw(
+                description="Updated description with new requirements. $180,000-$220,000/year."
+            ),
+            sample_company,
+            settings,
+        )
         _, is_new, changed = db.upsert_job(job2)
         assert not is_new
         assert changed
@@ -159,14 +195,18 @@ class TestUpsertJob:
         (count,) = cur.fetchone()
         assert count == 1
 
-    def test_duplicate_source_job_id_upserts_not_duplicates(self, db: Database, settings: Settings, sample_company: Company):
+    def test_duplicate_source_job_id_upserts_not_duplicates(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         raw = make_raw()
         db.upsert_job(normalize_posting(raw, sample_company, settings))
         db.upsert_job(normalize_posting(raw, sample_company, settings))
         assert db.count_jobs() == 1
 
-    def test_closed_job_reopened_on_reappearance(self, db: Database, settings: Settings, sample_company: Company):
+    def test_closed_job_reopened_on_reappearance(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         raw = make_raw()
         job_id, _, _ = db.upsert_job(normalize_posting(raw, sample_company, settings))
@@ -179,7 +219,9 @@ class TestUpsertJob:
 
 
 class TestCloseMissingJobs:
-    def test_jobs_not_seen_in_crawl_are_closed(self, db: Database, settings: Settings, sample_company: Company):
+    def test_jobs_not_seen_in_crawl_are_closed(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         raw1 = make_raw(source_job_id="1")
         raw2 = make_raw(source_job_id="2")
@@ -191,7 +233,9 @@ class TestCloseMissingJobs:
         assert db.get_job(job2_id).status == JobStatus.CLOSED
         assert len(db.get_active_jobs(sample_company.id)) == 1
 
-    def test_active_jobs_still_present_remain_active(self, db: Database, settings: Settings, sample_company: Company):
+    def test_active_jobs_still_present_remain_active(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         raw = make_raw(source_job_id="1")
         job_id, _, _ = db.upsert_job(normalize_posting(raw, sample_company, settings))
@@ -203,8 +247,12 @@ class TestManualOverrides:
     def test_set_and_get_job_override(self, db: Database):
         db.set_manual_override(
             ManualOverride(
-                entity_type="job", entity_id=42, field="verdict", value="strong_match",
-                reason="I know this team", created_at=datetime.now(UTC),
+                entity_type="job",
+                entity_id=42,
+                field="verdict",
+                value="strong_match",
+                reason="I know this team",
+                created_at=datetime.now(UTC),
             )
         )
         overrides = db.get_manual_overrides("job", 42)
@@ -213,13 +261,17 @@ class TestManualOverrides:
     def test_override_upsert_replaces_value(self, db: Database):
         now = datetime.now(UTC)
         db.set_manual_override(ManualOverride("job", 1, "verdict", "reject", None, now))
-        db.set_manual_override(ManualOverride("job", 1, "verdict", "strong_match", "changed my mind", now))
+        db.set_manual_override(
+            ManualOverride("job", 1, "verdict", "strong_match", "changed my mind", now)
+        )
         overrides = db.get_manual_overrides("job", 1)
         assert overrides["verdict"] == "strong_match"
 
     def test_company_classification_override(self, db: Database):
         db.set_manual_override(
-            ManualOverride("company", 7, "classification", "product", "verified myself", datetime.now(UTC))
+            ManualOverride(
+                "company", 7, "classification", "product", "verified myself", datetime.now(UTC)
+            )
         )
         assert db.get_manual_overrides("company", 7)["classification"] == "product"
 
@@ -227,7 +279,13 @@ class TestManualOverrides:
 class TestCompanyClassification:
     def test_set_and_read_classification(self, db: Database, sample_company: Company):
         company_id = db.upsert_company(sample_company)
-        db.set_company_classification(company_id, CompanyClassification.PRODUCT, ClassificationSource.LLM, 0.9, "builds its own SaaS")
+        db.set_company_classification(
+            company_id,
+            CompanyClassification.PRODUCT,
+            ClassificationSource.LLM,
+            0.9,
+            "builds its own SaaS",
+        )
         updated = db.get_company(company_id)
         assert updated.classification == CompanyClassification.PRODUCT
         assert updated.classification_confidence == 0.9
@@ -239,32 +297,47 @@ class TestEvaluationHistory:
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
         return job_id
 
-    def test_re_judging_the_same_text_keeps_the_earlier_verdict(self, db: Database, settings: Settings, sample_company: Company):
+    def test_re_judging_the_same_text_keeps_the_earlier_verdict(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         # Observed: the switch to Sonnet 5.5 overwrote every Sonnet 5 verdict it replaced.
         job_id = self._job(db, settings, sample_company)
         db.save_evaluation(dataclasses.replace(make_evaluation(job_id), model_name="older-model"))
-        db.save_evaluation(dataclasses.replace(make_evaluation(job_id), model_name="newer-model", verdict=Verdict.STRONG_MATCH))
+        db.save_evaluation(
+            dataclasses.replace(
+                make_evaluation(job_id), model_name="newer-model", verdict=Verdict.STRONG_MATCH
+            )
+        )
 
         assert db.get_evaluation_for_job(job_id).model_name == "newer-model"
         assert db.get_evaluation_by_hash("hash-1").model_name == "newer-model"
-        rows = db.conn.execute("SELECT model_name FROM evaluations WHERE job_id = ? ORDER BY id", (job_id,)).fetchall()
+        rows = db.conn.execute(
+            "SELECT model_name FROM evaluations WHERE job_id = ? ORDER BY id", (job_id,)
+        ).fetchall()
         assert [r["model_name"] for r in rows] == ["older-model", "newer-model"]
 
-    def test_an_older_database_is_rebuilt_without_the_one_verdict_limit(self, settings: Settings, sample_company: Company):
+    def test_an_older_database_is_rebuilt_without_the_one_verdict_limit(
+        self, settings: Settings, sample_company: Company
+    ):
         with Database(settings.db_path) as db:
             job_id = self._job(db, settings, sample_company)
             db.save_evaluation(make_evaluation(job_id, primary_rejection_reason="not gettable"))
             # Put the table back the way older databases have it.
-            sql = db.conn.execute("SELECT sql FROM sqlite_master WHERE name = 'evaluations'").fetchone()["sql"]
+            sql = db.conn.execute(
+                "SELECT sql FROM sqlite_master WHERE name = 'evaluations'"
+            ).fetchone()["sql"]
             db.conn.executescript(
                 "DROP INDEX evaluations_by_job; DROP INDEX evaluations_by_hash;"
                 "ALTER TABLE evaluations RENAME TO evaluations_new;"
-                + sql.rstrip().rstrip(")") + ", UNIQUE (job_id, description_hash));"
+                + sql.rstrip().rstrip(")")
+                + ", UNIQUE (job_id, description_hash));"
                 "INSERT INTO evaluations SELECT * FROM evaluations_new; DROP TABLE evaluations_new;"
             )
 
         with Database(settings.db_path) as db:
-            sql = db.conn.execute("SELECT sql FROM sqlite_master WHERE name = 'evaluations'").fetchone()["sql"]
+            sql = db.conn.execute(
+                "SELECT sql FROM sqlite_master WHERE name = 'evaluations'"
+            ).fetchone()["sql"]
             assert "UNIQUE" not in sql
             assert db.get_evaluation_for_job(job_id).primary_rejection_reason == "not gettable"
             db.save_evaluation(make_evaluation(job_id))
@@ -272,7 +345,9 @@ class TestEvaluationHistory:
 
 
 class TestEvaluationPersistence:
-    def test_worth_applying_round_trips(self, db: Database, settings: Settings, sample_company: Company):
+    def test_worth_applying_round_trips(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
 
@@ -281,7 +356,9 @@ class TestEvaluationPersistence:
         loaded = db.get_evaluation_for_job(job_id)
         assert loaded.worth_applying is False
 
-    def test_legacy_row_missing_worth_applying_column_defaults_true(self, db: Database, settings: Settings, sample_company: Company):
+    def test_legacy_row_missing_worth_applying_column_defaults_true(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         # Simulates an evaluation cached before this column existed: a raw INSERT that never
         # touches worth_applying leaves it NULL, same as every pre-existing row after the
         # ADD COLUMN migration ran. Must not be silently treated as "not worth applying".
@@ -293,16 +370,24 @@ class TestEvaluationPersistence:
         loaded = db.get_evaluation_for_job(job_id)
         assert loaded.worth_applying is True
 
-    def test_rubric_version_and_requirement_wording_round_trip(self, db: Database, settings: Settings, sample_company: Company):
+    def test_rubric_version_and_requirement_wording_round_trip(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
         evaluation = dataclasses.replace(
-            make_evaluation(job_id), rubric_version="abc123",
-            requirement_evidence=[RequirementEvidence(
-                requirement="Go or TypeScript", importance=RequirementImportance.SECONDARY,
-                evidence_classification=EvidenceClassification.NOT_DEMONSTRATED, candidate_evidence="none",
-                posting_evidence="Go or Typescript ... are helpful", stated_as=RequirementStrength.PREFERRED,
-            )],
+            make_evaluation(job_id),
+            rubric_version="abc123",
+            requirement_evidence=[
+                RequirementEvidence(
+                    requirement="Go or TypeScript",
+                    importance=RequirementImportance.SECONDARY,
+                    evidence_classification=EvidenceClassification.NOT_DEMONSTRATED,
+                    candidate_evidence="none",
+                    posting_evidence="Go or Typescript ... are helpful",
+                    stated_as=RequirementStrength.PREFERRED,
+                )
+            ],
         )
         db.save_evaluation(evaluation)
 
@@ -312,80 +397,134 @@ class TestEvaluationPersistence:
         assert db.get_evaluation_by_hash("hash-1", rubric_versions=("other", "abc123")) is not None
         assert db.get_evaluation_by_hash("hash-1", rubric_versions=("other",)) is None
 
-    def test_working_hours_round_trip(self, db: Database, settings: Settings, sample_company: Company):
+    def test_working_hours_round_trip(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
         quote = "ideally with the ability to work within Eastern Time hours"
-        db.save_evaluation(dataclasses.replace(
-            make_evaluation(job_id), working_hours_quote=quote,
-            working_hours_fit=WorkingHoursFit.CONFLICTS,
-        ))
+        db.save_evaluation(
+            dataclasses.replace(
+                make_evaluation(job_id),
+                working_hours_quote=quote,
+                working_hours_fit=WorkingHoursFit.CONFLICTS,
+            )
+        )
 
         loaded = db.get_evaluation_for_job(job_id)
         assert loaded.working_hours_quote == quote
         assert loaded.working_hours_fit == WorkingHoursFit.CONFLICTS
 
-    def test_working_hours_stored_under_the_old_zone_names_read_as_conflicts(self, settings: Settings, sample_company: Company):
+    def test_working_hours_stored_under_the_old_zone_names_read_as_conflicts(
+        self, settings: Settings, sample_company: Company
+    ):
         # The values once named the owner's own excluded zones; reopening the database renames them.
         with Database(settings.db_path) as db:
             sample_company.id = db.upsert_company(sample_company)
             job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
-            db.save_evaluation(dataclasses.replace(make_evaluation(job_id), working_hours_fit=WorkingHoursFit.CONFLICTS))
-            db.conn.execute("UPDATE evaluations SET working_hours_fit = 'eastern_or_central_preferred'")
+            db.save_evaluation(
+                dataclasses.replace(
+                    make_evaluation(job_id), working_hours_fit=WorkingHoursFit.CONFLICTS
+                )
+            )
+            db.conn.execute(
+                "UPDATE evaluations SET working_hours_fit = 'eastern_or_central_preferred'"
+            )
             db.conn.commit()
 
         with Database(settings.db_path) as db:
             assert db.get_evaluation_for_job(job_id).working_hours_fit == WorkingHoursFit.CONFLICTS
 
-    def test_day_to_day_work_round_trips(self, db: Database, settings: Settings, sample_company: Company):
+    def test_day_to_day_work_round_trips(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
         work = "Maintaining and extending npm, a JavaScript/Node.js package manager."
-        db.save_evaluation(dataclasses.replace(
-            make_evaluation(job_id), day_to_day_work=work, work_fit=WorkFit.OUTSIDE, frontend_fit=FrontendFit.TOO_HEAVY))
+        db.save_evaluation(
+            dataclasses.replace(
+                make_evaluation(job_id),
+                day_to_day_work=work,
+                work_fit=WorkFit.OUTSIDE,
+                frontend_fit=FrontendFit.TOO_HEAVY,
+            )
+        )
 
         loaded = db.get_evaluation_for_job(job_id)
-        assert (loaded.day_to_day_work, loaded.work_fit, loaded.frontend_fit) == (work, WorkFit.OUTSIDE, FrontendFit.TOO_HEAVY)
+        assert (loaded.day_to_day_work, loaded.work_fit, loaded.frontend_fit) == (
+            work,
+            WorkFit.OUTSIDE,
+            FrontendFit.TOO_HEAVY,
+        )
 
-    def test_average_tokens_are_the_models_own_recent_evaluations(self, db: Database, settings: Settings, sample_company: Company):
+    def test_average_tokens_are_the_models_own_recent_evaluations(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         # `evaluate --dry-run` prices a run from these averages.
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
         for tokens in (1000, 3000):
-            db.save_evaluation(dataclasses.replace(make_evaluation(job_id), input_tokens=tokens, output_tokens=tokens // 10))
-        db.save_evaluation(dataclasses.replace(make_evaluation(job_id), model_name="other-model", input_tokens=99000, output_tokens=9900))
+            db.save_evaluation(
+                dataclasses.replace(
+                    make_evaluation(job_id), input_tokens=tokens, output_tokens=tokens // 10
+                )
+            )
+        db.save_evaluation(
+            dataclasses.replace(
+                make_evaluation(job_id),
+                model_name="other-model",
+                input_tokens=99000,
+                output_tokens=9900,
+            )
+        )
 
         average = db.average_evaluation_tokens("test-model")
 
         assert (average.input_tokens, average.output_tokens) == (2000, 200)
         assert db.average_evaluation_tokens("never-used-model") is None
 
-    def test_working_hours_not_assessed_round_trips_as_none(self, db: Database, settings: Settings, sample_company: Company):
+    def test_working_hours_not_assessed_round_trips_as_none(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
         db.save_evaluation(make_evaluation(job_id))
 
         assert db.get_evaluation_for_job(job_id).working_hours_fit is None
 
-    def test_legacy_triage_screen_out_scope_placeholder_becomes_not_assessed(self, db: Database, settings: Settings, sample_company: Company):
+    def test_legacy_triage_screen_out_scope_placeholder_becomes_not_assessed(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         # Triage screen-outs used to store a two_plus_steps_up placeholder, which read as a real
         # scope judgment (one sat on a role triage had thought was BELOW the candidate's level).
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
-        db.save_evaluation(dataclasses.replace(
-            make_evaluation(job_id), model_name="triage:haiku", verdict=Verdict.REJECT, scope_fit=ScopeFit.TWO_PLUS_STEPS_UP,
-        ))
+        db.save_evaluation(
+            dataclasses.replace(
+                make_evaluation(job_id),
+                model_name="triage:haiku",
+                verdict=Verdict.REJECT,
+                scope_fit=ScopeFit.TWO_PLUS_STEPS_UP,
+            )
+        )
 
         with Database(settings.db_path) as reopened:
             assert reopened.get_evaluation_for_job(job_id).scope_fit == ScopeFit.NOT_ASSESSED
 
-    def test_legacy_requirement_evidence_without_wording_still_loads(self, db: Database, settings: Settings, sample_company: Company):
+    def test_legacy_requirement_evidence_without_wording_still_loads(
+        self, db: Database, settings: Settings, sample_company: Company
+    ):
         sample_company.id = db.upsert_company(sample_company)
         job_id, _, _ = db.upsert_job(normalize_posting(make_raw(), sample_company, settings))
         db.save_evaluation(make_evaluation(job_id))
-        legacy = '[{"requirement": "Go", "importance": "central", "evidence_classification": "not_demonstrated", ' \
-                 '"candidate_evidence": "none", "posting_evidence": "Go required"}]'
-        db.conn.execute("UPDATE evaluations SET requirement_evidence_json = ? WHERE job_id = ?", (legacy, job_id))
+        legacy = (
+            '[{"requirement": "Go", "importance": "central", "evidence_classification": "not_demonstrated", '
+            '"candidate_evidence": "none", "posting_evidence": "Go required"}]'
+        )
+        db.conn.execute(
+            "UPDATE evaluations SET requirement_evidence_json = ? WHERE job_id = ?",
+            (legacy, job_id),
+        )
 
         loaded = db.get_evaluation_for_job(job_id)
         assert loaded.requirement_evidence[0].stated_as is None

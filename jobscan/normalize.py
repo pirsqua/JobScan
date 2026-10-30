@@ -1,4 +1,5 @@
 """Turn a source adapter's RawPosting into a normalized JobPosting ready for persistence."""
+
 from __future__ import annotations
 
 import hashlib
@@ -34,10 +35,19 @@ def compute_details_hash(job: JobPosting) -> str:
     Mesh's "United States - Remote" Senior Backend Engineer carried the verdict of its New York
     copy, rejected as hybrid."""
     parts = [
-        job.company_id, job.title, job.location_raw, job.workplace_type.value if job.workplace_type else None,
-        job.employment_type_raw, job.salary_min, job.salary_max, job.salary_period, job.salary_source.value,
+        job.company_id,
+        job.title,
+        job.location_raw,
+        job.workplace_type.value if job.workplace_type else None,
+        job.employment_type_raw,
+        job.salary_min,
+        job.salary_max,
+        job.salary_period,
+        job.salary_source.value,
     ]
-    return hashlib.sha256("\x00".join("" if part is None else str(part) for part in parts).encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        "\x00".join("" if part is None else str(part) for part in parts).encode("utf-8")
+    ).hexdigest()
 
 
 def _parse_published_at(raw: str | None) -> datetime | None:

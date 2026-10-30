@@ -15,6 +15,7 @@ when the company publishes it, a structured base salary range. Reuses the shared
 Like Jobvite, the list page doesn't carry the full posting, so the job-family title gate runs
 before the per-posting detail fetch.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -77,7 +78,9 @@ class JazzHRAdapter(SourceAdapter):
             # Observed live (iManage): some detail pages carry only an Organization ld+json block.
             # The same page still renders the full description, so read it from the HTML rather
             # than silently dropping the posting.
-            posting = _posting_from_html(response.text, detail_url, brief_title, location_text, board_id)
+            posting = _posting_from_html(
+                response.text, detail_url, brief_title, location_text, board_id
+            )
             if posting is None:
                 self.incomplete = True
             return posting

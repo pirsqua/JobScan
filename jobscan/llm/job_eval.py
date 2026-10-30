@@ -1,4 +1,5 @@
 """Single structured LLM call that screens one job posting against the candidate profile."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -67,7 +68,9 @@ def evaluate_job(
         raise LlmCallError(f"job evaluation response failed schema validation: {exc}") from exc
 
     specialist_tenure = SpecialistTenureAssessment(
-        classification=SpecialistTenureClassification(parsed.specialist_tenure_assessment.classification),
+        classification=SpecialistTenureClassification(
+            parsed.specialist_tenure_assessment.classification
+        ),
         specialty=parsed.specialist_tenure_assessment.specialty,
         explanation=parsed.specialist_tenure_assessment.explanation,
     )

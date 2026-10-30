@@ -14,6 +14,7 @@ Engineer, Analytics Engineer, Managing Engineer (C#/ASP.NET), Software Architect
 gate drops is never seen again, while a non-software posting it lets through costs one cheap
 triage call, so ambiguity resolves toward keeping the posting.
 """
+
 from __future__ import annotations
 
 import re

@@ -35,7 +35,10 @@ class TestRetryTransport:
     def test_a_429_waits_as_long_as_retry_after_asks(self):
         waits: list[float] = []
         client, received = client_answering(
-            httpx.Response(429, headers={"Retry-After": "3"}), httpx.Response(200, text="ok"), waits=waits)
+            httpx.Response(429, headers={"Retry-After": "3"}),
+            httpx.Response(200, text="ok"),
+            waits=waits,
+        )
 
         response = client.get("https://boards.example.com/jobs")
 
@@ -47,7 +50,8 @@ class TestRetryTransport:
         waits: list[float] = []
         soon = format_datetime(datetime.now(UTC) + timedelta(seconds=5), usegmt=True)
         client, _ = client_answering(
-            httpx.Response(503, headers={"Retry-After": soon}), httpx.Response(200), waits=waits)
+            httpx.Response(503, headers={"Retry-After": soon}), httpx.Response(200), waits=waits
+        )
 
         assert client.get("https://boards.example.com/jobs").status_code == 200
         assert 3 < waits[0] <= 5
@@ -55,7 +59,8 @@ class TestRetryTransport:
     def test_without_retry_after_it_backs_off_with_jitter(self):
         waits: list[float] = []
         client, received = client_answering(
-            httpx.Response(502), httpx.Response(500), httpx.Response(200), waits=waits)
+            httpx.Response(502), httpx.Response(500), httpx.Response(200), waits=waits
+        )
 
         assert client.get("https://boards.example.com/jobs").status_code == 200
         assert len(received) == 3
@@ -63,7 +68,9 @@ class TestRetryTransport:
         assert BACKOFF_SECONDS[1] <= waits[1] <= BACKOFF_SECONDS[1] * 1.5
 
     def test_a_failure_that_persists_is_returned_after_two_retries(self):
-        client, received = client_answering(httpx.Response(503), httpx.Response(503), httpx.Response(503))
+        client, received = client_answering(
+            httpx.Response(503), httpx.Response(503), httpx.Response(503)
+        )
 
         assert client.get("https://boards.example.com/jobs").status_code == 503
         assert len(received) == 3
@@ -72,7 +79,9 @@ class TestRetryTransport:
         # Waiting would hold up one of the crawl's worker threads; the next run tries again.
         waits: list[float] = []
         client, received = client_answering(
-            httpx.Response(429, headers={"Retry-After": str(int(MAX_RETRY_AFTER_SECONDS) + 1)}), waits=waits)
+            httpx.Response(429, headers={"Retry-After": str(int(MAX_RETRY_AFTER_SECONDS) + 1)}),
+            waits=waits,
+        )
 
         assert client.get("https://boards.example.com/jobs").status_code == 429
         assert len(received) == 1

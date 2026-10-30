@@ -7,6 +7,7 @@ config/settings.yaml (``personal_files``). Facts about the candidate — salary 
 employment-eligible state, time zone — come from the profile. Everything else (model name, pricing
 table, ...) lives in config/settings.yaml so it can be tuned without touching code.
 """
+
 from __future__ import annotations
 
 import os
@@ -27,8 +28,12 @@ DEFAULT_FILE_NAMES = {
 DEFAULT_PROFILE_PATH = DEFAULT_DATA_DIR / DEFAULT_FILE_NAMES["profile"]
 DEFAULT_APPLICATIONS_PATH = DEFAULT_DATA_DIR / DEFAULT_FILE_NAMES["applications"]
 # Replaced by JOBSCAN_DATA_DIR; still set, they would silently point nowhere.
-LEGACY_PATH_VARIABLES = ("JOBSCAN_PROFILE_PATH", "JOBSCAN_APPLICATIONS_PATH", "JOBSCAN_REGISTRY_PATH",
-                         "JOBSCAN_BACKUP_DIR")
+LEGACY_PATH_VARIABLES = (
+    "JOBSCAN_PROFILE_PATH",
+    "JOBSCAN_APPLICATIONS_PATH",
+    "JOBSCAN_REGISTRY_PATH",
+    "JOBSCAN_BACKUP_DIR",
+)
 
 
 @dataclass
@@ -128,12 +133,15 @@ def load_settings(
     return Settings(
         db_path=db_path,
         output_dir=output_dir,
-        anthropic_model=env_or("JOBSCAN_ANTHROPIC_MODEL", raw.get("anthropic_model", "claude-sonnet-5-5")),
+        anthropic_model=env_or(
+            "JOBSCAN_ANTHROPIC_MODEL", raw.get("anthropic_model", "claude-sonnet-5-5")
+        ),
         anthropic_max_retries=int(raw.get("anthropic_max_retries", 3)),
         anthropic_timeout_seconds=int(raw.get("anthropic_timeout_seconds", 60)),
         anthropic_pricing=pricing,
         triage_model=env_or("JOBSCAN_TRIAGE_MODEL", raw.get("triage_model")) or None,
-        anthropic_thinking=env_or("JOBSCAN_ANTHROPIC_THINKING", raw.get("anthropic_thinking")) or None,
+        anthropic_thinking=env_or("JOBSCAN_ANTHROPIC_THINKING", raw.get("anthropic_thinking"))
+        or None,
         triage_thinking=env_or("JOBSCAN_TRIAGE_THINKING", raw.get("triage_thinking")) or None,
         min_base_salary=int(candidate["min_base_salary"]),
         candidate_state=str(candidate["candidate_state"]),
@@ -154,7 +162,12 @@ def load_settings(
     )
 
 
-_CANDIDATE_KEYS = ("min_base_salary", "candidate_state", "candidate_state_name", "candidate_time_zone")
+_CANDIDATE_KEYS = (
+    "min_base_salary",
+    "candidate_state",
+    "candidate_state_name",
+    "candidate_time_zone",
+)
 
 
 class SettingsError(RuntimeError):
@@ -174,5 +187,7 @@ def _candidate_facts(profile_path: Path) -> dict:
             f"{', '.join(missing)} missing — set them in the candidate profile ({profile_path}, in the data "
             "folder JOBSCAN_DATA_DIR names); see config/candidate_profile.example.yaml"
         )
-    facts["excluded_time_zones"] = tuple(str(zone) for zone in profile.get("excluded_time_zones") or ())
+    facts["excluded_time_zones"] = tuple(
+        str(zone) for zone in profile.get("excluded_time_zones") or ()
+    )
     return facts

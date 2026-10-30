@@ -14,6 +14,7 @@ with Playwright and reads the real text from its ``<main>`` content area — cos
 the job-family title gate (applied before this render, as in the Workday/Jobvite adapters) keeps
 the actual render count to the handful of engineering-titled postings, not all ~450 company-wide.
 """
+
 from __future__ import annotations
 
 import re
@@ -31,7 +32,9 @@ from jobscan.models import AtsType, RawPosting, SalarySource
 
 SEARCH_URL = "https://esearchapi.esri.com/search"
 PAGE_SIZE = 50
-MAX_PAGES = 50  # backstop against a runaway loop if `count` is ever wrong — see jobscan.adapters.workday
+MAX_PAGES = (
+    50  # backstop against a runaway loop if `count` is ever wrong — see jobscan.adapters.workday
+)
 _TITLE_SUFFIX_RE = re.compile(r"\s*Job\s*\|\s*Esri Career Opportunity\s*$", re.IGNORECASE)
 
 logger = get_logger("adapters.esri")
@@ -98,8 +101,15 @@ class EsriAdapter(SourceAdapter):
         count: int | None = None
         for _ in range(MAX_PAGES):
             body = {
-                "lr": "en", "client": "esri_explore", "site": "esri_careers", "format": "json",
-                "q": "", "num": PAGE_SIZE, "len": PAGE_SIZE, "offset": offset, "start": offset,
+                "lr": "en",
+                "client": "esri_explore",
+                "site": "esri_careers",
+                "format": "json",
+                "q": "",
+                "num": PAGE_SIZE,
+                "len": PAGE_SIZE,
+                "offset": offset,
+                "start": offset,
             }
             try:
                 response = self.client.post(SEARCH_URL, json=body)
@@ -113,7 +123,9 @@ class EsriAdapter(SourceAdapter):
             try:
                 parsed = EsriSearchResponse.model_validate(payload)
             except ValidationError as exc:
-                raise AdapterError(f"esri board '{board_id}': unexpected response shape: {exc}") from exc
+                raise AdapterError(
+                    f"esri board '{board_id}': unexpected response shape: {exc}"
+                ) from exc
 
             page_hits = parsed.search.hits
             if not page_hits:
@@ -138,7 +150,10 @@ class EsriAdapter(SourceAdapter):
         try:
             description = self._renderer.render(url)
         except Exception as exc:  # noqa: BLE001 - Playwright raises its own exception types
-            logger.warning("esri job detail render failed", extra=log_extra(board_id=board_id, url=url, error=str(exc)))
+            logger.warning(
+                "esri job detail render failed",
+                extra=log_extra(board_id=board_id, url=url, error=str(exc)),
+            )
             self.incomplete = True
             return None
 

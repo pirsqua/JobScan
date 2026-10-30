@@ -3,6 +3,7 @@
 Adding a new source (SmartRecruiters, Workday, a custom careers page) means writing one class
 with a ``fetch_postings`` method — nothing else in the pipeline needs to change.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

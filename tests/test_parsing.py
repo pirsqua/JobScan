@@ -15,7 +15,9 @@ from jobscan.parsing import (
 
 class TestSalaryParsing:
     def test_dollar_range_with_commas(self):
-        result = parse_salary_from_text("The base salary range for this role is $170,000 - $210,000 per year.")
+        result = parse_salary_from_text(
+            "The base salary range for this role is $170,000 - $210,000 per year."
+        )
         assert result.salary_min == 170000
         assert result.salary_max == 210000
         assert result.salary_period == "year"
@@ -110,20 +112,28 @@ class TestSalaryParsing:
     # (as "no salary published" or as a max below $170,000) before any LLM saw it.
     def test_currency_code_after_each_bound_in_a_between_range(self):
         # 1Password: read as a flat $153,000 and rejected as below the minimum.
-        result = parse_salary_from_text("The annual base salary for this role is between $153,000 USD and $214,000 USD, plus benefits.")
+        result = parse_salary_from_text(
+            "The annual base salary for this role is between $153,000 USD and $214,000 USD, plus benefits."
+        )
         assert (result.salary_min, result.salary_max) == (153000, 214000)
 
     def test_extra_spaces_around_range_numbers(self):
         # Grafana and Affirm: double spaces from HTML-to-text conversion, read as no salary at all.
-        grafana = parse_salary_from_text("In the United States, the Base compensation range for this role is USD  174,986  - USD  209,983 .")
-        affirm = parse_salary_from_text("USA base pay range (CA, WA, NY, NJ, CT) per year:\xa0 165,000\xa0 -\xa0 225,000")
+        grafana = parse_salary_from_text(
+            "In the United States, the Base compensation range for this role is USD  174,986  - USD  209,983 ."
+        )
+        affirm = parse_salary_from_text(
+            "USA base pay range (CA, WA, NY, NJ, CT) per year:\xa0 165,000\xa0 -\xa0 225,000"
+        )
         assert (grafana.salary_min, grafana.salary_max) == (174986, 209983)
         assert (affirm.salary_min, affirm.salary_max) == (165000, 225000)
 
     def test_period_as_thousands_separator(self):
         # Grafana: "$185.334" was read as $185, so the range was dropped and the role rejected as a
         # flat $154,445.
-        result = parse_salary_from_text("In the US, the OTE/Base compensation range for this role is USD $154,445 - $185.334. Actual pay may vary.")
+        result = parse_salary_from_text(
+            "In the US, the OTE/Base compensation range for this role is USD $154,445 - $185.334. Actual pay may vary."
+        )
         assert (result.salary_min, result.salary_max) == (154445, 185334)
 
     def test_cents_are_still_cents(self):
@@ -146,11 +156,19 @@ class TestSalaryParsing:
         assert (result.salary_min, result.salary_max) == (150000, 187500)
 
     def test_unrecognized_range_shape_keeps_its_ceiling(self):
-        result = parse_salary_from_text("The base salary is $150,000 for entry, rising to a base salary of $185,000.")
+        result = parse_salary_from_text(
+            "The base salary is $150,000 for entry, rising to a base salary of $185,000."
+        )
         assert (result.salary_min, result.salary_max) == (150000, 185000)
 
     def test_structured_takes_precedence_over_text(self):
-        result = resolve_salary(150000, 190000, "USD", "year", "This role pays $999,000 - $1,000,000 (typo in description).")
+        result = resolve_salary(
+            150000,
+            190000,
+            "USD",
+            "year",
+            "This role pays $999,000 - $1,000,000 (typo in description).",
+        )
         assert result.salary_min == 150000
         assert result.salary_max == 190000
         assert result.salary_source == SalarySource.STRUCTURED
@@ -177,7 +195,9 @@ class TestLocationParsing:
         scope, _note = normalize_location("Remote - United States", None, None)
         assert scope == RemoteScope.REMOTE_US
 
-    @pytest.mark.parametrize("location", ["Remote (U.S.)", "U.S. Remote", "Remote, U.S", "Remote - North America"])
+    @pytest.mark.parametrize(
+        "location", ["Remote (U.S.)", "U.S. Remote", "Remote, U.S", "Remote - North America"]
+    )
     def test_us_spellings_with_periods_and_north_america_are_remote_us(self, location):
         # "Remote (U.S.)" used to fall through to UNKNOWN: a trailing \b after "U.S." never
         # matches before ")" or end-of-string.
@@ -197,33 +217,54 @@ class TestLocationParsing:
         # Observed live (Plaid on Ashby): workplaceType "Hybrid", location "San Francisco HQ" —
         # the location string alone looks like an ambiguous hub city, but the source's own field
         # settles it when the text never offers remote work.
-        scope, _ = normalize_location("San Francisco HQ", "Join the payments team in our HQ.", WorkplaceType.HYBRID)
+        scope, _ = normalize_location(
+            "San Francisco HQ", "Join the payments team in our HQ.", WorkplaceType.HYBRID
+        )
         assert scope == RemoteScope.HYBRID
 
     def test_structured_onsite(self):
-        scope, _ = normalize_location("San Francisco, CA", "We love good tools.", WorkplaceType.ONSITE)
+        scope, _ = normalize_location(
+            "San Francisco, CA", "We love good tools.", WorkplaceType.ONSITE
+        )
         assert scope == RemoteScope.ONSITE
 
-    @pytest.mark.parametrize("location, text, workplace", [
-        # Radar (on-site label) and Check (hybrid label) were rejected as office roles though the
-        # text offers remote work.
-        ("New York ", "This role can either be in our NYC HQ or remote in the US.", WorkplaceType.ONSITE),
-        ("New York City, NY", "Roles can be remote, hybrid, or based in one of our offices.", WorkplaceType.HYBRID),
-    ])
-    def test_remote_text_contradicting_a_workplace_label_is_deferred(self, location, text, workplace):
+    @pytest.mark.parametrize(
+        "location, text, workplace",
+        [
+            # Radar (on-site label) and Check (hybrid label) were rejected as office roles though the
+            # text offers remote work.
+            (
+                "New York ",
+                "This role can either be in our NYC HQ or remote in the US.",
+                WorkplaceType.ONSITE,
+            ),
+            (
+                "New York City, NY",
+                "Roles can be remote, hybrid, or based in one of our offices.",
+                WorkplaceType.HYBRID,
+            ),
+        ],
+    )
+    def test_remote_text_contradicting_a_workplace_label_is_deferred(
+        self, location, text, workplace
+    ):
         scope, _ = normalize_location(location, text, workplace)
         assert scope == RemoteScope.UNKNOWN
 
     def test_hybrid_location_field_still_rejects_despite_remote_text(self):
         # You.com: "(Hybrid)" in the location is the posting's own statement, not just a label.
-        scope, _ = normalize_location("San Francisco (Hybrid)", "A stipend for our hybrid/remote team.", WorkplaceType.HYBRID)
+        scope, _ = normalize_location(
+            "San Francisco (Hybrid)", "A stipend for our hybrid/remote team.", WorkplaceType.HYBRID
+        )
         assert scope == RemoteScope.HYBRID
 
     def test_no_remote_mention_anywhere_is_onsite(self):
         # Observed live (Fivetran, Greenhouse): a city location and a full description that never
         # mentions remote work — not a remote posting, so it shouldn't reach the LLM at all.
         scope, note = normalize_location(
-            "Oakland, California, United States", "Build metadata services in Java and Python.", None
+            "Oakland, California, United States",
+            "Build metadata services in Java and Python.",
+            None,
         )
         assert scope == RemoteScope.ONSITE
         assert "never mentions remote" in note
@@ -237,7 +278,9 @@ class TestLocationParsing:
         # days a week in the office as you'd like or 100% remotely" — genuine remote eligibility
         # only the LLM can confirm, so it must NOT be classified on-site from the city alone.
         scope, _ = normalize_location(
-            "New York, New York", "Work as many days in the office as you'd like or 100% remotely.", None
+            "New York, New York",
+            "Work as many days in the office as you'd like or 100% remotely.",
+            None,
         )
         assert scope == RemoteScope.UNKNOWN
 
@@ -251,7 +294,9 @@ class TestLocationParsing:
     def test_remote_tied_to_ambiguous_us_hub_city_is_deferred_not_rejected(self):
         # A remote posting naming a specific U.S. hub city (common when a company lists its HQ
         # alongside nationwide remote eligibility) is a judgment call, not a safe rejection.
-        scope, note = normalize_location("Remote - San Francisco Bay Area", None, WorkplaceType.REMOTE)
+        scope, note = normalize_location(
+            "Remote - San Francisco Bay Area", None, WorkplaceType.REMOTE
+        )
         assert scope == RemoteScope.UNKNOWN
         assert "ambiguous" in note
 
@@ -280,34 +325,53 @@ class TestLocationParsing:
 
     @pytest.mark.parametrize(
         "location, workplace",
-        [("United States (Remote)", WorkplaceType.HYBRID), ("Remote or Hybrid - Seattle, WA", None)],
+        [
+            ("United States (Remote)", WorkplaceType.HYBRID),
+            ("Remote or Hybrid - Seattle, WA", None),
+        ],
     )
     def test_remote_location_contradicting_a_hybrid_label_is_deferred(self, location, workplace):
         scope, _ = normalize_location(location, None, workplace)
         assert scope == RemoteScope.UNKNOWN
 
-    @pytest.mark.parametrize("location", ["Remote - New Mexico", "Remote - Toronto or Seattle, WA", "Remote - Dublin, OH"])
+    @pytest.mark.parametrize(
+        "location",
+        ["Remote - New Mexico", "Remote - Toronto or Seattle, WA", "Remote - Dublin, OH"],
+    )
     def test_non_us_word_in_a_location_that_names_a_us_state_is_not_restricted(self, location):
         scope, _ = normalize_location(location, None, WorkplaceType.REMOTE)
         assert scope != RemoteScope.REMOTE_US_RESTRICTED
 
     def test_canadian_provinces_with_or_are_still_restricted(self):
         # "OR" here is the word, not Oregon.
-        scope, _ = normalize_location("Remote - Ontario OR British Columbia", None, WorkplaceType.REMOTE)
+        scope, _ = normalize_location(
+            "Remote - Ontario OR British Columbia", None, WorkplaceType.REMOTE
+        )
         assert scope == RemoteScope.REMOTE_US_RESTRICTED
 
 
 class TestWorkplaceTypeParsing:
-    @pytest.mark.parametrize("label, expected", [
-        # Every vocabulary observed live across the registry's ATSs.
-        ("Remote", WorkplaceType.REMOTE), ("Hybrid", WorkplaceType.HYBRID), ("OnSite", WorkplaceType.ONSITE),  # Ashby
-        ("remote", WorkplaceType.REMOTE), ("onsite", WorkplaceType.ONSITE), ("unspecified", None),  # Lever
-        ("REMOTE", WorkplaceType.REMOTE), ("ON_SITE", WorkplaceType.ONSITE), ("HYBRID", WorkplaceType.HYBRID),  # Rippling
-        ("Remote only", WorkplaceType.REMOTE), ("Hybrid (Remote/Office)", WorkplaceType.HYBRID),  # Avature
-        ("Office/Site only", WorkplaceType.ONSITE),
-        ("TELECOMMUTE", WorkplaceType.REMOTE),  # schema.org JSON-LD
-        (None, None), ("", None),
-    ])
+    @pytest.mark.parametrize(
+        "label, expected",
+        [
+            # Every vocabulary observed live across the registry's ATSs.
+            ("Remote", WorkplaceType.REMOTE),
+            ("Hybrid", WorkplaceType.HYBRID),
+            ("OnSite", WorkplaceType.ONSITE),  # Ashby
+            ("remote", WorkplaceType.REMOTE),
+            ("onsite", WorkplaceType.ONSITE),
+            ("unspecified", None),  # Lever
+            ("REMOTE", WorkplaceType.REMOTE),
+            ("ON_SITE", WorkplaceType.ONSITE),
+            ("HYBRID", WorkplaceType.HYBRID),  # Rippling
+            ("Remote only", WorkplaceType.REMOTE),
+            ("Hybrid (Remote/Office)", WorkplaceType.HYBRID),  # Avature
+            ("Office/Site only", WorkplaceType.ONSITE),
+            ("TELECOMMUTE", WorkplaceType.REMOTE),  # schema.org JSON-LD
+            (None, None),
+            ("", None),
+        ],
+    )
     def test_labels(self, label, expected):
         assert parse_workplace_type(label) == expected
 

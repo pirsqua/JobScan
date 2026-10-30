@@ -5,6 +5,7 @@ field off it — so an unexpected shape (a renamed field, a missing list) surfac
 AdapterError instead of a KeyError/TypeError deep in normalization. ``extra="ignore"`` because
 these are third-party APIs that add fields over time; we only assert the shape of what we read.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -358,6 +359,7 @@ class RipplingEmploymentType(BaseModel):
 class RipplingPayRange(BaseModel):
     """One location's pay band. Observed live (InRule): a Chicago band and a "Remote (United
     States)" band, frequency "YEAR", that appear nowhere in the description text."""
+
     model_config = ConfigDict(extra="ignore")
     location: str | None = None
     currency: str | None = None

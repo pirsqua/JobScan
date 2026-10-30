@@ -14,6 +14,7 @@ other things, splits Greenhouse's standard pay-range block
 (``<span>$141,800</span><span class="divider">&mdash;</span><span>$187,110 USD</span>``) so the
 salary parser reads only the minimum.
 """
+
 from __future__ import annotations
 
 import html
@@ -50,7 +51,9 @@ class GreenhouseAdapter(SourceAdapter):
         try:
             parsed = GreenhouseJobsResponse.model_validate(payload)
         except ValidationError as exc:
-            raise AdapterError(f"greenhouse board '{board_id}': unexpected response shape: {exc}") from exc
+            raise AdapterError(
+                f"greenhouse board '{board_id}': unexpected response shape: {exc}"
+            ) from exc
 
         return [self._parse_job(job) for job in parsed.jobs]
 

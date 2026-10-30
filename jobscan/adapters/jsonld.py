@@ -2,6 +2,7 @@
 Google-for-Jobs indexing that multiple, unrelated ATS platforms embed verbatim on their detail
 pages (confirmed live so far: Jobvite, JazzHR/ApplyToJob, iCIMS), not something specific to any one.
 """
+
 from __future__ import annotations
 
 import json

@@ -16,6 +16,7 @@ board at a time took ~4.5 minutes for ~90 companies. Only the fetching runs in w
 normalizing, persisting and closing happen on the calling thread, in registry order, because the
 Database (one SQLite connection) isn't shared across threads.
 """
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -55,7 +56,12 @@ def _fetch_board(company: Company, http_client: httpx.Client) -> _BoardFetch:
     except AdapterError as exc:
         logger.warning(
             "board fetch failed",
-            extra=log_extra(company=company.name, ats_type=company.ats_type.value, board_id=company.board_id, error=str(exc)),
+            extra=log_extra(
+                company=company.name,
+                ats_type=company.ats_type.value,
+                board_id=company.board_id,
+                error=str(exc),
+            ),
         )
         return _BoardFetch(failure=str(exc))
     except Exception as exc:  # noqa: BLE001 - adapters are third-party-facing, isolate the run from surprises
@@ -67,18 +73,24 @@ def _fetch_board(company: Company, http_client: httpx.Client) -> _BoardFetch:
     return _BoardFetch(postings=postings, incomplete=adapter.incomplete)
 
 
-def crawl_all(db: Database, settings: Settings, companies: list[Company] | None = None) -> CrawlRunStats:
+def crawl_all(
+    db: Database, settings: Settings, companies: list[Company] | None = None
+) -> CrawlRunStats:
     companies = companies if companies is not None else db.list_companies(active_only=True)
     stats = CrawlRunStats(started_at=datetime.now(UTC))
     run_id = db.start_crawl_run(stats)
 
-    with make_client(settings) as http_client, \
-            ThreadPoolExecutor(max_workers=max(1, settings.crawl_workers)) as pool:
+    with (
+        make_client(settings) as http_client,
+        ThreadPoolExecutor(max_workers=max(1, settings.crawl_workers)) as pool,
+    ):
         fetches = pool.map(lambda company: _fetch_board(company, http_client), companies)
         for company, fetch in zip(companies, fetches):
             stats.companies_attempted += 1
             if fetch.failure is not None:
-                stats.boards_failed.append(f"{company.name} ({company.ats_type.value}/{company.board_id}): {fetch.failure}")
+                stats.boards_failed.append(
+                    f"{company.name} ({company.ats_type.value}/{company.board_id}): {fetch.failure}"
+                )
                 continue
             raw_postings = fetch.postings
 
@@ -103,7 +115,11 @@ def crawl_all(db: Database, settings: Settings, companies: list[Company] | None 
                 closed = 0
                 logger.warning(
                     "board fetched incompletely — closing nothing on it this run",
-                    extra=log_extra(company=company.name, ats_type=company.ats_type.value, board_id=company.board_id),
+                    extra=log_extra(
+                        company=company.name,
+                        ats_type=company.ats_type.value,
+                        board_id=company.board_id,
+                    ),
                 )
             else:
                 closed = db.close_missing_jobs(company.id, seen_ids, when=now)
@@ -114,8 +130,11 @@ def crawl_all(db: Database, settings: Settings, companies: list[Company] | None 
             logger.info(
                 "board crawled",
                 extra=log_extra(
-                    company=company.name, ats_type=company.ats_type.value, board_id=company.board_id,
-                    postings=len(raw_postings), closed=closed,
+                    company=company.name,
+                    ats_type=company.ats_type.value,
+                    board_id=company.board_id,
+                    postings=len(raw_postings),
+                    closed=closed,
                 ),
             )
 

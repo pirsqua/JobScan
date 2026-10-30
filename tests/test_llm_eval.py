@@ -65,8 +65,12 @@ def make_job() -> JobPosting:
 
 def make_company() -> Company:
     return Company(
-        id=1, name="Acme Corp", domain="acme.example.com", careers_url=None,
-        ats_type=AtsType.GREENHOUSE, board_id="acme",
+        id=1,
+        name="Acme Corp",
+        domain="acme.example.com",
+        careers_url=None,
+        ats_type=AtsType.GREENHOUSE,
+        board_id="acme",
     )
 
 
@@ -104,8 +108,12 @@ class TestJobEvaluation:
         assert schema["additionalProperties"] is False
         assert set(schema["required"]) == set(schema["properties"])
         item = schema["$defs"]["RequirementEvidenceItem"]
-        assert item["additionalProperties"] is False and set(item["required"]) == set(item["properties"])
-        assert "minimum" not in schema["properties"]["confidence"]  # unsupported by structured outputs
+        assert item["additionalProperties"] is False and set(item["required"]) == set(
+            item["properties"]
+        )
+        assert (
+            "minimum" not in schema["properties"]["confidence"]
+        )  # unsupported by structured outputs
         # The fingerprinted schema itself is untouched — strictness is transport, not rubric.
         assert "additionalProperties" not in JOB_EVALUATION_SCHEMA
         assert list(schema["properties"]) == list(JOB_EVALUATION_SCHEMA["properties"])  # order kept
@@ -113,9 +121,18 @@ class TestJobEvaluation:
     def test_the_thinking_setting_is_sent_only_when_configured(self, profile):
         sdk = FakeSdkClient([json_response(VALID_EVALUATION), json_response(VALID_EVALUATION)])
 
-        evaluate_job(AnthropicClient(api_key=None, model="m", client=sdk, thinking="between_tools"),
-                     profile, make_company(), make_job())
-        evaluate_job(AnthropicClient(api_key=None, model="m", client=sdk), profile, make_company(), make_job())
+        evaluate_job(
+            AnthropicClient(api_key=None, model="m", client=sdk, thinking="between_tools"),
+            profile,
+            make_company(),
+            make_job(),
+        )
+        evaluate_job(
+            AnthropicClient(api_key=None, model="m", client=sdk),
+            profile,
+            make_company(),
+            make_job(),
+        )
 
         assert sdk.messages.calls[0]["thinking"] == {"type": "between_tools"}
         assert "thinking" not in sdk.messages.calls[1]
@@ -132,7 +149,9 @@ class TestJobEvaluation:
     def test_a_refusal_is_an_error_never_a_verdict(self, profile):
         # Sonnet 5.5 declines some requests (e.g. "cyber") with a normal 200 — a posting for an
         # offensive-security role must be left awaiting evaluation, not cached as a reject.
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([refusal_response("cyber")]))
+        client = AnthropicClient(
+            api_key=None, model="test-model", client=FakeSdkClient([refusal_response("cyber")])
+        )
 
         with pytest.raises(LlmCallError, match="declined.*cyber"):
             evaluate_job(client, profile, make_company(), make_job())
@@ -142,7 +161,12 @@ class TestJobEvaluation:
         # requirements in an unfamiliar core technology, e.g. Rust/Kafka) — worth_applying=False
         # is what routes this out of Attractive Stretches in the report, so it must survive
         # unchanged from the raw model response through to the Evaluation the report reads.
-        loose_input = dict(VALID_EVALUATION, verdict="borderline", scope_fit="two_plus_steps_up", worth_applying=False)
+        loose_input = dict(
+            VALID_EVALUATION,
+            verdict="borderline",
+            scope_fit="two_plus_steps_up",
+            worth_applying=False,
+        )
         sdk = FakeSdkClient([json_response(loose_input)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
@@ -156,8 +180,10 @@ class TestJobEvaluation:
         # through to the stored Evaluation, not be dropped or folded into input_tokens.
         block = SimpleNamespace(type="text", text=json.dumps(VALID_EVALUATION))
         usage = SimpleNamespace(
-            input_tokens=500, output_tokens=300,
-            cache_creation_input_tokens=7743, cache_read_input_tokens=0,
+            input_tokens=500,
+            output_tokens=300,
+            cache_creation_input_tokens=7743,
+            cache_read_input_tokens=0,
         )
         sdk = FakeSdkClient([SimpleNamespace(content=[block], usage=usage)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
@@ -182,31 +208,55 @@ class TestJobEvaluation:
         assert evaluation.confidence == pytest.approx(0.85)
         assert evaluation.scope_fit == ScopeFit.AT_LEVEL
         assert evaluation.evidence_coverage_percent == 85
-        assert evaluation.specialist_tenure_assessment.classification == SpecialistTenureClassification.NOT_APPLICABLE
+        assert (
+            evaluation.specialist_tenure_assessment.classification
+            == SpecialistTenureClassification.NOT_APPLICABLE
+        )
         assert len(evaluation.requirement_evidence) == 1
         assert evaluation.requirement_evidence[0].importance == RequirementImportance.CENTRAL
-        assert evaluation.requirement_evidence[0].evidence_classification == EvidenceClassification.DIRECTLY_DEMONSTRATED
+        assert (
+            evaluation.requirement_evidence[0].evidence_classification
+            == EvidenceClassification.DIRECTLY_DEMONSTRATED
+        )
         assert evaluation.required_matches == ["C#", "Azure"]
         assert evaluation.preferred_only_gaps == ["Kubernetes"]
-        assert evaluation.remote_employment_verification == "Explicitly US remote, no state restrictions mentioned."
+        assert (
+            evaluation.remote_employment_verification
+            == "Explicitly US remote, no state restrictions mentioned."
+        )
         assert evaluation.why_this_is_or_is_not_gettable
         assert evaluation.model_name == "test-model"
         assert evaluation.input_tokens == 100
         assert evaluation.output_tokens == 50
 
-    @pytest.mark.parametrize("filled, reason", [
-        ({"required_gaps": ["5+ years Ruby on Rails", "Deep AWS expertise", "Kafka"]}, "5+ years Ruby on Rails; Deep AWS expertise"),
-        ({"growth_dimensions": ["Owning a payments ledger"]}, "Owning a payments ledger"),
-        ({}, "Not a fit given the domain mismatch."),
-    ])
-    def test_a_reject_without_a_reason_takes_one_from_the_gaps_it_found(self, profile, filled, reason):
+    @pytest.mark.parametrize(
+        "filled, reason",
+        [
+            (
+                {"required_gaps": ["5+ years Ruby on Rails", "Deep AWS expertise", "Kafka"]},
+                "5+ years Ruby on Rails; Deep AWS expertise",
+            ),
+            ({"growth_dimensions": ["Owning a payments ledger"]}, "Owning a payments ledger"),
+            ({}, "Not a fit given the domain mismatch."),
+        ],
+    )
+    def test_a_reject_without_a_reason_takes_one_from_the_gaps_it_found(
+        self, profile, filled, reason
+    ):
         # Observed live: 37 of 53 real reject verdicts in one run left primary_rejection_reason null
         # despite the prompt requiring it, even though required_gaps was populated.
         answer = {
-            **VALID_EVALUATION, "verdict": "reject", "primary_rejection_reason": None, "required_gaps": [],
-            "growth_dimensions": [], "credibility_assessment": "Not a fit given the domain mismatch.", **filled,
+            **VALID_EVALUATION,
+            "verdict": "reject",
+            "primary_rejection_reason": None,
+            "required_gaps": [],
+            "growth_dimensions": [],
+            "credibility_assessment": "Not a fit given the domain mismatch.",
+            **filled,
         }
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(answer)]))
+        client = AnthropicClient(
+            api_key=None, model="test-model", client=FakeSdkClient([json_response(answer)])
+        )
 
         evaluation = evaluate_job(client, profile, make_company(), make_job())
 
@@ -222,15 +272,24 @@ class TestJobEvaluation:
 
         assert evaluation.primary_rejection_reason is None
 
-    @pytest.mark.parametrize("bad_input", [
-        pytest.param({k: v for k, v in VALID_EVALUATION.items() if k != "verdict"}, id="missing-field"),
-        pytest.param(dict(VALID_EVALUATION, verdict="definitely_yes"), id="unknown-verdict"),
-        # Structured outputs don't support minimum/maximum, so ranges are checked only here.
-        pytest.param(dict(VALID_EVALUATION, confidence=1.5), id="confidence-over-1"),
-        pytest.param(dict(VALID_EVALUATION, evidence_coverage_percent=150), id="coverage-over-100"),
-    ])
+    @pytest.mark.parametrize(
+        "bad_input",
+        [
+            pytest.param(
+                {k: v for k, v in VALID_EVALUATION.items() if k != "verdict"}, id="missing-field"
+            ),
+            pytest.param(dict(VALID_EVALUATION, verdict="definitely_yes"), id="unknown-verdict"),
+            # Structured outputs don't support minimum/maximum, so ranges are checked only here.
+            pytest.param(dict(VALID_EVALUATION, confidence=1.5), id="confidence-over-1"),
+            pytest.param(
+                dict(VALID_EVALUATION, evidence_coverage_percent=150), id="coverage-over-100"
+            ),
+        ],
+    )
     def test_an_answer_that_fails_validation_raises(self, profile, bad_input):
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(bad_input)]))
+        client = AnthropicClient(
+            api_key=None, model="test-model", client=FakeSdkClient([json_response(bad_input)])
+        )
 
         with pytest.raises(LlmCallError, match="failed schema validation"):
             evaluate_job(client, profile, make_company(), make_job())
@@ -242,19 +301,39 @@ class TestJobEvaluation:
         properties = list(JOB_EVALUATION_SCHEMA["properties"])
         # What the job's work is comes before any requirement (observed: GitHub's npm team judged a
         # plausible match off a qualifications list that accepted C#).
-        assert properties[:4] == ["day_to_day_work", "work_fit", "frontend_fit", "requirement_evidence"]
-        for analysis_field in ("requirement_evidence", "growth_dimensions", "hidden_staff_signals", "compensation_assessment", "scope_fit"):
+        assert properties[:4] == [
+            "day_to_day_work",
+            "work_fit",
+            "frontend_fit",
+            "requirement_evidence",
+        ]
+        for analysis_field in (
+            "requirement_evidence",
+            "growth_dimensions",
+            "hidden_staff_signals",
+            "compensation_assessment",
+            "scope_fit",
+        ):
             assert properties.index(analysis_field) < properties.index("verdict")
-        item_properties = list(JOB_EVALUATION_SCHEMA["$defs"]["RequirementEvidenceItem"]["properties"])
-        assert item_properties.index("posting_evidence") < item_properties.index("stated_as") < item_properties.index("importance")
+        item_properties = list(
+            JOB_EVALUATION_SCHEMA["$defs"]["RequirementEvidenceItem"]["properties"]
+        )
+        assert (
+            item_properties.index("posting_evidence")
+            < item_properties.index("stated_as")
+            < item_properties.index("importance")
+        )
 
     def test_preferred_item_tagged_central_is_demoted_to_secondary(self, profile):
         # Observed live (Posit): "Proficiency in either Go or Typescript ... are helpful for this
         # role" was scored as the role's central requirement, sinking an otherwise strong fit.
         item = dict(
-            VALID_EVALUATION["requirement_evidence"][0], requirement="Go or TypeScript",
+            VALID_EVALUATION["requirement_evidence"][0],
+            requirement="Go or TypeScript",
             posting_evidence="Proficiency in either Go or Typescript ... are helpful for this role.",
-            stated_as="preferred", importance="central", evidence_classification="not_demonstrated",
+            stated_as="preferred",
+            importance="central",
+            evidence_classification="not_demonstrated",
         )
         sdk = FakeSdkClient([json_response(dict(VALID_EVALUATION, requirement_evidence=[item]))])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
@@ -291,15 +370,23 @@ class TestJobEvaluation:
 class TestCompanyClassification:
     def test_happy_path(self):
         sdk = FakeSdkClient(
-            [json_response({
-                "classification": "product",
-                "confidence": 0.9,
-                "evidence": "Homepage describes their own SaaS platform for developers.",
-            })]
+            [
+                json_response(
+                    {
+                        "classification": "product",
+                        "confidence": 0.9,
+                        "evidence": "Homepage describes their own SaaS platform for developers.",
+                    }
+                )
+            ]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
         result, in_tok, _out_tok, cache_write_tok, cache_read_tok = classify_company(
-            client, "Acme Corp", "acme.example.com", "We build tools for developers.", "Join our engineering team."
+            client,
+            "Acme Corp",
+            "acme.example.com",
+            "We build tools for developers.",
+            "Join our engineering team.",
         )
         assert result.classification == "product"
         assert in_tok == 100
@@ -308,11 +395,15 @@ class TestCompanyClassification:
 
     def test_invalid_classification_enum_raises(self):
         sdk = FakeSdkClient(
-            [json_response({
-                "classification": "nonprofit",
-                "confidence": 0.5,
-                "evidence": "unclear",
-            })]
+            [
+                json_response(
+                    {
+                        "classification": "nonprofit",
+                        "confidence": 0.5,
+                        "evidence": "unclear",
+                    }
+                )
+            ]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
         with pytest.raises(LlmCallError):
@@ -320,18 +411,35 @@ class TestCompanyClassification:
 
     @respx.mock
     def test_homepage_text_is_the_visible_copy_without_scripts_navigation_or_footer(self):
-        respx.get("https://acme.example.com/").mock(return_value=httpx.Response(200, text=(
-            "<nav>Pricing Login</nav><script>track()</script><main>We  build\n tools for developers.</main><footer>©</footer>"
-        )))
+        respx.get("https://acme.example.com/").mock(
+            return_value=httpx.Response(
+                200,
+                text=(
+                    "<nav>Pricing Login</nav><script>track()</script><main>We  build\n tools for developers.</main><footer>©</footer>"
+                ),
+            )
+        )
         with httpx.Client() as client:
-            assert fetch_homepage_text(client, "acme.example.com") == "We build tools for developers."
+            assert (
+                fetch_homepage_text(client, "acme.example.com") == "We build tools for developers."
+            )
             assert fetch_homepage_text(client, None) == ""
 
 
 class TestTriage:
     def test_happy_path_skip_true(self, profile):
         sdk = FakeSdkClient(
-            [json_response({"disqualifier_quote": "8+ years of Rust", "quote_is_hard_requirement": True, "disqualifier": "required_unfamiliar_language", "skip_full_evaluation": True, "reason": "Requires 8+ years Rust."})]
+            [
+                json_response(
+                    {
+                        "disqualifier_quote": "8+ years of Rust",
+                        "quote_is_hard_requirement": True,
+                        "disqualifier": "required_unfamiliar_language",
+                        "skip_full_evaluation": True,
+                        "reason": "Requires 8+ years Rust.",
+                    }
+                )
+            ]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
@@ -347,7 +455,17 @@ class TestTriage:
 
     def test_happy_path_skip_false(self, profile):
         sdk = FakeSdkClient(
-            [json_response({"disqualifier_quote": "", "quote_is_hard_requirement": False, "disqualifier": "none", "skip_full_evaluation": False, "reason": "Real backend overlap."})]
+            [
+                json_response(
+                    {
+                        "disqualifier_quote": "",
+                        "quote_is_hard_requirement": False,
+                        "disqualifier": "none",
+                        "skip_full_evaluation": False,
+                        "reason": "Real backend overlap.",
+                    }
+                )
+            ]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
@@ -359,7 +477,17 @@ class TestTriage:
         # The whole point is a cheap, short-output call — it should not request anywhere near the
         # 8192 the full evaluation needs.
         sdk = FakeSdkClient(
-            [json_response({"disqualifier_quote": "", "quote_is_hard_requirement": False, "disqualifier": "none", "skip_full_evaluation": False, "reason": "ok"})]
+            [
+                json_response(
+                    {
+                        "disqualifier_quote": "",
+                        "quote_is_hard_requirement": False,
+                        "disqualifier": "none",
+                        "skip_full_evaluation": False,
+                        "reason": "ok",
+                    }
+                )
+            ]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 

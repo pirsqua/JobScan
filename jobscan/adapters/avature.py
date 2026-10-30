@@ -40,6 +40,7 @@ page's result), so both run through a small thread pool instead of one request a
 same thing a browser does when it opens several connections to the same host concurrently, not
 an attempt to defeat any rate limit.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -84,18 +85,28 @@ class AvatureAdapter(SourceAdapter):
 
             matched = [b for b in briefs if is_engineering_title(b[0])]
             results = pool.map(
-                lambda brief: self._fetch_detail(base_url, brief[1], brief[0], brief[2], board_id), matched
+                lambda brief: self._fetch_detail(base_url, brief[1], brief[0], brief[2], board_id),
+                matched,
             )
             return [posting for posting in results if posting is not None]
 
     def _fetch_all_briefs(
-        self, pool: ThreadPoolExecutor, list_url: str, search_filters: list[tuple[str, str]], board_id: str
+        self,
+        pool: ThreadPoolExecutor,
+        list_url: str,
+        search_filters: list[tuple[str, str]],
+        board_id: str,
     ) -> list[tuple[str, str, str | None]]:
         briefs: list[tuple[str, str, str | None]] = []
         offset = 0
         for _ in range(0, MAX_PAGES, CONCURRENCY):
             batch_offsets = [offset + i * PAGE_SIZE for i in range(CONCURRENCY)]
-            pages = list(pool.map(lambda o: self._fetch_list_page(list_url, o, search_filters, board_id), batch_offsets))
+            pages = list(
+                pool.map(
+                    lambda o: self._fetch_list_page(list_url, o, search_filters, board_id),
+                    batch_offsets,
+                )
+            )
 
             reached_end = False
             for page in pages:
@@ -118,7 +129,11 @@ class AvatureAdapter(SourceAdapter):
     def _fetch_list_page(
         self, list_url: str, offset: int, search_filters: list[tuple[str, str]], board_id: str
     ) -> list[tuple[str, str, str | None]]:
-        params = [("listFilterMode", "1"), ("folderRecordsPerPage", str(PAGE_SIZE)), ("folderOffset", str(offset))]
+        params = [
+            ("listFilterMode", "1"),
+            ("folderRecordsPerPage", str(PAGE_SIZE)),
+            ("folderOffset", str(offset)),
+        ]
         try:
             response = self.client.get(list_url, params=params + search_filters)
             response.raise_for_status()
@@ -127,7 +142,12 @@ class AvatureAdapter(SourceAdapter):
         return _parse_list_page(response.text)
 
     def _fetch_detail(
-        self, base_url: str, detail_url: str, brief_title: str, brief_location: str | None, board_id: str
+        self,
+        base_url: str,
+        detail_url: str,
+        brief_title: str,
+        brief_location: str | None,
+        board_id: str,
     ) -> RawPosting | None:
         try:
             response = self.client.get(detail_url)
@@ -183,7 +203,9 @@ def _parse_detail_page(html: str) -> tuple[dict[str, str], str]:
         field_divs = article.select(".article__content__view__field")
         labels = [
             label_el.get_text(strip=True).lower()
-            for label_el in (d.select_one(".article__content__view__field__label") for d in field_divs)
+            for label_el in (
+                d.select_one(".article__content__view__field__label") for d in field_divs
+            )
             if label_el is not None
         ]
         if "job id" in labels:
@@ -194,7 +216,11 @@ def _parse_detail_page(html: str) -> tuple[dict[str, str], str]:
                     continue
                 label = label_el.get_text(strip=True).lower()
                 items = value_el.select("li")
-                value = "; ".join(li.get_text(strip=True) for li in items) if items else value_el.get_text(" ", strip=True)
+                value = (
+                    "; ".join(li.get_text(strip=True) for li in items)
+                    if items
+                    else value_el.get_text(" ", strip=True)
+                )
                 if value:
                     fields[label] = value
         else:

@@ -5,6 +5,7 @@ Grouping and ranking implement the scope-calibration ranking order: verdict alon
 a "plausible_match" that is actually a hidden-staff-level stretch must not outrank a genuinely
 at-level "plausible_match", and compensation is a clamped tiebreaker, not an unbounded score.
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -133,15 +134,28 @@ def settle_scope(evaluation: Evaluation) -> Evaluation:
     labels, and evaluations without central requirement evidence, are left as the model gave them."""
     if evaluation.scope_fit not in (ScopeFit.AT_LEVEL, ScopeFit.ONE_STEP_UP):
         return evaluation
-    central = [item for item in evaluation.requirement_evidence if item.importance == RequirementImportance.CENTRAL]
+    central = [
+        item
+        for item in evaluation.requirement_evidence
+        if item.importance == RequirementImportance.CENTRAL
+    ]
     if not central:
         return evaluation
     tenure = evaluation.specialist_tenure_assessment.classification
-    gap = any(item.evidence_classification == EvidenceClassification.NOT_DEMONSTRATED for item in central)
+    gap = any(
+        item.evidence_classification == EvidenceClassification.NOT_DEMONSTRATED for item in central
+    )
     if gap or tenure == SpecialistTenureClassification.INSUFFICIENT:
-        verdict = Verdict.PLAUSIBLE_MATCH if evaluation.verdict == Verdict.STRONG_MATCH else evaluation.verdict
+        verdict = (
+            Verdict.PLAUSIBLE_MATCH
+            if evaluation.verdict == Verdict.STRONG_MATCH
+            else evaluation.verdict
+        )
         return replace(evaluation, scope_fit=ScopeFit.ONE_STEP_UP, verdict=verdict)
-    clean_tenure = tenure in (SpecialistTenureClassification.MEETS, SpecialistTenureClassification.NOT_APPLICABLE)
+    clean_tenure = tenure in (
+        SpecialistTenureClassification.MEETS,
+        SpecialistTenureClassification.NOT_APPLICABLE,
+    )
     if clean_tenure and not evaluation.hidden_staff_signals:
         return replace(evaluation, scope_fit=ScopeFit.AT_LEVEL)
     return evaluation
@@ -154,15 +168,18 @@ def _missing_requirements(evaluation: Evaluation) -> int:
     React or Vue", filed as a secondary, weakly inferred requirement of a plausible_match at level,
     made a Best Bet of a frontend stretch."""
     return sum(
-        1 for item in evaluation.requirement_evidence
+        1
+        for item in evaluation.requirement_evidence
         if item.stated_as in (RequirementStrength.REQUIRED, RequirementStrength.STRONGLY_IMPLIED)
-        and item.evidence_classification in (EvidenceClassification.WEAKLY_INFERRED, EvidenceClassification.NOT_DEMONSTRATED)
+        and item.evidence_classification
+        in (EvidenceClassification.WEAKLY_INFERRED, EvidenceClassification.NOT_DEMONSTRATED)
     )
 
 
 def _central_transferable_count(evaluation: Evaluation) -> int:
     return sum(
-        1 for item in evaluation.requirement_evidence
+        1
+        for item in evaluation.requirement_evidence
         if item.importance == RequirementImportance.CENTRAL
         and item.evidence_classification == EvidenceClassification.CREDIBLY_TRANSFERABLE
     )
@@ -206,7 +223,10 @@ def _section_from_verdict(evaluation: Evaluation | None) -> str:
             if missing == 0:
                 return "best_bets" if evaluation.verdict == Verdict.STRONG_MATCH else "good_fits"
             return "growth_bets" if missing == 1 else "attractive_stretches"
-        if evaluation.scope_fit == ScopeFit.ONE_STEP_UP and evaluation.verdict == Verdict.PLAUSIBLE_MATCH:
+        if (
+            evaluation.scope_fit == ScopeFit.ONE_STEP_UP
+            and evaluation.verdict == Verdict.PLAUSIBLE_MATCH
+        ):
             return "growth_bets" if missing <= 1 else "attractive_stretches"
     if not evaluation.worth_applying:
         return "rejected_or_unverified"
@@ -225,7 +245,11 @@ def _report_section(evaluation: Evaluation | None) -> str:
     """The report section a row belongs in: the verdict and evidence decide it, then the role's
     day-to-day work (``work_fit``) can only push it down."""
     section = _section_from_verdict(evaluation)
-    cap = _WORK_FIT_CAP.get(evaluation.work_fit) if evaluation is not None and evaluation.work_fit else None
+    cap = (
+        _WORK_FIT_CAP.get(evaluation.work_fit)
+        if evaluation is not None and evaluation.work_fit
+        else None
+    )
     if cap is not None and section in _SHORTLIST:
         return max(section, cap, key=_SHORTLIST.index)
     return section
@@ -245,7 +269,11 @@ def _clamped_compensation_score(job: JobPosting, settings: Settings) -> float:
     similarly-credible roles, clamped so an elite outlier salary can't out-rank a role the
     candidate is more credibly positioned to actually win."""
     candidates = [
-        v for v in (annualize(job.salary_min, job.salary_period), annualize(job.salary_max, job.salary_period))
+        v
+        for v in (
+            annualize(job.salary_min, job.salary_period),
+            annualize(job.salary_max, job.salary_period),
+        )
         if v is not None
     ]
     if not candidates:
@@ -276,7 +304,9 @@ def _rank_key(row: JobReportRow, settings: Settings) -> tuple:
 
 
 _SECTION_LABELS = {
-    "best_bets": "Best Bet", "good_fits": "Good Fit", "growth_bets": "Growth Bet",
+    "best_bets": "Best Bet",
+    "good_fits": "Good Fit",
+    "growth_bets": "Growth Bet",
     "attractive_stretches": "Attractive Stretch",
 }
 
@@ -309,9 +339,17 @@ def is_declined(evaluation: Evaluation) -> bool:
 
 
 def declined_reason(evaluation: Evaluation) -> str:
-    if evaluation.verdict != Verdict.REJECT and evaluation.working_hours_fit is not None and evaluation.working_hours_fit.disqualifies:
+    if (
+        evaluation.verdict != Verdict.REJECT
+        and evaluation.working_hours_fit is not None
+        and evaluation.working_hours_fit.disqualifies
+    ):
         return f'working hours fail the hours filter: "{evaluation.working_hours_quote}"'
-    if evaluation.verdict != Verdict.REJECT and evaluation.frontend_fit is not None and evaluation.frontend_fit.disqualifies:
+    if (
+        evaluation.verdict != Verdict.REJECT
+        and evaluation.frontend_fit is not None
+        and evaluation.frontend_fit.disqualifies
+    ):
         return f"more frontend work than your profile accepts: {evaluation.day_to_day_work}"
     return evaluation.primary_rejection_reason or "no reason recorded"
 
@@ -325,7 +363,9 @@ def _application_rows(
         job_id = job_ids.get(normalize_url(application.url))
         job = db.get_job(job_id) if job_id is not None else None
         waiting = (today - application.applied_on).days if application.status == "applied" else None
-        rows.append(ApplicationRow(application, job, _application_standing(db, job, settings), waiting))
+        rows.append(
+            ApplicationRow(application, job, _application_standing(db, job, settings), waiting)
+        )
     return rows
 
 
@@ -345,10 +385,16 @@ def assemble_report_data(
         evaluation = db.get_evaluation_for_job(job.id)
         if evaluation is not None:
             evaluation = settle_scope(evaluation)
-        rows.append(JobReportRow(
-            job=job, company=company, evaluation=evaluation,
-            applied_on=applied_on.get(normalize_url(job.posting_url)) if job.posting_url else None,
-        ))
+        rows.append(
+            JobReportRow(
+                job=job,
+                company=company,
+                evaluation=evaluation,
+                applied_on=applied_on.get(normalize_url(job.posting_url))
+                if job.posting_url
+                else None,
+            )
+        )
 
     # A posting already applied to leaves the shortlist — the Applications table shows where it
     # stands — so the sections hold only what still needs a decision. So does one at a company
@@ -358,11 +404,18 @@ def assemble_report_data(
     today = now_seattle().date()
     held_back: dict[str, int] = {}
     sections: dict[str, list[JobReportRow]] = {
-        "best_bets": [], "good_fits": [], "growth_bets": [], "attractive_stretches": [],
+        "best_bets": [],
+        "good_fits": [],
+        "growth_bets": [],
+        "attractive_stretches": [],
     }
     for row in rows:
         section = _report_section(row.evaluation)
-        if section in sections and row.applied_on is None and _still_passes_factual_filters(row, settings):
+        if (
+            section in sections
+            and row.applied_on is None
+            and _still_passes_factual_filters(row, settings)
+        ):
             pause = next((p for p in pauses if p.holds(row.company.name, today)), None)
             if pause is not None:
                 held_back[pause.company] = held_back.get(pause.company, 0) + 1

@@ -5,6 +5,7 @@ Plain ``sqlite3`` + explicit SQL rather than an ORM, so the schema and the query
 about. Enums are stored as their ``.value`` strings; datetimes as ISO-8601 strings (UTC);
 list/dict fields as JSON text.
 """
+
 from __future__ import annotations
 
 import json
@@ -232,7 +233,9 @@ class Database:
         self._add_column_if_missing("evaluation_runs", "triage_skipped", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "triage_input_tokens", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "triage_output_tokens", "INTEGER")
-        self._add_column_if_missing("evaluation_runs", "triage_cache_creation_input_tokens", "INTEGER")
+        self._add_column_if_missing(
+            "evaluation_runs", "triage_cache_creation_input_tokens", "INTEGER"
+        )
         self._add_column_if_missing("evaluation_runs", "triage_cache_read_input_tokens", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "triage_model", "TEXT")
         self._add_column_if_missing("companies", "applied", "INTEGER")
@@ -259,8 +262,12 @@ class Database:
             "WHERE model_name LIKE 'triage:%' AND scope_fit != 'not_assessed'"
         )
         self._keep_evaluation_history()
-        self.conn.execute("CREATE INDEX IF NOT EXISTS evaluations_by_job ON evaluations (job_id, id)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS evaluations_by_hash ON evaluations (description_hash, id)")
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS evaluations_by_job ON evaluations (job_id, id)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS evaluations_by_hash ON evaluations (description_hash, id)"
+        )
         self._backfill_details_hash()
 
     def _backfill_details_hash(self) -> None:
@@ -268,7 +275,12 @@ class Database:
         verdict was judged on. A cache-hit copy keeps its original's ``created_at``, so the earliest
         row with the same description and ``created_at`` is the one that was judged; a copy made
         for a posting in another location then stops matching, and that posting is judged anew."""
-        if self.conn.execute("SELECT 1 FROM evaluations WHERE details_hash IS NULL LIMIT 1").fetchone() is None:
+        if (
+            self.conn.execute(
+                "SELECT 1 FROM evaluations WHERE details_hash IS NULL LIMIT 1"
+            ).fetchone()
+            is None
+        ):
             return
         rows = self.conn.execute(
             "SELECT id, job_id, description_hash, created_at, details_hash FROM evaluations ORDER BY id"
@@ -300,14 +312,16 @@ class Database:
         text — a refresh, a model switch — overwrote the earlier verdict (observed: the switch to
         Sonnet 5.5 erased every Sonnet 5 verdict it replaced). Rebuild the table without that
         constraint: every evaluation is kept, and the newest one is current."""
-        sql = self.conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'evaluations'").fetchone()["sql"]
+        sql = self.conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'evaluations'"
+        ).fetchone()["sql"]
         unique = re.search(r",\s*UNIQUE\s*\(\s*job_id\s*,\s*description_hash\s*\)", sql)
         if unique is None:
             return
         self.conn.execute("BEGIN")
         try:
             self.conn.execute("ALTER TABLE evaluations RENAME TO evaluations_old")
-            self.conn.execute(sql[:unique.start()] + sql[unique.end():])
+            self.conn.execute(sql[: unique.start()] + sql[unique.end() :])
             self.conn.execute("INSERT INTO evaluations SELECT * FROM evaluations_old")
             self.conn.execute("DROP TABLE evaluations_old")
             self.conn.execute("COMMIT")
@@ -359,12 +373,19 @@ class Database:
                        classification_evidence=COALESCE(?, classification_evidence)
                        WHERE id=?""",
                     (
-                        company.name, company.domain, company.careers_url, int(company.active),
-                        int(company.applied), company.culture_score, company.culture_confidence,
-                        company.discovery_source, company.notes,
+                        company.name,
+                        company.domain,
+                        company.careers_url,
+                        int(company.active),
+                        int(company.applied),
+                        company.culture_score,
+                        company.culture_confidence,
+                        company.discovery_source,
+                        company.notes,
                         company.classification.value,
                         (company.classification_source or ClassificationSource.SEED).value,
-                        company.classification_confidence, company.classification_evidence,
+                        company.classification_confidence,
+                        company.classification_evidence,
                         company_id,
                     ),
                 )
@@ -470,7 +491,8 @@ class Database:
             if (company.ats_type, company.board_id) in keys:
                 continue
             job_ids = [
-                r["id"] for r in self.conn.execute("SELECT id FROM jobs WHERE company_id=?", (company.id,))
+                r["id"]
+                for r in self.conn.execute("SELECT id FROM jobs WHERE company_id=?", (company.id,))
             ]
             for job_id in job_ids:
                 self.conn.execute("DELETE FROM filter_log WHERE job_id=?", (job_id,))
@@ -514,8 +536,12 @@ class Database:
 
     def list_job_posting_urls(self) -> list[tuple[int, str]]:
         """(job id, posting URL) for every job ever seen, closed ones included."""
-        return [(row["id"], row["posting_url"])
-                for row in self.conn.execute("SELECT id, posting_url FROM jobs WHERE posting_url IS NOT NULL")]
+        return [
+            (row["id"], row["posting_url"])
+            for row in self.conn.execute(
+                "SELECT id, posting_url FROM jobs WHERE posting_url IS NOT NULL"
+            )
+        ]
 
     def get_job(self, job_id: int) -> JobPosting | None:
         row = self.conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
@@ -571,13 +597,30 @@ class Database:
                     first_seen_at, last_seen_at, closed_at, status, workplace_type)
                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    job.company_id, job.source.value, job.source_job_id, job.title,
-                    job.location_raw, job.remote_scope.value, job.employment_type_raw,
-                    job.employment_type.value, job.description_text, job.description_html,
-                    job.description_hash, job.salary_min, job.salary_max, job.salary_currency,
-                    job.salary_period, job.salary_source.value, job.posting_url, job.apply_url,
-                    job.department, _dt(job.published_at), _dt(job.first_seen_at),
-                    _dt(job.last_seen_at), _dt(job.closed_at), job.status.value,
+                    job.company_id,
+                    job.source.value,
+                    job.source_job_id,
+                    job.title,
+                    job.location_raw,
+                    job.remote_scope.value,
+                    job.employment_type_raw,
+                    job.employment_type.value,
+                    job.description_text,
+                    job.description_html,
+                    job.description_hash,
+                    job.salary_min,
+                    job.salary_max,
+                    job.salary_currency,
+                    job.salary_period,
+                    job.salary_source.value,
+                    job.posting_url,
+                    job.apply_url,
+                    job.department,
+                    _dt(job.published_at),
+                    _dt(job.first_seen_at),
+                    _dt(job.last_seen_at),
+                    _dt(job.closed_at),
+                    job.status.value,
                     job.workplace_type.value if job.workplace_type else None,
                 ),
             )
@@ -591,8 +634,13 @@ class Database:
                     salary_max, description_text)
                    VALUES (?,?,?,?,?,?,?,?)""",
                 (
-                    existing.id, existing.description_hash, _dt(now), existing.title,
-                    existing.location_raw, existing.salary_min, existing.salary_max,
+                    existing.id,
+                    existing.description_hash,
+                    _dt(now),
+                    existing.title,
+                    existing.location_raw,
+                    existing.salary_min,
+                    existing.salary_max,
                     existing.description_text,
                 ),
             )
@@ -605,17 +653,33 @@ class Database:
                closed_at=NULL, status='active', workplace_type=?
                WHERE id=?""",
             (
-                job.title, job.location_raw, job.remote_scope.value, job.employment_type_raw,
-                job.employment_type.value, job.description_text, job.description_html,
-                job.description_hash, job.salary_min, job.salary_max, job.salary_currency,
-                job.salary_period, job.salary_source.value, job.posting_url, job.apply_url,
-                job.department, _dt(job.published_at), _dt(now),
-                job.workplace_type.value if job.workplace_type else None, existing.id,
+                job.title,
+                job.location_raw,
+                job.remote_scope.value,
+                job.employment_type_raw,
+                job.employment_type.value,
+                job.description_text,
+                job.description_html,
+                job.description_hash,
+                job.salary_min,
+                job.salary_max,
+                job.salary_currency,
+                job.salary_period,
+                job.salary_source.value,
+                job.posting_url,
+                job.apply_url,
+                job.department,
+                _dt(job.published_at),
+                _dt(now),
+                job.workplace_type.value if job.workplace_type else None,
+                existing.id,
             ),
         )
         return existing.id, False, changed
 
-    def close_missing_jobs(self, company_id: int, seen_source_job_ids: set[str], when: datetime | None = None) -> int:
+    def close_missing_jobs(
+        self, company_id: int, seen_source_job_ids: set[str], when: datetime | None = None
+    ) -> int:
         when = when or _now()
         rows = self.conn.execute(
             "SELECT id, source_job_id FROM jobs WHERE company_id=? AND status='active'",
@@ -634,10 +698,13 @@ class Database:
     def get_active_jobs(self, company_id: int | None = None) -> list[JobPosting]:
         if company_id is not None:
             rows = self.conn.execute(
-                "SELECT * FROM jobs WHERE status='active' AND company_id=? ORDER BY id", (company_id,)
+                "SELECT * FROM jobs WHERE status='active' AND company_id=? ORDER BY id",
+                (company_id,),
             ).fetchall()
         else:
-            rows = self.conn.execute("SELECT * FROM jobs WHERE status='active' ORDER BY id").fetchall()
+            rows = self.conn.execute(
+                "SELECT * FROM jobs WHERE status='active' ORDER BY id"
+            ).fetchall()
         return [self._row_to_job(r) for r in rows]
 
     def count_jobs(self) -> int:
@@ -680,12 +747,17 @@ class Database:
         if not row["n"]:
             return None
         return EvaluateStats(
-            input_tokens=round(row["i"] or 0), output_tokens=round(row["o"] or 0),
-            cache_creation_input_tokens=round(row["w"] or 0), cache_read_input_tokens=round(row["r"] or 0),
+            input_tokens=round(row["i"] or 0),
+            output_tokens=round(row["o"] or 0),
+            cache_creation_input_tokens=round(row["w"] or 0),
+            cache_read_input_tokens=round(row["r"] or 0),
         )
 
     def get_evaluation_by_hash(
-        self, description_hash: str, rubric_versions: tuple[str, ...] | None = None, details_hash: str | None = None
+        self,
+        description_hash: str,
+        rubric_versions: tuple[str, ...] | None = None,
+        details_hash: str | None = None,
     ) -> Evaluation | None:
         """The latest evaluation of this description; with ``rubric_versions``, the latest one made
         under any of those rubrics, and with ``details_hash``, the latest one judged on a posting
@@ -697,7 +769,9 @@ class Database:
         if rubric_versions is not None:
             where += f" AND rubric_version IN ({','.join('?' * len(rubric_versions))})"
             params.extend(rubric_versions)
-        row = self.conn.execute(f"SELECT * FROM evaluations WHERE {where} ORDER BY id DESC LIMIT 1", params).fetchone()
+        row = self.conn.execute(
+            f"SELECT * FROM evaluations WHERE {where} ORDER BY id DESC LIMIT 1", params
+        ).fetchone()
         return self._row_to_evaluation(row) if row else None
 
     def get_evaluation_for_job(self, job_id: int) -> Evaluation | None:
@@ -718,7 +792,9 @@ class Database:
             scope_fit=ScopeFit(row["scope_fit"]),
             evidence_coverage_percent=row["evidence_coverage_percent"],
             specialist_tenure_assessment=SpecialistTenureAssessment(
-                classification=SpecialistTenureClassification(specialist_tenure_raw.get("classification", "not_applicable")),
+                classification=SpecialistTenureClassification(
+                    specialist_tenure_raw.get("classification", "not_applicable")
+                ),
                 specialty=specialist_tenure_raw.get("specialty", ""),
                 explanation=specialist_tenure_raw.get("explanation", ""),
             ),
@@ -729,7 +805,9 @@ class Database:
                     evidence_classification=EvidenceClassification(item["evidence_classification"]),
                     candidate_evidence=item["candidate_evidence"],
                     posting_evidence=item["posting_evidence"],
-                    stated_as=RequirementStrength(item["stated_as"]) if item.get("stated_as") else None,
+                    stated_as=RequirementStrength(item["stated_as"])
+                    if item.get("stated_as")
+                    else None,
                 )
                 for item in requirement_evidence_raw
             ],
@@ -748,7 +826,9 @@ class Database:
             primary_rejection_reason=row["primary_rejection_reason"],
             # NULL for evaluations cached before this column existed — default True so they
             # aren't retroactively treated as "not worth applying" (see Evaluation.worth_applying).
-            worth_applying=bool(row["worth_applying"]) if row["worth_applying"] is not None else True,
+            worth_applying=bool(row["worth_applying"])
+            if row["worth_applying"] is not None
+            else True,
             model_name=row["model_name"],
             input_tokens=row["input_tokens"],
             output_tokens=row["output_tokens"],
@@ -757,7 +837,9 @@ class Database:
             created_at=_parse_dt(row["created_at"]),
             rubric_version=row["rubric_version"],
             working_hours_quote=row["working_hours_quote"] or "",
-            working_hours_fit=WorkingHoursFit(row["working_hours_fit"]) if row["working_hours_fit"] else None,
+            working_hours_fit=WorkingHoursFit(row["working_hours_fit"])
+            if row["working_hours_fit"]
+            else None,
             day_to_day_work=row["day_to_day_work"] or "",
             work_fit=WorkFit(row["work_fit"]) if row["work_fit"] else None,
             frontend_fit=FrontendFit(row["frontend_fit"]) if row["frontend_fit"] else None,
@@ -798,19 +880,35 @@ class Database:
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                """,
             (
-                evaluation.job_id, evaluation.description_hash, evaluation.verdict.value,
-                evaluation.confidence, evaluation.scope_fit.value, evaluation.evidence_coverage_percent,
-                specialist_tenure_json, requirement_evidence_json,
-                json.dumps(evaluation.growth_dimensions), json.dumps(evaluation.hidden_staff_signals),
-                evaluation.compensation_assessment, evaluation.remote_employment_verification,
-                json.dumps(evaluation.required_matches), json.dumps(evaluation.required_gaps),
-                json.dumps(evaluation.preferred_only_gaps), json.dumps(evaluation.minor_caveats),
-                json.dumps(evaluation.evidence), evaluation.credibility_assessment,
-                evaluation.why_this_is_or_is_not_gettable, int(evaluation.is_product_company),
-                evaluation.primary_rejection_reason, int(evaluation.worth_applying),
-                evaluation.model_name, evaluation.input_tokens, evaluation.output_tokens,
-                evaluation.cache_creation_input_tokens, evaluation.cache_read_input_tokens,
-                _dt(evaluation.created_at), evaluation.rubric_version,
+                evaluation.job_id,
+                evaluation.description_hash,
+                evaluation.verdict.value,
+                evaluation.confidence,
+                evaluation.scope_fit.value,
+                evaluation.evidence_coverage_percent,
+                specialist_tenure_json,
+                requirement_evidence_json,
+                json.dumps(evaluation.growth_dimensions),
+                json.dumps(evaluation.hidden_staff_signals),
+                evaluation.compensation_assessment,
+                evaluation.remote_employment_verification,
+                json.dumps(evaluation.required_matches),
+                json.dumps(evaluation.required_gaps),
+                json.dumps(evaluation.preferred_only_gaps),
+                json.dumps(evaluation.minor_caveats),
+                json.dumps(evaluation.evidence),
+                evaluation.credibility_assessment,
+                evaluation.why_this_is_or_is_not_gettable,
+                int(evaluation.is_product_company),
+                evaluation.primary_rejection_reason,
+                int(evaluation.worth_applying),
+                evaluation.model_name,
+                evaluation.input_tokens,
+                evaluation.output_tokens,
+                evaluation.cache_creation_input_tokens,
+                evaluation.cache_read_input_tokens,
+                _dt(evaluation.created_at),
+                evaluation.rubric_version,
                 evaluation.working_hours_quote,
                 evaluation.working_hours_fit.value if evaluation.working_hours_fit else None,
                 evaluation.day_to_day_work,
@@ -832,8 +930,12 @@ class Database:
                ON CONFLICT(entity_type, entity_id, field) DO UPDATE SET
                  value=excluded.value, reason=excluded.reason, created_at=excluded.created_at""",
             (
-                override.entity_type, override.entity_id, override.field, override.value,
-                override.reason, _dt(override.created_at),
+                override.entity_type,
+                override.entity_id,
+                override.field,
+                override.value,
+                override.reason,
+                _dt(override.created_at),
             ),
         )
         return cur.lastrowid
@@ -864,10 +966,16 @@ class Database:
                boards_failed=?, postings_fetched=?, postings_out_of_family=?, new_postings=?,
                changed_postings=?, closed_postings=? WHERE id=?""",
             (
-                _dt(stats.finished_at or _now()), stats.companies_attempted,
-                stats.companies_succeeded, json.dumps(stats.boards_failed),
-                stats.postings_fetched, stats.postings_out_of_family, stats.new_postings,
-                stats.changed_postings, stats.closed_postings, run_id,
+                _dt(stats.finished_at or _now()),
+                stats.companies_attempted,
+                stats.companies_succeeded,
+                json.dumps(stats.boards_failed),
+                stats.postings_fetched,
+                stats.postings_out_of_family,
+                stats.new_postings,
+                stats.changed_postings,
+                stats.closed_postings,
+                run_id,
             ),
         )
 
@@ -917,15 +1025,29 @@ class Database:
                triage_model=?, newly_filtered=?, new_verdict_counts=?
                WHERE id=?""",
             (
-                _dt(stats.finished_at or _now()), stats.jobs_considered, stats.factual_rejected,
-                stats.companies_classified, stats.sent_to_llm, stats.cache_hits,
-                stats.manual_overrides_applied, json.dumps(stats.verdict_counts),
-                stats.unverified, stats.llm_errors, stats.input_tokens, stats.output_tokens,
-                stats.cache_creation_input_tokens, stats.cache_read_input_tokens,
-                stats.triaged, stats.triage_skipped, stats.triage_input_tokens,
-                stats.triage_output_tokens, stats.triage_cache_creation_input_tokens,
-                stats.triage_cache_read_input_tokens, stats.triage_model,
-                stats.newly_filtered, json.dumps(stats.new_verdict_counts),
+                _dt(stats.finished_at or _now()),
+                stats.jobs_considered,
+                stats.factual_rejected,
+                stats.companies_classified,
+                stats.sent_to_llm,
+                stats.cache_hits,
+                stats.manual_overrides_applied,
+                json.dumps(stats.verdict_counts),
+                stats.unverified,
+                stats.llm_errors,
+                stats.input_tokens,
+                stats.output_tokens,
+                stats.cache_creation_input_tokens,
+                stats.cache_read_input_tokens,
+                stats.triaged,
+                stats.triage_skipped,
+                stats.triage_input_tokens,
+                stats.triage_output_tokens,
+                stats.triage_cache_creation_input_tokens,
+                stats.triage_cache_read_input_tokens,
+                stats.triage_model,
+                stats.newly_filtered,
+                json.dumps(stats.new_verdict_counts),
                 run_id,
             ),
         )

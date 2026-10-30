@@ -35,8 +35,12 @@ from tests.fakes import (
 
 
 def triage_response(
-    skip_full_evaluation: bool, reason="test reason", input_tokens=30, output_tokens=10,
-    disqualifier=None, quote=None,
+    skip_full_evaluation: bool,
+    reason="test reason",
+    input_tokens=30,
+    output_tokens=10,
+    disqualifier=None,
+    quote=None,
 ):
     """A skip defaults to one the substantiation check accepts: an allowed category, quoting words
     that really are in seed_job's default description."""
@@ -44,10 +48,17 @@ def triage_response(
         disqualifier = "excluded_industry" if skip_full_evaluation else "none"
     if quote is None:
         quote = "We build our own SaaS product." if skip_full_evaluation else ""
-    return json_response({
-        "disqualifier_quote": quote, "quote_is_hard_requirement": skip_full_evaluation,
-        "disqualifier": disqualifier, "skip_full_evaluation": skip_full_evaluation, "reason": reason,
-    }, input_tokens, output_tokens)
+    return json_response(
+        {
+            "disqualifier_quote": quote,
+            "quote_is_hard_requirement": skip_full_evaluation,
+            "disqualifier": disqualifier,
+            "skip_full_evaluation": skip_full_evaluation,
+            "reason": reason,
+        },
+        input_tokens,
+        output_tokens,
+    )
 
 
 class ConcurrentSdk:
@@ -72,26 +83,41 @@ class ConcurrentSdk:
 class TestParallelEvaluation:
     def _seed(self, db, settings, descriptions):
         company = seed_company(db)
-        return [seed_job(db, settings, company, source_job_id=str(i),
-                         description=f"{text} $180,000 - $220,000 per year.")
-                for i, text in enumerate(descriptions)]
+        return [
+            seed_job(
+                db,
+                settings,
+                company,
+                source_job_id=str(i),
+                description=f"{text} $180,000 - $220,000 per year.",
+            )
+            for i, text in enumerate(descriptions)
+        ]
 
     def test_llm_calls_overlap_and_every_verdict_is_saved(self, db: Database, settings):
         jobs = self._seed(db, settings, [f"We build product {i}." for i in range(6)])
         sdk = ConcurrentSdk(barrier=threading.Barrier(3))
 
-        stats = evaluate_all(db, dataclasses.replace(settings, evaluate_workers=3),
-                             client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db,
+            dataclasses.replace(settings, evaluate_workers=3),
+            client=AnthropicClient(api_key=None, model="test-model", client=sdk),
+        )
 
         assert sdk.calls == 6 and stats.sent_to_llm == 6
         assert all(db.get_evaluation_for_job(job.id) is not None for job in jobs)
 
     def test_postings_sharing_a_description_still_cost_one_call(self, db: Database, settings):
-        jobs = self._seed(db, settings, ["We build product A.", "We build product A.", "We build product B."])
+        jobs = self._seed(
+            db, settings, ["We build product A.", "We build product A.", "We build product B."]
+        )
         sdk = ConcurrentSdk()
 
-        stats = evaluate_all(db, dataclasses.replace(settings, evaluate_workers=3),
-                             client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db,
+            dataclasses.replace(settings, evaluate_workers=3),
+            client=AnthropicClient(api_key=None, model="test-model", client=sdk),
+        )
 
         assert sdk.calls == 2
         assert (stats.sent_to_llm, stats.cache_hits) == (2, 1)
@@ -100,8 +126,13 @@ class TestParallelEvaluation:
     def test_a_failed_call_leaves_its_followers_awaiting_too(self, db: Database, settings):
         self._seed(db, settings, ["We build product A.", "We build product A."])
 
-        stats = evaluate_all(db, dataclasses.replace(settings, evaluate_workers=2),
-                             client=AnthropicClient(api_key=None, model="test-model", client=ConcurrentSdk(fail=True)))
+        stats = evaluate_all(
+            db,
+            dataclasses.replace(settings, evaluate_workers=2),
+            client=AnthropicClient(
+                api_key=None, model="test-model", client=ConcurrentSdk(fail=True)
+            ),
+        )
 
         assert (stats.llm_errors, stats.unverified, stats.sent_to_llm) == (1, 2, 0)
 
@@ -109,8 +140,12 @@ class TestParallelEvaluation:
         self._seed(db, settings, [f"We build product {i}." for i in range(5)])
         sdk = ConcurrentSdk()
 
-        stats = evaluate_all(db, dataclasses.replace(settings, evaluate_workers=4), limit=2,
-                             client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db,
+            dataclasses.replace(settings, evaluate_workers=4),
+            limit=2,
+            client=AnthropicClient(api_key=None, model="test-model", client=sdk),
+        )
 
         assert sdk.calls == 2 and stats.sent_to_llm == 2
 
@@ -118,8 +153,12 @@ class TestParallelEvaluation:
         self._seed(db, settings, ["We build product A.", "We build product B."])
         sdk = ConcurrentSdk()
 
-        stats = evaluate_all(db, dataclasses.replace(settings, anthropic_api_key="sk-test", triage_model="t"),
-                             client=AnthropicClient(api_key=None, model="test-model", client=sdk), dry_run=True)
+        stats = evaluate_all(
+            db,
+            dataclasses.replace(settings, anthropic_api_key="sk-test", triage_model="t"),
+            client=AnthropicClient(api_key=None, model="test-model", client=sdk),
+            dry_run=True,
+        )
 
         assert sdk.calls == 0
         assert stats.unverified == 2
@@ -140,17 +179,28 @@ class TestEvaluateAll:
     def test_llm_evaluation_happy_path(self, db: Database, settings):
         company = seed_company(db)
         seed_job(db, settings, company)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(VALID_EVALUATION)]))
+        client = AnthropicClient(
+            api_key=None,
+            model="test-model",
+            client=FakeSdkClient([json_response(VALID_EVALUATION)]),
+        )
 
         stats = evaluate_all(db, settings, client=client)
 
         assert stats.sent_to_llm == 1
         assert stats.verdict_counts["strong_match"] == 1
 
-    NEAR_MISS: ClassVar[dict] = {**VALID_EVALUATION, "verdict": "borderline", "scope_fit": "one_step_up",
-                 "worth_applying": False, "primary_rejection_reason": "Go and React day to day"}
+    NEAR_MISS: ClassVar[dict] = {
+        **VALID_EVALUATION,
+        "verdict": "borderline",
+        "scope_fit": "one_step_up",
+        "worth_applying": False,
+        "primary_rejection_reason": "Go and React day to day",
+    }
 
-    def test_near_miss_gets_a_second_look_and_keeps_the_more_favourable(self, db: Database, settings):
+    def test_near_miss_gets_a_second_look_and_keeps_the_more_favourable(
+        self, db: Database, settings
+    ):
         # The same posting came back not-worth-applying twice and worth-applying once in three
         # live runs; one unlucky sample shouldn't decide it.
         company = seed_company(db)
@@ -170,8 +220,11 @@ class TestEvaluateAll:
         company = seed_company(db)
         job = seed_job(db, settings, company)
         worse = {**self.NEAR_MISS, "verdict": "reject"}
-        client = AnthropicClient(api_key=None, model="test-model",
-                                 client=FakeSdkClient([json_response(self.NEAR_MISS), json_response(worse)]))
+        client = AnthropicClient(
+            api_key=None,
+            model="test-model",
+            client=FakeSdkClient([json_response(self.NEAR_MISS), json_response(worse)]),
+        )
 
         stats = evaluate_all(db, settings, client=client)
 
@@ -184,7 +237,9 @@ class TestEvaluateAll:
         reject = {**self.NEAR_MISS, "verdict": "reject"}
         sdk = FakeSdkClient([json_response(reject)])
 
-        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
 
         assert sdk.messages.call_count == 1
         assert stats.second_looks == 0
@@ -194,7 +249,9 @@ class TestEvaluateAll:
         job = seed_job(db, settings, company)
         sdk = FakeSdkClient([json_response(self.NEAR_MISS), refusal_response()])
 
-        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
 
         assert sdk.messages.call_count == 2
         assert (stats.second_looks, stats.llm_errors, stats.sent_to_llm) == (0, 0, 1)
@@ -228,8 +285,12 @@ class TestEvaluateAll:
         assert stats.sent_to_llm == 1
         assert stats.cache_hits == 1
 
-    @pytest.mark.parametrize("other", [{"location": "New York, NY (Remote)"}, {"title": "Senior Backend Engineer II"}])
-    def test_same_description_with_other_details_is_judged_on_its_own(self, db: Database, settings, other):
+    @pytest.mark.parametrize(
+        "other", [{"location": "New York, NY (Remote)"}, {"title": "Senior Backend Engineer II"}]
+    )
+    def test_same_description_with_other_details_is_judged_on_its_own(
+        self, db: Database, settings, other
+    ):
         # Mesh posted one Senior Backend Engineer text in New York, San Francisco and "United States -
         # Remote"; the remote copy carried the New York copy's hybrid rejection.
         company = seed_company(db)
@@ -238,7 +299,9 @@ class TestEvaluateAll:
         seed_job(db, settings, company, source_job_id="2", description=same_description, **other)
 
         sdk = FakeSdkClient([json_response(VALID_EVALUATION), json_response(VALID_EVALUATION)])
-        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
 
         assert sdk.messages.call_count == 2
         assert (stats.sent_to_llm, stats.cache_hits) == (2, 0)
@@ -249,20 +312,32 @@ class TestEvaluateAll:
         company = seed_company(db)
         same_description = "We build our own SaaS product. $180,000 - $220,000 per year."
         judged = seed_job(db, settings, company, source_job_id="1", description=same_description)
-        elsewhere = seed_job(db, settings, company, source_job_id="2", description=same_description,
-                             location="New York, NY (Remote)")
+        elsewhere = seed_job(
+            db,
+            settings,
+            company,
+            source_job_id="2",
+            description=same_description,
+            location="New York, NY (Remote)",
+        )
         original = make_evaluation(judged.id, description_hash=judged.description_hash)
         db.save_evaluation(original)
-        db.save_evaluation(dataclasses.replace(original, job_id=elsewhere.id))  # an old cache-hit copy
+        db.save_evaluation(
+            dataclasses.replace(original, job_id=elsewhere.id)
+        )  # an old cache-hit copy
         db.conn.execute("UPDATE evaluations SET details_hash = NULL")
 
         db._backfill_details_hash()
         sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
-        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
 
         assert sdk.messages.call_count == 1  # only the copy in New York is judged again
         assert (stats.sent_to_llm, stats.cache_hits) == (1, 1)
-        assert db.get_evaluation_for_job(elsewhere.id).details_hash == compute_details_hash(elsewhere)
+        assert db.get_evaluation_for_job(elsewhere.id).details_hash == compute_details_hash(
+            elsewhere
+        )
 
     def test_no_api_key_marks_unverified_not_rejected(self, db: Database, settings):
         company = seed_company(db)
@@ -278,7 +353,9 @@ class TestEvaluateAll:
         company = seed_company(db)
         job = seed_job(db, settings, company, description="No salary published here.")
         db.set_manual_override(
-            ManualOverride("job", job.id, "verdict", "strong_match", "I know this role", datetime.now(UTC))
+            ManualOverride(
+                "job", job.id, "verdict", "strong_match", "I know this role", datetime.now(UTC)
+            )
         )
         client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
 
@@ -293,30 +370,56 @@ class TestEvaluateAll:
         company = seed_company(db)
         job = seed_job(db, settings, company)
         db.set_manual_override(
-            ManualOverride("job", job.id, "verdict", "strong_match", "I know this role", datetime.now(UTC))
+            ManualOverride(
+                "job", job.id, "verdict", "strong_match", "I know this role", datetime.now(UTC)
+            )
         )
         for _ in range(3):
-            evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])))
+            evaluate_all(
+                db,
+                settings,
+                client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])),
+            )
 
-        assert db.conn.execute("SELECT COUNT(*) FROM evaluations WHERE job_id = ?", (job.id,)).fetchone()[0] == 1
+        assert (
+            db.conn.execute(
+                "SELECT COUNT(*) FROM evaluations WHERE job_id = ?", (job.id,)
+            ).fetchone()[0]
+            == 1
+        )
 
-    def test_postings_sharing_a_description_do_not_grow_the_history_every_run(self, db: Database, settings):
+    def test_postings_sharing_a_description_do_not_grow_the_history_every_run(
+        self, db: Database, settings
+    ):
         company = seed_company(db)
         same_description = "We build our own SaaS product. $180,000 - $220,000 per year."
         seed_job(db, settings, company, source_job_id="1", description=same_description)
         seed_job(db, settings, company, source_job_id="2", description=same_description)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(VALID_EVALUATION)]))
+        client = AnthropicClient(
+            api_key=None,
+            model="test-model",
+            client=FakeSdkClient([json_response(VALID_EVALUATION)]),
+        )
 
         for _ in range(3):
             evaluate_all(db, settings, client=client)
 
         assert db.conn.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0] == 2
 
-    def test_company_classification_override_rejects_without_llm_classification_call(self, db: Database, settings):
+    def test_company_classification_override_rejects_without_llm_classification_call(
+        self, db: Database, settings
+    ):
         company = seed_company(db, classification=CompanyClassification.UNKNOWN)
         seed_job(db, settings, company)
         db.set_manual_override(
-            ManualOverride("company", company.id, "classification", "consulting", "known staffing shop", datetime.now(UTC))
+            ManualOverride(
+                "company",
+                company.id,
+                "classification",
+                "consulting",
+                "known staffing shop",
+                datetime.now(UTC),
+            )
         )
         client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
 
@@ -330,7 +433,11 @@ class TestEvaluateAll:
         # most recent run's stats from the database rather than showing nothing.
         company = seed_company(db)
         seed_job(db, settings, company)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(VALID_EVALUATION)]))
+        client = AnthropicClient(
+            api_key=None,
+            model="test-model",
+            client=FakeSdkClient([json_response(VALID_EVALUATION)]),
+        )
 
         stats = evaluate_all(db, settings, client=client)
 
@@ -346,7 +453,9 @@ class TestEvaluateAll:
         # Observed: a run with no new postings reported "1744 factually rejected" — the whole pool.
         company = seed_company(db)
         seed_job(db, settings, company, source_job_id="1")
-        seed_job(db, settings, company, source_job_id="2", description="No salary mentioned here at all.")
+        seed_job(
+            db, settings, company, source_job_id="2", description="No salary mentioned here at all."
+        )
         sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
@@ -366,7 +475,9 @@ class TestEvaluateAll:
         db.conn.execute("UPDATE companies SET active = 0 WHERE id = ?", (company.id,))
         sdk = FakeSdkClient([])
 
-        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
 
         assert stats.jobs_considered == 0
         assert sdk.messages.call_count == 0
@@ -375,7 +486,11 @@ class TestEvaluateAll:
         company = seed_company(db)
         for i in range(3):
             seed_job(
-                db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}",
+                db,
+                settings,
+                company,
+                source_job_id=str(i),
+                title=f"Senior Backend Engineer {i}",
                 description=f"We build our own SaaS product, role variant {i}. $180,000 - $220,000 per year.",
             )
         sdk = FakeSdkClient([json_response(VALID_EVALUATION), json_response(VALID_EVALUATION)])
@@ -392,13 +507,29 @@ class TestCompanyClassification:
     postings before any job evaluation — the one LLM answer that is final."""
 
     @respx.mock
-    def test_a_company_classified_as_consulting_has_its_postings_rejected(self, db: Database, settings):
-        respx.get("https://acme.example.com/").mock(return_value=httpx.Response(200, text="<main>We staff your teams.</main>"))
+    def test_a_company_classified_as_consulting_has_its_postings_rejected(
+        self, db: Database, settings
+    ):
+        respx.get("https://acme.example.com/").mock(
+            return_value=httpx.Response(200, text="<main>We staff your teams.</main>")
+        )
         company = seed_company(db, classification=CompanyClassification.UNKNOWN)
         job = seed_job(db, settings, company)
-        sdk = FakeSdkClient([json_response({"classification": "consulting", "confidence": 0.9, "evidence": "A staffing firm."})])
+        sdk = FakeSdkClient(
+            [
+                json_response(
+                    {
+                        "classification": "consulting",
+                        "confidence": 0.9,
+                        "evidence": "A staffing firm.",
+                    }
+                )
+            ]
+        )
 
-        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
 
         assert (stats.companies_classified, stats.factual_rejected, stats.sent_to_llm) == (1, 1, 0)
         assert db.get_company(company.id).classification == CompanyClassification.CONSULTING
@@ -411,12 +542,18 @@ class TestCompanyClassification:
         respx.get("https://acme.example.com/").mock(return_value=httpx.Response(404))
         company = seed_company(db, classification=CompanyClassification.UNKNOWN)
         seed_job(db, settings, company)
-        sdk = FakeSdkClient([
-            json_response({"classification": "nonprofit", "confidence": 0.5, "evidence": "unclear"}),
-            json_response(VALID_EVALUATION),
-        ])
+        sdk = FakeSdkClient(
+            [
+                json_response(
+                    {"classification": "nonprofit", "confidence": 0.5, "evidence": "unclear"}
+                ),
+                json_response(VALID_EVALUATION),
+            ]
+        )
 
-        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
 
         assert (stats.companies_classified, stats.factual_rejected, stats.sent_to_llm) == (0, 0, 1)
         assert db.get_company(company.id).classification == CompanyClassification.UNKNOWN
@@ -427,11 +564,15 @@ class TestEstimatedCost:
         # $3/MTok input, $15/MTok output (from the settings fixture). Cache writes cost 1.25x
         # base input, cache reads 0.1x — Anthropic's standard ephemeral-cache multipliers.
         stats = EvaluateStats(
-            input_tokens=1000, cache_creation_input_tokens=1000, cache_read_input_tokens=1000,
+            input_tokens=1000,
+            cache_creation_input_tokens=1000,
+            cache_read_input_tokens=1000,
             output_tokens=1000,
         )
         cost = stats.estimated_cost_usd(settings)
-        expected = (1000 * 3.0 + 1000 * 3.0 * 1.25 + 1000 * 3.0 * 0.1) / 1_000_000 + 1000 * 15.0 / 1_000_000
+        expected = (
+            1000 * 3.0 + 1000 * 3.0 * 1.25 + 1000 * 3.0 * 0.1
+        ) / 1_000_000 + 1000 * 15.0 / 1_000_000
         assert cost == pytest.approx(expected)
 
     def test_zero_cache_tokens_matches_plain_input_output_cost(self, settings):
@@ -449,8 +590,11 @@ class TestEstimatedCost:
         # this fixture) — its tokens must use ITS pricing, not the main model's, or a run using
         # both would silently misreport cost.
         stats = EvaluateStats(
-            input_tokens=1000, output_tokens=200,
-            triage_input_tokens=5000, triage_output_tokens=500, triage_model="claude-haiku-test",
+            input_tokens=1000,
+            output_tokens=200,
+            triage_input_tokens=5000,
+            triage_output_tokens=500,
+            triage_model="claude-haiku-test",
         )
         cost = stats.estimated_cost_usd(settings)
         expected = (1000 * 3.0 + 200 * 15.0) / 1_000_000 + (5000 * 0.8 + 500 * 4.0) / 1_000_000
@@ -461,8 +605,11 @@ class TestEstimatedCost:
         # pricing entry — that would make estimated_cost_usd return None for the whole run over a
         # config gap in a secondary, optional feature.
         stats = EvaluateStats(
-            input_tokens=1000, output_tokens=200,
-            triage_input_tokens=5000, triage_output_tokens=500, triage_model="some-unpriced-triage-model",
+            input_tokens=1000,
+            output_tokens=200,
+            triage_input_tokens=5000,
+            triage_output_tokens=500,
+            triage_model="some-unpriced-triage-model",
         )
         cost = stats.estimated_cost_usd(settings)
         assert cost == pytest.approx((1000 * 3.0 + 200 * 15.0) / 1_000_000)
@@ -475,7 +622,9 @@ class TestTriageIntegration:
 
         full_eval_sdk = FakeSdkClient([])  # no responses queued — an unexpected call raises
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
-        triage_sdk = FakeSdkClient([triage_response(skip_full_evaluation=True, reason="Requires 8+ years Rust.")])
+        triage_sdk = FakeSdkClient(
+            [triage_response(skip_full_evaluation=True, reason="Requires 8+ years Rust.")]
+        )
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
 
         stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
@@ -493,20 +642,31 @@ class TestTriageIntegration:
         assert saved.model_name == "triage:test-haiku-model"
         assert saved.evidence == ['excluded_industry: "We build our own SaaS product."']
 
-    def test_skip_the_posting_does_not_support_goes_to_the_full_evaluation(self, db: Database, settings):
+    def test_skip_the_posting_does_not_support_goes_to_the_full_evaluation(
+        self, db: Database, settings
+    ):
         # Observed live: Haiku skipped a Software Engineer II as "overqualified" despite being told
         # level is not a skip reason. A skip now needs an allowed category and a real quote.
         company = seed_company(db)
         seed_job(db, settings, company)
         full_eval_sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
-        triage_sdk = FakeSdkClient([triage_response(
-            skip_full_evaluation=True, disqualifier="required_specialty", quote="would be overqualified",
-        )])
+        triage_sdk = FakeSdkClient(
+            [
+                triage_response(
+                    skip_full_evaluation=True,
+                    disqualifier="required_specialty",
+                    quote="would be overqualified",
+                )
+            ]
+        )
 
         stats = evaluate_all(
-            db, settings,
+            db,
+            settings,
             client=AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk),
-            triage_client=AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk),
+            triage_client=AnthropicClient(
+                api_key=None, model="test-haiku-model", client=triage_sdk
+            ),
         )
 
         assert full_eval_sdk.messages.call_count == 1
@@ -516,11 +676,17 @@ class TestTriageIntegration:
         company = seed_company(db)
         job = seed_job(db, settings, company)
         triage_client = AnthropicClient(
-            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_response(skip_full_evaluation=True)])
+            api_key=None,
+            model="test-haiku-model",
+            client=FakeSdkClient([triage_response(skip_full_evaluation=True)]),
         )
 
-        evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])),
-                     triage_client=triage_client)
+        evaluate_all(
+            db,
+            settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])),
+            triage_client=triage_client,
+        )
 
         assert db.get_evaluation_for_job(job.id).scope_fit == ScopeFit.NOT_ASSESSED
 
@@ -530,7 +696,9 @@ class TestTriageIntegration:
 
         full_eval_sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
-        triage_sdk = FakeSdkClient([triage_response(skip_full_evaluation=False, reason="Real overlap.")])
+        triage_sdk = FakeSdkClient(
+            [triage_response(skip_full_evaluation=False, reason="Real overlap.")]
+        )
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
 
         stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
@@ -548,7 +716,9 @@ class TestTriageIntegration:
 
         full_eval_sdk = FakeSdkClient([json_response(VALID_EVALUATION)])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
-        triage_sdk = FakeSdkClient([SimpleNamespace(content=[], usage=SimpleNamespace(input_tokens=0, output_tokens=0))])
+        triage_sdk = FakeSdkClient(
+            [SimpleNamespace(content=[], usage=SimpleNamespace(input_tokens=0, output_tokens=0))]
+        )
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
 
         stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
@@ -575,14 +745,18 @@ class TestTriageIntegration:
     def test_limit_counts_triage_calls(self, db: Database, settings):
         company = seed_company(db)
         for i in range(2):
-            seed_job(db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}")
+            seed_job(
+                db, settings, company, source_job_id=str(i), title=f"Senior Backend Engineer {i}"
+            )
 
         full_eval_sdk = FakeSdkClient([])
         full_eval_client = AnthropicClient(api_key=None, model="test-model", client=full_eval_sdk)
         triage_sdk = FakeSdkClient([triage_response(skip_full_evaluation=True)])
         triage_client = AnthropicClient(api_key=None, model="test-haiku-model", client=triage_sdk)
 
-        stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client, limit=1)
+        stats = evaluate_all(
+            db, settings, client=full_eval_client, triage_client=triage_client, limit=1
+        )
 
         assert stats.triaged == 1
         assert full_eval_sdk.messages.call_count == 0
@@ -591,10 +765,15 @@ class TestTriageIntegration:
         company = seed_company(db)
         seed_job(db, settings, company)
 
-        full_eval_client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
+        full_eval_client = AnthropicClient(
+            api_key=None, model="test-model", client=FakeSdkClient([])
+        )
         triage_client = AnthropicClient(
-            api_key=None, model="test-haiku-model",
-            client=FakeSdkClient([triage_response(skip_full_evaluation=True, reason="No overlap.")]),
+            api_key=None,
+            model="test-haiku-model",
+            client=FakeSdkClient(
+                [triage_response(skip_full_evaluation=True, reason="No overlap.")]
+            ),
         )
 
         stats = evaluate_all(db, settings, client=full_eval_client, triage_client=triage_client)
@@ -612,11 +791,15 @@ def profile_text(settings) -> str:
 
 
 def full_rubric(settings) -> str:
-    return evaluation_rubric_version(profile_text(settings), settings.anthropic_model, settings.anthropic_thinking)
+    return evaluation_rubric_version(
+        profile_text(settings), settings.anthropic_model, settings.anthropic_thinking
+    )
 
 
 def triage_rubric(settings) -> str:
-    return triage_rubric_version(profile_text(settings), settings.triage_model or "", settings.triage_thinking)
+    return triage_rubric_version(
+        profile_text(settings), settings.triage_model or "", settings.triage_thinking
+    )
 
 
 class TestRubricVersion:
@@ -627,12 +810,16 @@ class TestRubricVersion:
     def _evaluate_once(self, db, settings, input_dict=VALID_EVALUATION):
         company = seed_company(db)
         job = seed_job(db, settings, company)
-        client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([json_response(input_dict)]))
+        client = AnthropicClient(
+            api_key=None, model="test-model", client=FakeSdkClient([json_response(input_dict)])
+        )
         evaluate_all(db, settings, client=client)
         return job
 
     def _age(self, db, job):
-        db.conn.execute("UPDATE evaluations SET rubric_version = 'older-rubric' WHERE job_id = ?", (job.id,))
+        db.conn.execute(
+            "UPDATE evaluations SET rubric_version = 'older-rubric' WHERE job_id = ?", (job.id,)
+        )
 
     def test_full_evaluation_records_the_current_rubric(self, db: Database, settings):
         job = self._evaluate_once(db, settings)
@@ -643,7 +830,9 @@ class TestRubricVersion:
         company = seed_company(db)
         job = seed_job(db, settings, company)
         triage_client = AnthropicClient(
-            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_response(skip_full_evaluation=True)])
+            api_key=None,
+            model="test-haiku-model",
+            client=FakeSdkClient([triage_response(skip_full_evaluation=True)]),
         )
         full_client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
 
@@ -652,9 +841,15 @@ class TestRubricVersion:
         assert db.get_evaluation_for_job(job.id).rubric_version == triage_rubric(settings)
 
     def test_rubric_versions_change_with_the_profile_and_differ_by_kind(self):
-        assert evaluation_rubric_version("profile A", "m", None) != evaluation_rubric_version("profile B", "m", None)
-        assert evaluation_rubric_version("profile A", "m", None) == evaluation_rubric_version("profile A", "m", None)
-        assert triage_rubric_version("profile A", "m", None) != evaluation_rubric_version("profile A", "m", None)
+        assert evaluation_rubric_version("profile A", "m", None) != evaluation_rubric_version(
+            "profile B", "m", None
+        )
+        assert evaluation_rubric_version("profile A", "m", None) == evaluation_rubric_version(
+            "profile A", "m", None
+        )
+        assert triage_rubric_version("profile A", "m", None) != evaluation_rubric_version(
+            "profile A", "m", None
+        )
 
     def test_rubric_versions_change_with_the_model_and_its_thinking_setting(self):
         # A new model judges the same prompt differently, so its verdicts are a different rubric.
@@ -662,17 +857,22 @@ class TestRubricVersion:
         assert evaluation_rubric_version("profile", "claude-sonnet-5-5", "disabled") != base
         assert evaluation_rubric_version("profile", "claude-sonnet-5", "adaptive") != base
         assert triage_rubric_version("profile", "claude-haiku-5-5", None) != triage_rubric_version(
-            "profile", "claude-haiku-4-5", None)
+            "profile", "claude-haiku-4-5", None
+        )
 
     def test_a_model_change_makes_its_verdicts_stale(self, db: Database, settings):
         self._evaluate_once(db, settings)
 
-        stats = evaluate_all(db, dataclasses.replace(settings, anthropic_model="claude-next"), refresh_stale=True)
+        stats = evaluate_all(
+            db, dataclasses.replace(settings, anthropic_model="claude-next"), refresh_stale=True
+        )
 
         assert stats.unverified == 1
         assert stats.cache_hits == 0
 
-    def test_a_triage_prompt_change_leaves_full_evaluations_current(self, db: Database, settings, monkeypatch):
+    def test_a_triage_prompt_change_leaves_full_evaluations_current(
+        self, db: Database, settings, monkeypatch
+    ):
         # Observed live: a triage-only fix mid-refresh would otherwise have re-billed every full
         # evaluation just made, though none of them ever saw the triage prompt.
         self._evaluate_once(db, settings)
@@ -680,20 +880,31 @@ class TestRubricVersion:
         sdk = FakeSdkClient([])
 
         stats = evaluate_all(
-            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
+            db,
+            settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=sdk),
+            refresh_stale=True,
         )
 
         assert sdk.messages.call_count == 0
         assert stats.cache_hits == 1
 
-    def test_a_triage_prompt_change_makes_triage_screen_outs_stale(self, db: Database, settings, monkeypatch):
+    def test_a_triage_prompt_change_makes_triage_screen_outs_stale(
+        self, db: Database, settings, monkeypatch
+    ):
         company = seed_company(db)
         seed_job(db, settings, company)
         triage_client = AnthropicClient(
-            api_key=None, model="test-haiku-model", client=FakeSdkClient([triage_response(skip_full_evaluation=True)])
+            api_key=None,
+            model="test-haiku-model",
+            client=FakeSdkClient([triage_response(skip_full_evaluation=True)]),
         )
-        evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])),
-                     triage_client=triage_client)
+        evaluate_all(
+            db,
+            settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])),
+            triage_client=triage_client,
+        )
         monkeypatch.setattr(prompts, "TRIAGE_SYSTEM", prompts.TRIAGE_SYSTEM + " (revised)")
 
         stats = evaluate_all(db, settings, refresh_stale=True)
@@ -706,7 +917,9 @@ class TestRubricVersion:
         self._age(db, job)
         sdk = FakeSdkClient([])
 
-        stats = evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk))
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
 
         assert sdk.messages.call_count == 0
         assert stats.cache_hits == 1
@@ -714,11 +927,19 @@ class TestRubricVersion:
     def test_refresh_stale_re_screens_a_verdict_from_an_older_rubric(self, db: Database, settings):
         job = self._evaluate_once(db, settings)
         self._age(db, job)
-        rejected = dict(VALID_EVALUATION, verdict="reject", worth_applying=False, primary_rejection_reason="Requires Rust.")
+        rejected = dict(
+            VALID_EVALUATION,
+            verdict="reject",
+            worth_applying=False,
+            primary_rejection_reason="Requires Rust.",
+        )
         sdk = FakeSdkClient([json_response(rejected)])
 
         stats = evaluate_all(
-            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
+            db,
+            settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=sdk),
+            refresh_stale=True,
         )
 
         assert sdk.messages.call_count == 1
@@ -727,38 +948,53 @@ class TestRubricVersion:
         assert refreshed.verdict == Verdict.REJECT
         assert refreshed.rubric_version == full_rubric(settings)
 
-    def test_reverting_a_rubric_change_brings_the_earlier_verdict_back_for_free(self, db: Database, settings):
+    def test_reverting_a_rubric_change_brings_the_earlier_verdict_back_for_free(
+        self, db: Database, settings
+    ):
         # Evaluations keep their history, so the verdict made under the restored rubric is still
         # there: a refresh copies it forward instead of paying for a new evaluation.
         job = self._evaluate_once(db, settings)
         experimental = dataclasses.replace(
-            db.get_evaluation_for_job(job.id), id=None, verdict=Verdict.REJECT, rubric_version="experimental-rubric",
+            db.get_evaluation_for_job(job.id),
+            id=None,
+            verdict=Verdict.REJECT,
+            rubric_version="experimental-rubric",
             created_at=datetime.now(UTC),
         )
         db.save_evaluation(experimental)
         sdk = FakeSdkClient([])
 
         stats = evaluate_all(
-            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
+            db,
+            settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=sdk),
+            refresh_stale=True,
         )
 
         assert sdk.messages.call_count == 0
         assert stats.cache_hits == 1
         current = db.get_evaluation_for_job(job.id)
-        assert current.verdict == Verdict.STRONG_MATCH and current.rubric_version == full_rubric(settings)
+        assert current.verdict == Verdict.STRONG_MATCH and current.rubric_version == full_rubric(
+            settings
+        )
 
     def test_refresh_stale_leaves_current_verdicts_alone(self, db: Database, settings):
         self._evaluate_once(db, settings)
         sdk = FakeSdkClient([])
 
         stats = evaluate_all(
-            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk), refresh_stale=True
+            db,
+            settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=sdk),
+            refresh_stale=True,
         )
 
         assert sdk.messages.call_count == 0
         assert stats.cache_hits == 1
 
-    def test_refresh_stale_dry_run_counts_stale_verdicts_without_touching_them(self, db: Database, settings):
+    def test_refresh_stale_dry_run_counts_stale_verdicts_without_touching_them(
+        self, db: Database, settings
+    ):
         job = self._evaluate_once(db, settings)
         self._age(db, job)
 

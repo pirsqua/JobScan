@@ -1,5 +1,6 @@
 """Employer registry import (CSV or YAML) — how hundreds of employers get added without
 touching Python code."""
+
 from __future__ import annotations
 
 import csv
@@ -27,7 +28,9 @@ def _row_to_company(row: dict) -> Company:
         # alongside ats_type.
         board_id = domain
 
-    missing = REQUIRED_FIELDS - {k for k, v in {**row, "board_id": board_id}.items() if v not in (None, "")}
+    missing = REQUIRED_FIELDS - {
+        k for k, v in {**row, "board_id": board_id}.items() if v not in (None, "")
+    }
     if missing:
         raise RegistryImportError(f"row missing required field(s) {missing}: {row}")
 
@@ -35,7 +38,9 @@ def _row_to_company(row: dict) -> Company:
     try:
         ats_type = AtsType(ats_raw)
     except ValueError as exc:
-        raise RegistryImportError(f"unknown ats_type '{ats_raw}' for company '{row.get('name')}'") from exc
+        raise RegistryImportError(
+            f"unknown ats_type '{ats_raw}' for company '{row.get('name')}'"
+        ) from exc
 
     classification_raw = str(row.get("classification") or "unknown").strip().lower()
     try:
@@ -59,9 +64,13 @@ def _row_to_company(row: dict) -> Company:
         try:
             culture_score = float(culture_raw)
         except (TypeError, ValueError) as exc:
-            raise RegistryImportError(f"culture_score '{culture_raw}' for company '{row.get('name')}' is not a number") from exc
+            raise RegistryImportError(
+                f"culture_score '{culture_raw}' for company '{row.get('name')}' is not a number"
+            ) from exc
         if not 0 <= culture_score <= 10:
-            raise RegistryImportError(f"culture_score {culture_score:g} for company '{row.get('name')}' is outside 0-10")
+            raise RegistryImportError(
+                f"culture_score {culture_score:g} for company '{row.get('name')}' is outside 0-10"
+            )
 
     return Company(
         name=str(row["name"]).strip(),
@@ -70,7 +79,9 @@ def _row_to_company(row: dict) -> Company:
         ats_type=ats_type,
         board_id=board_id,
         classification=classification,
-        classification_source=ClassificationSource.SEED if classification != CompanyClassification.UNKNOWN else None,
+        classification_source=ClassificationSource.SEED
+        if classification != CompanyClassification.UNKNOWN
+        else None,
         active=active,
         discovery_source=(row.get("discovery_source") or "").strip() or None,
         notes=(row.get("notes") or "").strip() or None,

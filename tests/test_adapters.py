@@ -75,7 +75,9 @@ class TestGreenhouseAdapter:
         assert "170,000" in posting.description_html
 
     @respx.mock
-    def test_entity_escaped_content_is_unescaped_so_the_pay_range_parses(self, http_client, settings, sample_company):
+    def test_entity_escaped_content_is_unescaped_so_the_pay_range_parses(
+        self, http_client, settings, sample_company
+    ):
         # Observed live (Posit, and ~460 other open Greenhouse postings): content arrives
         # entity-escaped, and left that way the tags survived HTML-to-text as literal text,
         # splitting the standard pay-range block so only the minimum was read — a $141.8K-$187.1K
@@ -86,10 +88,20 @@ class TestGreenhouseAdapter:
             "</div></div>"
         )
         respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
-            return_value=httpx.Response(200, json={"jobs": [{
-                "id": 7, "title": "Senior Software Engineer", "location": {"name": "USA - Remote"},
-                "absolute_url": "https://acme.example.com/jobs/7", "content": escaped,
-            }]})
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobs": [
+                        {
+                            "id": 7,
+                            "title": "Senior Software Engineer",
+                            "location": {"name": "USA - Remote"},
+                            "absolute_url": "https://acme.example.com/jobs/7",
+                            "content": escaped,
+                        }
+                    ]
+                },
+            )
         )
         sample_company.id = 1
         posting = next(iter(GreenhouseAdapter(http_client).fetch_postings("acme")))
@@ -157,7 +169,9 @@ class TestGreenhouseAdapter:
                             "location": {"name": "Remote - US"},
                             "absolute_url": "https://acme.example.com/jobs/43",
                             "content": "<p>Join us.</p>",
-                            "metadata": [{"name": "Office Locations", "value": ["Seattle", "Remote"]}],
+                            "metadata": [
+                                {"name": "Office Locations", "value": ["Seattle", "Remote"]}
+                            ],
                             "departments": [],
                         }
                     ]
@@ -203,17 +217,36 @@ class TestAshbyAdapter:
         assert "180K" in posting.description_text
 
     @respx.mock
-    def test_the_pay_summary_reaches_the_text_from_either_field_and_either_description(self, http_client):
+    def test_the_pay_summary_reaches_the_text_from_either_field_and_either_description(
+        self, http_client
+    ):
         # The salary filter reads pay from the text, so a summary dropped here reads as "no salary".
         def job(job_id, **fields):
-            return {"id": job_id, "title": "Senior Software Engineer", "location": "Remote - US", **fields}
+            return {
+                "id": job_id,
+                "title": "Senior Software Engineer",
+                "location": "Remote - US",
+                **fields,
+            }
 
         respx.get("https://api.ashbyhq.com/posting-api/job-board/acme").mock(
-            return_value=httpx.Response(200, json={"jobs": [
-                job("plain", descriptionPlain="Build it.",
-                    compensation={"scrapeableCompensationSalarySummary": "$180K - $230K"}),
-                job("html", descriptionHtml="<p>Build it.</p>", compensation={"compensationTierSummary": "$185K - $235K"}),
-            ]})
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobs": [
+                        job(
+                            "plain",
+                            descriptionPlain="Build it.",
+                            compensation={"scrapeableCompensationSalarySummary": "$180K - $230K"},
+                        ),
+                        job(
+                            "html",
+                            descriptionHtml="<p>Build it.</p>",
+                            compensation={"compensationTierSummary": "$185K - $235K"},
+                        ),
+                    ]
+                },
+            )
         )
         postings = {p.source_job_id: p for p in AshbyAdapter(http_client).fetch_postings("acme")}
         assert postings["plain"].description_text.endswith("Compensation: $180K - $230K")
@@ -233,18 +266,30 @@ class TestAshbyAdapter:
         # Observed live (Plaid): isRemote=True on Hybrid postings located at "San Francisco HQ".
         # Trusting isRemote let them through as ambiguous-remote; workplaceType says Hybrid.
         def job(job_id, **fields):
-            return {"id": job_id, "title": "Senior Software Engineer", "location": "San Francisco HQ", **fields}
+            return {
+                "id": job_id,
+                "title": "Senior Software Engineer",
+                "location": "San Francisco HQ",
+                **fields,
+            }
 
         respx.get("https://api.ashbyhq.com/posting-api/job-board/acme").mock(
-            return_value=httpx.Response(200, json={"jobs": [
-                job("hybrid", isRemote=True, workplaceType="Hybrid"),
-                job("no-type-remote", isRemote=True),
-                job("no-type-onsite", isRemote=False),
-            ]})
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobs": [
+                        job("hybrid", isRemote=True, workplaceType="Hybrid"),
+                        job("no-type-remote", isRemote=True),
+                        job("no-type-onsite", isRemote=False),
+                    ]
+                },
+            )
         )
         postings = {p.source_job_id: p for p in AshbyAdapter(http_client).fetch_postings("acme")}
         assert postings["hybrid"].workplace_type == WorkplaceType.HYBRID
-        assert postings["no-type-remote"].workplace_type is None  # isRemote=True alone proves nothing
+        assert (
+            postings["no-type-remote"].workplace_type is None
+        )  # isRemote=True alone proves nothing
         assert postings["no-type-onsite"].workplace_type == WorkplaceType.ONSITE
 
 
@@ -258,12 +303,21 @@ class TestLeverAdapter:
                     {
                         "id": "lev-1",
                         "text": "Backend Engineer",
-                        "categories": {"location": "Remote - US", "commitment": "Full-time", "team": "Platform"},
+                        "categories": {
+                            "location": "Remote - US",
+                            "commitment": "Full-time",
+                            "team": "Platform",
+                        },
                         "workplaceType": "remote",
                         "description": "<p>About the role</p>",
                         "lists": [{"text": "Requirements", "content": "<ul><li>SQL</li></ul>"}],
                         "hostedUrl": "https://jobs.lever.co/acme/lev-1",
-                        "salaryRange": {"min": 160000, "max": 200000, "currency": "USD", "interval": "per-year-salary"},
+                        "salaryRange": {
+                            "min": 160000,
+                            "max": 200000,
+                            "currency": "USD",
+                            "interval": "per-year-salary",
+                        },
                         "createdAt": 1750000000000,
                     }
                 ],
@@ -295,9 +349,14 @@ class TestLeverAdapter:
                         "description": "<p>We build grant software.</p>",
                         "descriptionPlain": "We build grant software.",
                         "lists": [
-                            {"text": "What we're looking for", "content": "<li>7+ years of Python</li>"},
-                            {"text": "Compensation & Benefits",
-                             "content": "<li>The target salary range for this role is <strong>175,000 - $220,000</strong> USD</li>"},
+                            {
+                                "text": "What we're looking for",
+                                "content": "<li>7+ years of Python</li>",
+                            },
+                            {
+                                "text": "Compensation & Benefits",
+                                "content": "<li>The target salary range for this role is <strong>175,000 - $220,000</strong> USD</li>",
+                            },
                         ],
                         "additional": "<p>We are an equal opportunity employer.</p>",
                         "hostedUrl": "https://jobs.lever.co/acme/lev-3",
@@ -306,11 +365,22 @@ class TestLeverAdapter:
             )
         )
         posting = next(iter(LeverAdapter(http_client).fetch_postings("acme")))
-        company = Company(name="Acme", domain=None, careers_url=None, ats_type=AtsType.LEVER, board_id="acme", id=1)
+        company = Company(
+            name="Acme",
+            domain=None,
+            careers_url=None,
+            ats_type=AtsType.LEVER,
+            board_id="acme",
+            id=1,
+        )
         job = normalize_posting(posting, company, settings)
         assert "7+ years of Python" in job.description_text
         assert "equal opportunity employer" in job.description_text
-        assert (job.salary_min, job.salary_max, job.salary_source) == (175000, 220000, SalarySource.DESCRIPTION)
+        assert (job.salary_min, job.salary_max, job.salary_source) == (
+            175000,
+            220000,
+            SalarySource.DESCRIPTION,
+        )
 
     @respx.mock
     def test_pagination_follows_skip_until_short_page(self, http_client, monkeypatch):
@@ -474,7 +544,9 @@ class TestWorkdayAdapter:
         assert len(postings) == 3
 
     @respx.mock
-    def test_pagination_stops_at_reported_total_even_if_pages_never_go_short(self, http_client, monkeypatch):
+    def test_pagination_stops_at_reported_total_even_if_pages_never_go_short(
+        self, http_client, monkeypatch
+    ):
         # Observed live (Motorola Solutions): past the real end of results, this API doesn't
         # return a short/empty page to signal "done" — it wraps around and re-serves page 1
         # forever, with `total` still reported normally. Without using `total` to stop, this
@@ -484,7 +556,10 @@ class TestWorkdayAdapter:
         monkeypatch.setattr(workday_module, "PAGE_SIZE", 2)
 
         def make_brief(n: int) -> dict:
-            return {"title": f"Software Engineer {n}", "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}"}
+            return {
+                "title": f"Software Engineer {n}",
+                "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}",
+            }
 
         # total=4 real postings, but every page — including ones past the real end — comes back
         # full length (2), simulating the wrap-around.
@@ -496,7 +571,13 @@ class TestWorkdayAdapter:
         respx.get(url__regex=r".*/job/US-Remote/Software-Engineer-\d_JR\d").mock(
             return_value=httpx.Response(
                 200,
-                json={"jobPostingInfo": {"title": "Software Engineer", "jobDescription": "<p>Role.</p>", "jobReqId": "JRX"}},
+                json={
+                    "jobPostingInfo": {
+                        "title": "Software Engineer",
+                        "jobDescription": "<p>Role.</p>",
+                        "jobReqId": "JRX",
+                    }
+                },
             )
         )
 
@@ -507,13 +588,18 @@ class TestWorkdayAdapter:
         assert list_route.call_count == 2
 
     @respx.mock
-    def test_pagination_ignores_a_flaky_zero_total_on_an_otherwise_normal_page(self, http_client, monkeypatch):
+    def test_pagination_ignores_a_flaky_zero_total_on_an_otherwise_normal_page(
+        self, http_client, monkeypatch
+    ):
         import jobscan.adapters.workday as workday_module
 
         monkeypatch.setattr(workday_module, "PAGE_SIZE", 2)
 
         def make_brief(n: int) -> dict:
-            return {"title": f"Software Engineer {n}", "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}"}
+            return {
+                "title": f"Software Engineer {n}",
+                "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}",
+            }
 
         list_route = respx.post(self.LIST_URL)
         list_route.side_effect = [
@@ -524,7 +610,13 @@ class TestWorkdayAdapter:
         respx.get(url__regex=r".*/job/US-Remote/Software-Engineer-\d_JR\d").mock(
             return_value=httpx.Response(
                 200,
-                json={"jobPostingInfo": {"title": "Software Engineer", "jobDescription": "<p>Role.</p>", "jobReqId": "JRX"}},
+                json={
+                    "jobPostingInfo": {
+                        "title": "Software Engineer",
+                        "jobDescription": "<p>Role.</p>",
+                        "jobReqId": "JRX",
+                    }
+                },
             )
         )
 
@@ -535,7 +627,9 @@ class TestWorkdayAdapter:
         assert len(postings) == 3
 
     @respx.mock
-    def test_pagination_stops_at_max_pages_if_total_is_never_reached(self, http_client, monkeypatch):
+    def test_pagination_stops_at_max_pages_if_total_is_never_reached(
+        self, http_client, monkeypatch
+    ):
         # Backstop for the case where `total` is missing/wrong for every page — must not hang.
         import jobscan.adapters.workday as workday_module
 
@@ -543,7 +637,10 @@ class TestWorkdayAdapter:
         monkeypatch.setattr(workday_module, "MAX_PAGES", 3)
 
         def make_brief(n: int) -> dict:
-            return {"title": f"Software Engineer {n}", "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}"}
+            return {
+                "title": f"Software Engineer {n}",
+                "externalPath": f"/job/US-Remote/Software-Engineer-{n}_JR{n}",
+            }
 
         list_route = respx.post(self.LIST_URL).mock(
             return_value=httpx.Response(200, json={"jobPostings": [make_brief(1), make_brief(2)]})
@@ -551,7 +648,13 @@ class TestWorkdayAdapter:
         respx.get(url__regex=r".*/job/US-Remote/Software-Engineer-\d_JR\d").mock(
             return_value=httpx.Response(
                 200,
-                json={"jobPostingInfo": {"title": "Software Engineer", "jobDescription": "<p>Role.</p>", "jobReqId": "JRX"}},
+                json={
+                    "jobPostingInfo": {
+                        "title": "Software Engineer",
+                        "jobDescription": "<p>Role.</p>",
+                        "jobReqId": "JRX",
+                    }
+                },
             )
         )
 
@@ -609,19 +712,36 @@ class TestWorkdayAdapter:
             bodies.append(json.loads(request.content))
             return httpx.Response(
                 200,
-                json={"total": 1, "jobPostings": [{"title": "Senior Backend Engineer",
-                                                   "externalPath": "/job/US-Remote/Senior-Backend-Engineer_JR1"}]},
+                json={
+                    "total": 1,
+                    "jobPostings": [
+                        {
+                            "title": "Senior Backend Engineer",
+                            "externalPath": "/job/US-Remote/Senior-Backend-Engineer_JR1",
+                        }
+                    ],
+                },
             )
 
         respx.post(self.LIST_URL).mock(side_effect=list_handler)
         detail_route = respx.get(self.DETAIL_URL).mock(
-            return_value=httpx.Response(200, json={"jobPostingInfo": {"title": "Senior Backend Engineer", "jobReqId": "JR1"}})
+            return_value=httpx.Response(
+                200,
+                json={"jobPostingInfo": {"title": "Senior Backend Engineer", "jobReqId": "JR1"}},
+            )
         )
 
         adapter = WorkdayAdapter(http_client)
-        postings = list(adapter.fetch_postings("acme/wd1/Acme?locationCountry=US1&locationCountry=CA2&jobFamilyGroup=ENG"))
+        postings = list(
+            adapter.fetch_postings(
+                "acme/wd1/Acme?locationCountry=US1&locationCountry=CA2&jobFamilyGroup=ENG"
+            )
+        )
 
-        assert bodies[0]["appliedFacets"] == {"locationCountry": ["US1", "CA2"], "jobFamilyGroup": ["ENG"]}
+        assert bodies[0]["appliedFacets"] == {
+            "locationCountry": ["US1", "CA2"],
+            "jobFamilyGroup": ["ENG"],
+        }
         assert detail_route.call_count == 1
         assert postings[0].source_job_id == "JR1"
 
@@ -778,7 +898,9 @@ class TestJobviteAdapter:
     @respx.mock
     def test_detail_missing_json_ld_is_skipped_not_fatal(self, http_client):
         respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
-        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, text="<html><body>No data here.</body></html>"))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(200, text="<html><body>No data here.</body></html>")
+        )
 
         adapter = JobviteAdapter(http_client)
         postings = list(adapter.fetch_postings("acme"))
@@ -938,7 +1060,8 @@ class TestJazzHRAdapter:
         respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text=self.LIST_HTML))
         respx.get(self.DETAIL_URL).mock(
             return_value=httpx.Response(
-                200, text='<html><head><script type="application/ld+json">{"@type": "Organization"}</script></head></html>'
+                200,
+                text='<html><head><script type="application/ld+json">{"@type": "Organization"}</script></head></html>',
             )
         )
         adapter = JazzHRAdapter(http_client)
@@ -953,7 +1076,9 @@ class TestJazzHRAdapter:
 
     @respx.mock
     def test_no_jobs_table_returns_empty(self, http_client):
-        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, text="<html><body>No board here.</body></html>"))
+        respx.get(self.LIST_URL).mock(
+            return_value=httpx.Response(200, text="<html><body>No board here.</body></html>")
+        )
         adapter = JazzHRAdapter(http_client)
         assert list(adapter.fetch_postings("acme")) == []
 
@@ -980,7 +1105,7 @@ class TestICIMSAdapter:
 
     @classmethod
     def list_page(cls, rows: list[str], page: int, of: int) -> str:
-        return f"""<html><body><div class="container-fluid iCIMS_JobsTable">{''.join(rows)}</div>
+        return f"""<html><body><div class="container-fluid iCIMS_JobsTable">{"".join(rows)}</div>
         <div class="iCIMS_Paging">Page {page} of {of}</div></body></html>"""
 
     @staticmethod
@@ -998,16 +1123,23 @@ class TestICIMSAdapter:
                 200,
                 text=self.list_page(
                     [
-                        self.row("101", "Senior Backend Engineer", "US-Remote-Remote | US-CA-San Francisco"),
+                        self.row(
+                            "101",
+                            "Senior Backend Engineer",
+                            "US-Remote-Remote | US-CA-San Francisco",
+                        ),
                         self.row("102", "Account Executive", "US-IL-Chicago"),
                     ],
-                    1, 1,
+                    1,
+                    1,
                 ),
             )
         )
         salary = ', "baseSalary": {"currency": "USD", "value": {"minValue": 180000, "maxValue": 220000, "unitText": "YEAR"}}'
         detail_route = respx.get(self.DETAIL_URL).mock(
-            return_value=httpx.Response(200, text=self.detail_page("Senior Backend Engineer", salary))
+            return_value=httpx.Response(
+                200, text=self.detail_page("Senior Backend Engineer", salary)
+            )
         )
 
         postings = list(ICIMSAdapter(http_client).fetch_postings("uscareers-acme"))
@@ -1022,12 +1154,18 @@ class TestICIMSAdapter:
         assert posting.employment_type_raw == "FULL_TIME"
         assert posting.workplace_type == WorkplaceType.REMOTE
         assert "Build our platform" in posting.description_html
-        assert (posting.salary_min, posting.salary_max, posting.salary_source) == (180000, 220000, SalarySource.STRUCTURED)
+        assert (posting.salary_min, posting.salary_max, posting.salary_source) == (
+            180000,
+            220000,
+            SalarySource.STRUCTURED,
+        )
 
     @respx.mock
     def test_pages_through_until_the_reported_page_count(self, http_client):
         pages = {
-            "0": self.list_page([self.row("101", "Senior Backend Engineer", "US-Remote-Remote")], 1, 2),
+            "0": self.list_page(
+                [self.row("101", "Senior Backend Engineer", "US-Remote-Remote")], 1, 2
+            ),
             "1": self.list_page([self.row("202", "Senior Data Engineer", "US-TX-Remote")], 2, 2),
         }
         requested = []
@@ -1038,7 +1176,9 @@ class TestICIMSAdapter:
             return httpx.Response(200, text=pages[request.url.params.get("pr")])
 
         respx.get(self.SEARCH_URL).mock(side_effect=list_handler)
-        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, text=self.detail_page("Senior Backend Engineer")))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(200, text=self.detail_page("Senior Backend Engineer"))
+        )
         respx.get("https://uscareers-acme.icims.com/jobs/202/senior-data-engineer/job").mock(
             return_value=httpx.Response(200, text=self.detail_page("Senior Data Engineer"))
         )
@@ -1052,10 +1192,15 @@ class TestICIMSAdapter:
     def test_detail_without_json_ld_is_skipped_not_fatal(self, http_client):
         respx.get(self.SEARCH_URL).mock(
             return_value=httpx.Response(
-                200, text=self.list_page([self.row("101", "Senior Backend Engineer", "US-Remote-Remote")], 1, 1)
+                200,
+                text=self.list_page(
+                    [self.row("101", "Senior Backend Engineer", "US-Remote-Remote")], 1, 1
+                ),
             )
         )
-        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, text="<html><body>Gone.</body></html>"))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(200, text="<html><body>Gone.</body></html>")
+        )
         assert list(ICIMSAdapter(http_client).fetch_postings("uscareers-acme")) == []
 
     @respx.mock
@@ -1066,7 +1211,9 @@ class TestICIMSAdapter:
 
     @respx.mock
     def test_portal_with_no_listings_returns_empty(self, http_client):
-        respx.get(self.SEARCH_URL).mock(return_value=httpx.Response(200, text="<html><body>Search jobs</body></html>"))
+        respx.get(self.SEARCH_URL).mock(
+            return_value=httpx.Response(200, text="<html><body>Search jobs</body></html>")
+        )
         assert list(ICIMSAdapter(http_client).fetch_postings("uscareers-acme")) == []
 
 
@@ -1089,13 +1236,21 @@ class FakeRenderer:
         self.closed = True
 
 
-def esri_hit(title: str, job_id: str, job_title: str | None = None, locations: str | None = None) -> dict:
+def esri_hit(
+    title: str, job_id: str, job_title: str | None = None, locations: str | None = None
+) -> dict:
     meta = {}
     if job_title is not None:
         meta["JobTitle"] = job_title
     if locations is not None:
         meta["locations"] = locations
-    return {"doc": {"displayurl": f"https://www.esri.com/careers/{job_id}", "title": title, "metaFields": meta}}
+    return {
+        "doc": {
+            "displayurl": f"https://www.esri.com/careers/{job_id}",
+            "title": title,
+            "metaFields": meta,
+        }
+    }
 
 
 class TestEsriAdapter:
@@ -1112,9 +1267,15 @@ class TestEsriAdapter:
                         "hits": [
                             esri_hit(
                                 "Software Development Engineer II Job | Esri Career Opportunity",
-                                "1001", job_title="Software Development Engineer II", locations="Redlands-CA",
+                                "1001",
+                                job_title="Software Development Engineer II",
+                                locations="Redlands-CA",
                             ),
-                            esri_hit("Account Executive Job | Esri Career Opportunity", "1002", job_title="Account Executive"),
+                            esri_hit(
+                                "Account Executive Job | Esri Career Opportunity",
+                                "1002",
+                                job_title="Account Executive",
+                            ),
                         ],
                     }
                 },
@@ -1142,7 +1303,11 @@ class TestEsriAdapter:
                 json={
                     "search": {
                         "count": 1,
-                        "hits": [esri_hit("Senior Software Engineer Job | Esri Career Opportunity", "2001")],
+                        "hits": [
+                            esri_hit(
+                                "Senior Software Engineer Job | Esri Career Opportunity", "2001"
+                            )
+                        ],
                     }
                 },
             )
@@ -1155,9 +1320,13 @@ class TestEsriAdapter:
     def test_list_valued_metafield_does_not_crash(self, http_client):
         # Observed live elsewhere (Greenhouse): a metadata field can come back as a list instead
         # of a bare string.
-        hit = esri_hit("Software Engineer Job | Esri Career Opportunity", "3001", job_title="Software Engineer")
+        hit = esri_hit(
+            "Software Engineer Job | Esri Career Opportunity", "3001", job_title="Software Engineer"
+        )
         hit["doc"]["metaFields"]["locations"] = ["Redlands-CA"]
-        respx.post(self.SEARCH_URL).mock(return_value=httpx.Response(200, json={"search": {"count": 1, "hits": [hit]}}))
+        respx.post(self.SEARCH_URL).mock(
+            return_value=httpx.Response(200, json={"search": {"count": 1, "hits": [hit]}})
+        )
         adapter = EsriAdapter(http_client, renderer=FakeRenderer())
         postings = list(adapter.fetch_postings("esri"))
         assert postings[0].location_raw == "Redlands, CA"
@@ -1170,8 +1339,36 @@ class TestEsriAdapter:
 
         route = respx.post(self.SEARCH_URL)
         route.side_effect = [
-            httpx.Response(200, json={"search": {"count": 2, "hits": [esri_hit("Software Engineer I Job | Esri Career Opportunity", "1", job_title="Software Engineer I")]}}),
-            httpx.Response(200, json={"search": {"count": 2, "hits": [esri_hit("Software Engineer II Job | Esri Career Opportunity", "2", job_title="Software Engineer II")]}}),
+            httpx.Response(
+                200,
+                json={
+                    "search": {
+                        "count": 2,
+                        "hits": [
+                            esri_hit(
+                                "Software Engineer I Job | Esri Career Opportunity",
+                                "1",
+                                job_title="Software Engineer I",
+                            )
+                        ],
+                    }
+                },
+            ),
+            httpx.Response(
+                200,
+                json={
+                    "search": {
+                        "count": 2,
+                        "hits": [
+                            esri_hit(
+                                "Software Engineer II Job | Esri Career Opportunity",
+                                "2",
+                                job_title="Software Engineer II",
+                            )
+                        ],
+                    }
+                },
+            ),
         ]
         adapter = EsriAdapter(http_client, renderer=FakeRenderer())
         postings = list(adapter.fetch_postings("esri"))
@@ -1187,7 +1384,13 @@ class TestEsriAdapter:
                 json={
                     "search": {
                         "count": 1,
-                        "hits": [esri_hit("Software Engineer Job | Esri Career Opportunity", "9001", job_title="Software Engineer")],
+                        "hits": [
+                            esri_hit(
+                                "Software Engineer Job | Esri Career Opportunity",
+                                "9001",
+                                job_title="Software Engineer",
+                            )
+                        ],
                     }
                 },
             )
@@ -1208,7 +1411,9 @@ class TestEsriAdapter:
     def test_owned_renderer_is_closed_after_fetch(self, http_client, monkeypatch):
         import jobscan.adapters.esri as esri_module
 
-        respx.post(self.SEARCH_URL).mock(return_value=httpx.Response(200, json={"search": {"count": 0, "hits": []}}))
+        respx.post(self.SEARCH_URL).mock(
+            return_value=httpx.Response(200, json={"search": {"count": 0, "hits": []}})
+        )
 
         created = {}
 
@@ -1255,11 +1460,22 @@ class TestSmartRecruitersAdapter:
                     "applyUrl": "https://jobs.smartrecruiters.com/acme/sr-1/apply",
                     "jobAd": {
                         "sections": {
-                            "jobDescription": {"title": "Job Description", "text": "<p>Build our platform.</p>"},
-                            "qualifications": {"title": "Qualifications", "text": "<p>5+ years backend.</p>"},
+                            "jobDescription": {
+                                "title": "Job Description",
+                                "text": "<p>Build our platform.</p>",
+                            },
+                            "qualifications": {
+                                "title": "Qualifications",
+                                "text": "<p>5+ years backend.</p>",
+                            },
                         }
                     },
-                    "compensation": {"min": 160000, "max": 200000, "currency": "USD", "period": "YEARLY"},
+                    "compensation": {
+                        "min": 160000,
+                        "max": 200000,
+                        "currency": "USD",
+                        "period": "YEARLY",
+                    },
                 },
             )
         )
@@ -1299,7 +1515,12 @@ class TestSmartRecruitersAdapter:
                 json={
                     "id": "sr-1",
                     "name": "Backend Engineer (Hybrid)",
-                    "compensation": {"min": 45.0, "max": 60.0, "currency": "USD", "period": "HOURLY"},
+                    "compensation": {
+                        "min": 45.0,
+                        "max": 60.0,
+                        "currency": "USD",
+                        "period": "HOURLY",
+                    },
                 },
             )
         )
@@ -1328,7 +1549,9 @@ class TestSmartRecruitersAdapter:
 
         def list_handler(request: httpx.Request) -> httpx.Response:
             seen.append(request.url.params.get("country"))
-            return httpx.Response(200, json={"totalFound": 1, "content": [{"id": "sr-1", "name": "Backend Engineer"}]})
+            return httpx.Response(
+                200, json={"totalFound": 1, "content": [{"id": "sr-1", "name": "Backend Engineer"}]}
+            )
 
         respx.get(self.LIST_URL).mock(side_effect=list_handler)
         detail_route = respx.get(self.DETAIL_URL).mock(
@@ -1370,7 +1593,11 @@ class TestSmartRecruitersAdapter:
     def test_detail_fetch_failure_is_skipped_not_fatal(self, http_client):
         respx.get(self.LIST_URL).mock(
             return_value=httpx.Response(
-                200, json={"totalFound": 1, "content": [{"id": "sr-1", "name": "Senior Backend Engineer"}]}
+                200,
+                json={
+                    "totalFound": 1,
+                    "content": [{"id": "sr-1", "name": "Senior Backend Engineer"}],
+                },
             )
         )
         respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(404))
@@ -1381,7 +1608,9 @@ class TestSmartRecruitersAdapter:
 
     @respx.mock
     def test_unexpected_list_shape_raises_adapter_error(self, http_client):
-        respx.get(self.LIST_URL).mock(return_value=httpx.Response(200, json={"content": "not-a-list"}))
+        respx.get(self.LIST_URL).mock(
+            return_value=httpx.Response(200, json={"content": "not-a-list"})
+        )
         adapter = SmartRecruitersAdapter(http_client)
         with pytest.raises(AdapterError):
             list(adapter.fetch_postings("acme"))
@@ -1401,7 +1630,9 @@ class TestSmartRecruitersAdapter:
             list(adapter.fetch_postings("acme"))
 
 
-def avature_detail_html(job_id: str, job_type: str = "Full-time", field_of_work: str = "Software") -> str:
+def avature_detail_html(
+    job_id: str, job_type: str = "Full-time", field_of_work: str = "Software"
+) -> str:
     return f"""
     <article class="article article--details">
       <div class="article__content__view">
@@ -1474,7 +1705,10 @@ class TestAvatureAdapter:
         assert posting.department == "Software"
         assert posting.published_at == "2026-10-01"
         assert "Build great backend systems" in posting.description_html
-        assert posting.apply_url == "https://jobs.example.com/en_US/externaljobs/ApplicationMethods?folderId=1001"
+        assert (
+            posting.apply_url
+            == "https://jobs.example.com/en_US/externaljobs/ApplicationMethods?folderId=1001"
+        )
         assert posting.salary_source == SalarySource.NONE
 
     @respx.mock
@@ -1505,7 +1739,9 @@ class TestAvatureAdapter:
             return httpx.Response(200, text=pages_by_offset.get(offset, ""))
 
         list_route = respx.get(self.LIST_URL).mock(side_effect=list_handler)
-        respx.get(url__regex=r".*/JobDetail/\d$").mock(return_value=httpx.Response(200, text=avature_detail_html("x")))
+        respx.get(url__regex=r".*/JobDetail/\d$").mock(
+            return_value=httpx.Response(200, text=avature_detail_html("x"))
+        )
 
         adapter = AvatureAdapter(http_client)
         postings = list(adapter.fetch_postings(self.BOARD_ID))
@@ -1544,7 +1780,9 @@ class TestAvatureAdapter:
             return httpx.Response(200, text=pages_by_offset.get(offset, ""))
 
         list_route = respx.get(self.LIST_URL).mock(side_effect=list_handler)
-        respx.get(url__regex=r".*/JobDetail/\d$").mock(return_value=httpx.Response(200, text=avature_detail_html("x")))
+        respx.get(url__regex=r".*/JobDetail/\d$").mock(
+            return_value=httpx.Response(200, text=avature_detail_html("x"))
+        )
 
         adapter = AvatureAdapter(http_client)
         postings = list(adapter.fetch_postings(self.BOARD_ID))
@@ -1579,7 +1817,9 @@ class TestAvatureAdapter:
         seen = []
 
         def list_handler(request: httpx.Request) -> httpx.Response:
-            seen.append((request.url.params.get_list("42386[]"), request.url.params.get_list("42389[]")))
+            seen.append(
+                (request.url.params.get_list("42386[]"), request.url.params.get_list("42389[]"))
+            )
             return httpx.Response(
                 200,
                 text="""
@@ -1591,13 +1831,20 @@ class TestAvatureAdapter:
             )
 
         respx.get(self.LIST_URL).mock(side_effect=list_handler)
-        respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, text=avature_detail_html("1001")))
+        respx.get(self.DETAIL_URL).mock(
+            return_value=httpx.Response(200, text=avature_detail_html("1001"))
+        )
 
         adapter = AvatureAdapter(http_client)
-        postings = list(adapter.fetch_postings(f"{self.BOARD_ID}?42386[]=812209&42389[]=102127&42389[]=102122"))
+        postings = list(
+            adapter.fetch_postings(f"{self.BOARD_ID}?42386[]=812209&42389[]=102127&42389[]=102122")
+        )
 
         assert seen and all(s == (["812209"], ["102127", "102122"]) for s in seen)
-        assert postings[0].apply_url == "https://jobs.example.com/en_US/externaljobs/ApplicationMethods?folderId=1001"
+        assert (
+            postings[0].apply_url
+            == "https://jobs.example.com/en_US/externaljobs/ApplicationMethods?folderId=1001"
+        )
 
     @respx.mock
     def test_list_http_error_raises_adapter_error(self, http_client):
@@ -1627,7 +1874,9 @@ def rippling_jobs_page(items: list[dict], page: int = 0, total_pages: int = 1) -
                 "queries": [
                     {
                         "queryKey": ["board", "acme", "job-posts", False, {"page": page}],
-                        "state": {"data": {"items": items, "page": page, "totalPages": total_pages}},
+                        "state": {
+                            "data": {"items": items, "page": page, "totalPages": total_pages}
+                        },
                     }
                 ]
             }
@@ -1646,12 +1895,17 @@ class TestRipplingAdapter:
 
     @respx.mock
     def test_fetches_detail_only_for_engineering_titles(self, http_client):
-        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.BOARD_URL).mock(
+            return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123"))
+        )
         respx.get(self.DATA_URL).mock(
             return_value=httpx.Response(
                 200,
                 json=rippling_jobs_page(
-                    [{"id": "job-1", "name": "Senior Backend Engineer"}, {"id": "job-2", "name": "Account Executive"}]
+                    [
+                        {"id": "job-1", "name": "Senior Backend Engineer"},
+                        {"id": "job-2", "name": "Account Executive"},
+                    ]
                 ),
             )
         )
@@ -1662,7 +1916,10 @@ class TestRipplingAdapter:
                     {
                         "uuid": "job-1",
                         "name": "Senior Backend Engineer",
-                        "description": {"company": "<p>About us.</p>", "role": "<p>Build things.</p>"},
+                        "description": {
+                            "company": "<p>About us.</p>",
+                            "role": "<p>Build things.</p>",
+                        },
                         "workLocations": ["Remote - US"],
                         "department": {"name": "Engineering"},
                         "employmentType": {"id": "Salaried, full-time", "label": "SALARIED_FT"},
@@ -1691,16 +1948,25 @@ class TestRipplingAdapter:
         assert posting.salary_source == SalarySource.NONE
 
     def _detail_with_pay(self, pay_range_details: list[dict]) -> dict:
-        return rippling_job_detail({
-            "uuid": "job-1", "name": "Senior Software Engineer", "description": {"role": "<p>C# and .NET.</p>"},
-            "workLocations": ["Chicago, IL", "Remote (United States)"], "url": "https://ats.rippling.com/acme/jobs/job-1",
-            "payRangeDetails": pay_range_details,
-        })
+        return rippling_job_detail(
+            {
+                "uuid": "job-1",
+                "name": "Senior Software Engineer",
+                "description": {"role": "<p>C# and .NET.</p>"},
+                "workLocations": ["Chicago, IL", "Remote (United States)"],
+                "url": "https://ats.rippling.com/acme/jobs/job-1",
+                "payRangeDetails": pay_range_details,
+            }
+        )
 
     def _crawl_one(self, http_client, detail: dict):
-        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.BOARD_URL).mock(
+            return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123"))
+        )
         respx.get(self.DATA_URL).mock(
-            return_value=httpx.Response(200, json=rippling_jobs_page([{"id": "job-1", "name": "Senior Software Engineer"}]))
+            return_value=httpx.Response(
+                200, json=rippling_jobs_page([{"id": "job-1", "name": "Senior Software Engineer"}])
+            )
         )
         respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, json=detail))
         return next(iter(RipplingAdapter(http_client).fetch_postings("acme")))
@@ -1709,40 +1975,107 @@ class TestRipplingAdapter:
     def test_structured_pay_bands_are_read_preferring_the_remote_one(self, http_client):
         # Shape observed live on InRule's board: the bands appear nowhere in the description, so
         # ignoring them failed every posting as "no salary published".
-        posting = self._crawl_one(http_client, self._detail_with_pay([
-            {"location": "Acme Chicago", "currency": "USD", "frequency": "YEAR", "rangeStart": 160000, "rangeEnd": 200000, "isRemote": False},
-            {"location": "Remote (United States)", "currency": "USD", "frequency": "YEAR", "rangeStart": 150000, "rangeEnd": 180000, "isRemote": True},
-        ]))
-        assert (posting.salary_min, posting.salary_max, posting.salary_currency, posting.salary_period) == (150000, 180000, "USD", "year")
+        posting = self._crawl_one(
+            http_client,
+            self._detail_with_pay(
+                [
+                    {
+                        "location": "Acme Chicago",
+                        "currency": "USD",
+                        "frequency": "YEAR",
+                        "rangeStart": 160000,
+                        "rangeEnd": 200000,
+                        "isRemote": False,
+                    },
+                    {
+                        "location": "Remote (United States)",
+                        "currency": "USD",
+                        "frequency": "YEAR",
+                        "rangeStart": 150000,
+                        "rangeEnd": 180000,
+                        "isRemote": True,
+                    },
+                ]
+            ),
+        )
+        assert (
+            posting.salary_min,
+            posting.salary_max,
+            posting.salary_currency,
+            posting.salary_period,
+        ) == (150000, 180000, "USD", "year")
         assert posting.salary_source == SalarySource.STRUCTURED
 
     @respx.mock
     def test_without_a_remote_band_the_highest_paying_band_is_used(self, http_client):
-        posting = self._crawl_one(http_client, self._detail_with_pay([
-            {"location": "Austin", "currency": "USD", "frequency": "YEAR", "rangeStart": 140000, "rangeEnd": 170000},
-            {"location": "New York", "currency": "USD", "frequency": "YEAR", "rangeStart": 160000, "rangeEnd": 210000},
-        ]))
+        posting = self._crawl_one(
+            http_client,
+            self._detail_with_pay(
+                [
+                    {
+                        "location": "Austin",
+                        "currency": "USD",
+                        "frequency": "YEAR",
+                        "rangeStart": 140000,
+                        "rangeEnd": 170000,
+                    },
+                    {
+                        "location": "New York",
+                        "currency": "USD",
+                        "frequency": "YEAR",
+                        "rangeStart": 160000,
+                        "rangeEnd": 210000,
+                    },
+                ]
+            ),
+        )
         assert (posting.salary_min, posting.salary_max) == (160000, 210000)
 
     @respx.mock
     def test_monthly_bands_are_annualized_and_empty_bands_ignored(self, http_client):
-        posting = self._crawl_one(http_client, self._detail_with_pay([
-            {"location": "Remote", "currency": "USD", "frequency": "MONTH", "rangeStart": 12500, "rangeEnd": 15000, "isRemote": True},
-        ]))
-        assert (posting.salary_min, posting.salary_max, posting.salary_period) == (150000, 180000, "year")
-        empty = self._crawl_one(http_client, self._detail_with_pay([{"location": "Remote", "isRemote": True}]))
+        posting = self._crawl_one(
+            http_client,
+            self._detail_with_pay(
+                [
+                    {
+                        "location": "Remote",
+                        "currency": "USD",
+                        "frequency": "MONTH",
+                        "rangeStart": 12500,
+                        "rangeEnd": 15000,
+                        "isRemote": True,
+                    },
+                ]
+            ),
+        )
+        assert (posting.salary_min, posting.salary_max, posting.salary_period) == (
+            150000,
+            180000,
+            "year",
+        )
+        empty = self._crawl_one(
+            http_client, self._detail_with_pay([{"location": "Remote", "isRemote": True}])
+        )
         assert empty.salary_source == SalarySource.NONE and empty.salary_max is None
 
     @respx.mock
     def test_pagination_follows_page_until_total_pages(self, http_client):
-        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.BOARD_URL).mock(
+            return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123"))
+        )
         data_route = respx.get(self.DATA_URL)
         data_route.side_effect = [
             httpx.Response(
-                200, json=rippling_jobs_page([{"id": "job-1", "name": "Account Executive"}], page=0, total_pages=2)
+                200,
+                json=rippling_jobs_page(
+                    [{"id": "job-1", "name": "Account Executive"}], page=0, total_pages=2
+                ),
             ),
             httpx.Response(
-                200, json=rippling_jobs_page([{"id": "job-2", "name": "Account Manager"}], page=1, total_pages=2)
+                200,
+                json=rippling_jobs_page(
+                    [{"id": "job-2", "name": "Account Manager"}], page=1, total_pages=2
+                ),
             ),
         ]
 
@@ -1753,24 +2086,36 @@ class TestRipplingAdapter:
 
     @respx.mock
     def test_missing_build_id_raises_adapter_error(self, http_client):
-        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text="<html><body>no next data here</body></html>"))
+        respx.get(self.BOARD_URL).mock(
+            return_value=httpx.Response(200, text="<html><body>no next data here</body></html>")
+        )
         adapter = RipplingAdapter(http_client)
         with pytest.raises(AdapterError):
             list(adapter.fetch_postings("acme"))
 
     @respx.mock
     def test_missing_job_posts_query_raises_adapter_error(self, http_client):
-        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
-        respx.get(self.DATA_URL).mock(return_value=httpx.Response(200, json={"pageProps": {"dehydratedState": {"queries": []}}}))
+        respx.get(self.BOARD_URL).mock(
+            return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123"))
+        )
+        respx.get(self.DATA_URL).mock(
+            return_value=httpx.Response(
+                200, json={"pageProps": {"dehydratedState": {"queries": []}}}
+            )
+        )
         adapter = RipplingAdapter(http_client)
         with pytest.raises(AdapterError):
             list(adapter.fetch_postings("acme"))
 
     @respx.mock
     def test_detail_fetch_failure_is_skipped_not_fatal(self, http_client):
-        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.BOARD_URL).mock(
+            return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123"))
+        )
         respx.get(self.DATA_URL).mock(
-            return_value=httpx.Response(200, json=rippling_jobs_page([{"id": "job-1", "name": "Backend Engineer"}]))
+            return_value=httpx.Response(
+                200, json=rippling_jobs_page([{"id": "job-1", "name": "Backend Engineer"}])
+            )
         )
         respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(404))
 
@@ -1787,7 +2132,9 @@ class TestRipplingAdapter:
 
     @respx.mock
     def test_data_endpoint_network_error_raises_adapter_error(self, http_client):
-        respx.get(self.BOARD_URL).mock(return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123")))
+        respx.get(self.BOARD_URL).mock(
+            return_value=httpx.Response(200, text=rippling_next_data_html("BUILD123"))
+        )
         respx.get(self.DATA_URL).mock(side_effect=httpx.ConnectTimeout("timed out"))
         adapter = RipplingAdapter(http_client)
         with pytest.raises(AdapterError):
@@ -1796,13 +2143,29 @@ class TestRipplingAdapter:
 
 def workable_detail(shortcode: str, title: str, **overrides) -> dict:
     detail = {
-        "shortcode": shortcode, "title": title, "remote": True, "workplace": "remote", "type": "full",
-        "location": {"city": "Columbus", "region": "Ohio", "country": "United States", "hidden": False},
-        "locations": [{"city": "Columbus", "region": "Ohio", "country": "United States", "hidden": False}],
-        "published": "2026-10-01T00:00:00.000Z", "department": ["Engineering"],
-        "description": "<p>Build our maintenance platform in C#.</p>", "requirements": "<p>5+ years .NET.</p>",
+        "shortcode": shortcode,
+        "title": title,
+        "remote": True,
+        "workplace": "remote",
+        "type": "full",
+        "location": {
+            "city": "Columbus",
+            "region": "Ohio",
+            "country": "United States",
+            "hidden": False,
+        },
+        "locations": [
+            {"city": "Columbus", "region": "Ohio", "country": "United States", "hidden": False}
+        ],
+        "published": "2026-10-01T00:00:00.000Z",
+        "department": ["Engineering"],
+        "description": "<p>Build our maintenance platform in C#.</p>",
+        "requirements": "<p>5+ years .NET.</p>",
         "benefits": "<p>100% paid health.</p>",
-        "salary_from": 150000, "salary_to": 185000, "salary_currency_iso_code": "USD", "salary_frequency": "year",
+        "salary_from": 150000,
+        "salary_to": 185000,
+        "salary_currency_iso_code": "USD",
+        "salary_frequency": "year",
     }
     return {**detail, **overrides}
 
@@ -1822,21 +2185,41 @@ class TestWorkableAdapter:
             body = json.loads(request.content)
             bodies.append(body)
             if "token" not in body:
-                return httpx.Response(200, json={"results": [
-                    {"shortcode": "AAA", "title": "Senior Software Developer"},
-                    {"shortcode": "BBB", "title": "Account Executive"},
-                ], "nextPage": "tok-2", "total": 3})
-            return httpx.Response(200, json={"results": [{"shortcode": "CCC", "title": "Software Developer 2"}], "total": 3})
+                return httpx.Response(
+                    200,
+                    json={
+                        "results": [
+                            {"shortcode": "AAA", "title": "Senior Software Developer"},
+                            {"shortcode": "BBB", "title": "Account Executive"},
+                        ],
+                        "nextPage": "tok-2",
+                        "total": 3,
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"shortcode": "CCC", "title": "Software Developer 2"}],
+                    "total": 3,
+                },
+            )
 
         respx.post(self.LIST_URL).mock(side_effect=list_page)
         aaa = respx.get(self.detail_url("AAA")).mock(
-            return_value=httpx.Response(200, json=workable_detail("AAA", "Senior Software Developer")))
+            return_value=httpx.Response(
+                200, json=workable_detail("AAA", "Senior Software Developer")
+            )
+        )
         bbb = respx.get(self.detail_url("BBB")).mock(
-            return_value=httpx.Response(200, json=workable_detail("BBB", "Account Executive")))
+            return_value=httpx.Response(200, json=workable_detail("BBB", "Account Executive"))
+        )
         respx.get(self.detail_url("CCC")).mock(
-            return_value=httpx.Response(200, json=workable_detail("CCC", "Software Developer 2")))
+            return_value=httpx.Response(200, json=workable_detail("CCC", "Software Developer 2"))
+        )
 
-        postings = sorted(WorkableAdapter(http_client).fetch_postings("fmx"), key=lambda p: p.source_job_id)
+        postings = sorted(
+            WorkableAdapter(http_client).fetch_postings("fmx"), key=lambda p: p.source_job_id
+        )
 
         assert [b.get("token") for b in bodies] == [None, "tok-2"]
         assert (aaa.call_count, bbb.call_count) == (1, 0)
@@ -1851,16 +2234,34 @@ class TestWorkableAdapter:
         assert "5+ years .NET" in posting.description_html
         assert posting.posting_url == "https://apply.workable.com/fmx/j/AAA/"
         assert posting.apply_url == "https://apply.workable.com/fmx/j/AAA/apply/"
-        assert (posting.salary_min, posting.salary_max, posting.salary_currency, posting.salary_period) == (
-            150000, 185000, "USD", "year")
+        assert (
+            posting.salary_min,
+            posting.salary_max,
+            posting.salary_currency,
+            posting.salary_period,
+        ) == (150000, 185000, "USD", "year")
         assert posting.salary_source == SalarySource.STRUCTURED
 
     @respx.mock
-    def test_normalizes_to_a_remote_us_full_time_posting(self, http_client, settings, sample_company):
-        respx.post(self.LIST_URL).mock(return_value=httpx.Response(
-            200, json={"results": [{"shortcode": "AAA", "title": "Senior Software Developer"}]}))
-        respx.get(self.detail_url("AAA")).mock(return_value=httpx.Response(200, json=workable_detail(
-            "AAA", "Senior Software Developer", locations=[{"country": "United States", "hidden": False}], location=None)))
+    def test_normalizes_to_a_remote_us_full_time_posting(
+        self, http_client, settings, sample_company
+    ):
+        respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200, json={"results": [{"shortcode": "AAA", "title": "Senior Software Developer"}]}
+            )
+        )
+        respx.get(self.detail_url("AAA")).mock(
+            return_value=httpx.Response(
+                200,
+                json=workable_detail(
+                    "AAA",
+                    "Senior Software Developer",
+                    locations=[{"country": "United States", "hidden": False}],
+                    location=None,
+                ),
+            )
+        )
 
         (raw,) = WorkableAdapter(http_client).fetch_postings("fmx")
         sample_company.id = 1
@@ -1873,25 +2274,73 @@ class TestWorkableAdapter:
 
     @respx.mock
     def test_monthly_salary_is_annualized_and_hourly_kept_hourly(self, http_client):
-        respx.post(self.LIST_URL).mock(return_value=httpx.Response(200, json={"results": [
-            {"shortcode": "MON", "title": "Backend Developer"}, {"shortcode": "HR", "title": "Backend Developer"}]}))
-        respx.get(self.detail_url("MON")).mock(return_value=httpx.Response(200, json=workable_detail(
-            "MON", "Backend Developer", salary_from=12000, salary_to=15000, salary_frequency="month")))
-        respx.get(self.detail_url("HR")).mock(return_value=httpx.Response(200, json=workable_detail(
-            "HR", "Backend Developer", salary_from=80, salary_to=95, salary_frequency="hour")))
+        respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {"shortcode": "MON", "title": "Backend Developer"},
+                        {"shortcode": "HR", "title": "Backend Developer"},
+                    ]
+                },
+            )
+        )
+        respx.get(self.detail_url("MON")).mock(
+            return_value=httpx.Response(
+                200,
+                json=workable_detail(
+                    "MON",
+                    "Backend Developer",
+                    salary_from=12000,
+                    salary_to=15000,
+                    salary_frequency="month",
+                ),
+            )
+        )
+        respx.get(self.detail_url("HR")).mock(
+            return_value=httpx.Response(
+                200,
+                json=workable_detail(
+                    "HR", "Backend Developer", salary_from=80, salary_to=95, salary_frequency="hour"
+                ),
+            )
+        )
 
         by_id = {p.source_job_id: p for p in WorkableAdapter(http_client).fetch_postings("fmx")}
 
-        assert (by_id["MON"].salary_min, by_id["MON"].salary_max, by_id["MON"].salary_period) == (144000, 180000, "year")
-        assert (by_id["HR"].salary_min, by_id["HR"].salary_max, by_id["HR"].salary_period) == (80, 95, "hour")
+        assert (by_id["MON"].salary_min, by_id["MON"].salary_max, by_id["MON"].salary_period) == (
+            144000,
+            180000,
+            "year",
+        )
+        assert (by_id["HR"].salary_min, by_id["HR"].salary_max, by_id["HR"].salary_period) == (
+            80,
+            95,
+            "hour",
+        )
 
     @respx.mock
     def test_no_published_salary_and_onsite_contract_role(self, http_client):
-        respx.post(self.LIST_URL).mock(return_value=httpx.Response(
-            200, json={"results": [{"shortcode": "AAA", "title": "Software Engineer"}]}))
-        respx.get(self.detail_url("AAA")).mock(return_value=httpx.Response(200, json=workable_detail(
-            "AAA", "Software Engineer", remote=False, workplace="on_site", type="contract",
-            salary_from=None, salary_to=None, salary_frequency=None)))
+        respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200, json={"results": [{"shortcode": "AAA", "title": "Software Engineer"}]}
+            )
+        )
+        respx.get(self.detail_url("AAA")).mock(
+            return_value=httpx.Response(
+                200,
+                json=workable_detail(
+                    "AAA",
+                    "Software Engineer",
+                    remote=False,
+                    workplace="on_site",
+                    type="contract",
+                    salary_from=None,
+                    salary_to=None,
+                    salary_frequency=None,
+                ),
+            )
+        )
 
         (posting,) = WorkableAdapter(http_client).fetch_postings("fmx")
 
@@ -1903,20 +2352,40 @@ class TestWorkableAdapter:
 
     @respx.mock
     def test_a_failed_detail_fetch_skips_only_that_job(self, http_client):
-        respx.post(self.LIST_URL).mock(return_value=httpx.Response(200, json={"results": [
-            {"shortcode": "AAA", "title": "Software Developer"}, {"shortcode": "BBB", "title": "Software Developer"}]}))
+        respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {"shortcode": "AAA", "title": "Software Developer"},
+                        {"shortcode": "BBB", "title": "Software Developer"},
+                    ]
+                },
+            )
+        )
         respx.get(self.detail_url("AAA")).mock(return_value=httpx.Response(500))
         respx.get(self.detail_url("BBB")).mock(
-            return_value=httpx.Response(200, json=workable_detail("BBB", "Software Developer")))
+            return_value=httpx.Response(200, json=workable_detail("BBB", "Software Developer"))
+        )
 
-        assert [p.source_job_id for p in WorkableAdapter(http_client).fetch_postings("fmx")] == ["BBB"]
+        assert [p.source_job_id for p in WorkableAdapter(http_client).fetch_postings("fmx")] == [
+            "BBB"
+        ]
 
     @respx.mock
     def test_a_transient_detail_failure_is_retried(self, http_client):
         # Observed live: Siemens' Avature board timed out on ~5% of parallel detail requests.
-        respx.post(self.LIST_URL).mock(return_value=httpx.Response(200, json={"results": [{"shortcode": "AAA", "title": "Software Developer"}]}))
-        route = respx.get(self.detail_url("AAA")).mock(side_effect=[
-            httpx.ReadTimeout("timed out"), httpx.Response(200, json=workable_detail("AAA", "Software Developer"))])
+        respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200, json={"results": [{"shortcode": "AAA", "title": "Software Developer"}]}
+            )
+        )
+        route = respx.get(self.detail_url("AAA")).mock(
+            side_effect=[
+                httpx.ReadTimeout("timed out"),
+                httpx.Response(200, json=workable_detail("AAA", "Software Developer")),
+            ]
+        )
 
         adapter = WorkableAdapter(http_client)
         postings = list(adapter.fetch_postings("fmx"))
@@ -1927,7 +2396,11 @@ class TestWorkableAdapter:
 
     @respx.mock
     def test_a_detail_that_keeps_failing_marks_the_fetch_incomplete(self, http_client):
-        respx.post(self.LIST_URL).mock(return_value=httpx.Response(200, json={"results": [{"shortcode": "AAA", "title": "Software Developer"}]}))
+        respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(
+                200, json={"results": [{"shortcode": "AAA", "title": "Software Developer"}]}
+            )
+        )
         route = respx.get(self.detail_url("AAA")).mock(return_value=httpx.Response(503))
 
         adapter = WorkableAdapter(http_client)
@@ -1939,13 +2412,21 @@ class TestWorkableAdapter:
     @respx.mock
     def test_a_rate_limited_list_page_is_retried(self, http_client):
         # Observed live: FMX's board answered 429 on four crawls and failed the whole board.
-        route = respx.post(self.LIST_URL).mock(side_effect=[
-            httpx.Response(429, headers={"Retry-After": "1"}),
-            httpx.Response(200, json={"results": [{"shortcode": "AAA", "title": "Software Developer"}]})])
+        route = respx.post(self.LIST_URL).mock(
+            side_effect=[
+                httpx.Response(429, headers={"Retry-After": "1"}),
+                httpx.Response(
+                    200, json={"results": [{"shortcode": "AAA", "title": "Software Developer"}]}
+                ),
+            ]
+        )
         respx.get(self.detail_url("AAA")).mock(
-            return_value=httpx.Response(200, json=workable_detail("AAA", "Software Developer")))
+            return_value=httpx.Response(200, json=workable_detail("AAA", "Software Developer"))
+        )
 
-        assert [p.source_job_id for p in WorkableAdapter(http_client).fetch_postings("fmx")] == ["AAA"]
+        assert [p.source_job_id for p in WorkableAdapter(http_client).fetch_postings("fmx")] == [
+            "AAA"
+        ]
         assert route.call_count == 2
 
     @respx.mock
@@ -1957,7 +2438,9 @@ class TestWorkableAdapter:
 
     @respx.mock
     def test_unexpected_list_shape_is_an_adapter_error(self, http_client):
-        respx.post(self.LIST_URL).mock(return_value=httpx.Response(200, json={"results": [{"title": "no shortcode"}]}))
+        respx.post(self.LIST_URL).mock(
+            return_value=httpx.Response(200, json={"results": [{"title": "no shortcode"}]})
+        )
 
         with pytest.raises(AdapterError, match="unexpected response shape"):
             WorkableAdapter(http_client).fetch_postings("fmx")
@@ -1965,11 +2448,18 @@ class TestWorkableAdapter:
 
 def jibe_job(req_id: str, title: str, **overrides) -> dict:
     data = {
-        "req_id": req_id, "title": title, "description": "<p>Build GitHub.</p>",
-        "responsibilities": "<p>Ship features.</p>", "qualifications": "<p>5+ years backend.</p>",
-        "location_name": "US Remote", "full_location": "United States", "employment_type": "FULL_TIME",
-        "posted_date": "2026-10-09T16:45:00+0000", "apply_url": f"https://careers-githubinc.icims.com/jobs/{req_id}/login",
-        "salary_min_value": "0", "salary_max_value": "0",
+        "req_id": req_id,
+        "title": title,
+        "description": "<p>Build GitHub.</p>",
+        "responsibilities": "<p>Ship features.</p>",
+        "qualifications": "<p>5+ years backend.</p>",
+        "location_name": "US Remote",
+        "full_location": "United States",
+        "employment_type": "FULL_TIME",
+        "posted_date": "2026-10-09T16:45:00+0000",
+        "apply_url": f"https://careers-githubinc.icims.com/jobs/{req_id}/login",
+        "salary_min_value": "0",
+        "salary_max_value": "0",
     }
     return {"data": {**data, **overrides}}
 
@@ -1979,10 +2469,16 @@ class TestJibeAdapter:
 
     @respx.mock
     def test_pages_until_total_count_and_reads_full_records(self, http_client):
-        route = respx.get(self.URL).mock(side_effect=[
-            httpx.Response(200, json={"jobs": [jibe_job("1", "Senior Software Engineer")], "totalCount": 2}),
-            httpx.Response(200, json={"jobs": [jibe_job("2", "Account Executive")], "totalCount": 2}),
-        ])
+        route = respx.get(self.URL).mock(
+            side_effect=[
+                httpx.Response(
+                    200, json={"jobs": [jibe_job("1", "Senior Software Engineer")], "totalCount": 2}
+                ),
+                httpx.Response(
+                    200, json={"jobs": [jibe_job("2", "Account Executive")], "totalCount": 2}
+                ),
+            ]
+        )
 
         postings = list(JibeAdapter(http_client).fetch_postings("www.github.careers"))
 
@@ -1991,7 +2487,10 @@ class TestJibeAdapter:
         posting = postings[0]
         assert posting.location_raw == "US Remote (United States)"
         assert posting.employment_type_raw == "Full-time"
-        assert "Build GitHub" in posting.description_html and "5+ years backend" in posting.description_html
+        assert (
+            "Build GitHub" in posting.description_html
+            and "5+ years backend" in posting.description_html
+        )
         assert posting.posting_url == "https://www.github.careers/jobs/1?lang=en-us"
         assert posting.apply_url == "https://careers-githubinc.icims.com/jobs/1/login"
         assert posting.published_at == "2026-10-09T16:45:00+00:00"
@@ -1999,29 +2498,55 @@ class TestJibeAdapter:
 
     @respx.mock
     def test_board_filters_are_forwarded_and_long_dates_parsed(self, http_client):
-        route = respx.get(self.URL.replace("www.github.careers", "careers.se.com")).mock(return_value=httpx.Response(
-            200, json={"jobs": [jibe_job("7", "Software Engineer", posted_date="October 12, 2026", salary_min_value="150000",
-                                         salary_max_value="190000", employment_type="CONTRACTOR")], "totalCount": 1}))
+        route = respx.get(self.URL.replace("www.github.careers", "careers.se.com")).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jobs": [
+                        jibe_job(
+                            "7",
+                            "Software Engineer",
+                            posted_date="October 12, 2026",
+                            salary_min_value="150000",
+                            salary_max_value="190000",
+                            employment_type="CONTRACTOR",
+                        )
+                    ],
+                    "totalCount": 1,
+                },
+            )
+        )
 
         (posting,) = JibeAdapter(http_client).fetch_postings("careers.se.com?country=United States")
 
         assert route.calls[0].request.url.params["country"] == "United States"
         assert posting.published_at == "2026-10-12T00:00:00"
-        assert (posting.salary_min, posting.salary_max, posting.salary_period) == (150000, 190000, "year")
+        assert (posting.salary_min, posting.salary_max, posting.salary_period) == (
+            150000,
+            190000,
+            "year",
+        )
         assert posting.employment_type_raw == "Contract"
 
     @respx.mock
     def test_remote_us_posting_normalizes_to_remote_us(self, http_client, settings, sample_company):
-        respx.get(self.URL).mock(return_value=httpx.Response(
-            200, json={"jobs": [jibe_job("1", "Senior Software Engineer")], "totalCount": 1}))
+        respx.get(self.URL).mock(
+            return_value=httpx.Response(
+                200, json={"jobs": [jibe_job("1", "Senior Software Engineer")], "totalCount": 1}
+            )
+        )
         (raw,) = JibeAdapter(http_client).fetch_postings("www.github.careers")
         sample_company.id = 1
 
-        assert normalize_posting(raw, sample_company, settings).remote_scope == RemoteScope.REMOTE_US
+        assert (
+            normalize_posting(raw, sample_company, settings).remote_scope == RemoteScope.REMOTE_US
+        )
 
     @respx.mock
     def test_unexpected_shape_is_an_adapter_error(self, http_client):
-        respx.get(self.URL).mock(return_value=httpx.Response(200, json={"jobs": [{"data": {"title": "no id"}}]}))
+        respx.get(self.URL).mock(
+            return_value=httpx.Response(200, json={"jobs": [{"data": {"title": "no id"}}]})
+        )
 
         with pytest.raises(AdapterError, match="unexpected response shape"):
             JibeAdapter(http_client).fetch_postings("www.github.careers")
@@ -2034,9 +2559,16 @@ class TestOracleAdapter:
 
     @staticmethod
     def detail(req_id: str, title: str, **overrides) -> dict:
-        item = {"Id": req_id, "Title": title, "ExternalDescriptionStr": "<p>Edge platform.</p>",
-                "ExternalQualificationsStr": "<p>Python.</p>", "PrimaryLocation": "United States",
-                "WorkplaceType": "Remote", "JobSchedule": "Full time", "ExternalPostedStartDate": "2026-10-13T02:13:26+00:00"}
+        item = {
+            "Id": req_id,
+            "Title": title,
+            "ExternalDescriptionStr": "<p>Edge platform.</p>",
+            "ExternalQualificationsStr": "<p>Python.</p>",
+            "PrimaryLocation": "United States",
+            "WorkplaceType": "Remote",
+            "JobSchedule": "Full time",
+            "ExternalPostedStartDate": "2026-10-13T02:13:26+00:00",
+        }
         return {"items": [{**item, **overrides}]}
 
     @respx.mock
@@ -2046,18 +2578,47 @@ class TestOracleAdapter:
         def page(request):
             finders.append(request.url.params["finder"])
             if "offset=0" in request.url.params["finder"]:
-                return httpx.Response(200, json={"items": [{"TotalJobsCount": 3, "requisitionList": [
-                    {"Id": "1", "Title": "Senior Software Engineer"}, {"Id": "2", "Title": "Field Marketing Intern"}]}]})
-            return httpx.Response(200, json={"items": [{"TotalJobsCount": 3, "requisitionList": [
-                {"Id": "3", "Title": "Software Engineer II"}]}]})
+                return httpx.Response(
+                    200,
+                    json={
+                        "items": [
+                            {
+                                "TotalJobsCount": 3,
+                                "requisitionList": [
+                                    {"Id": "1", "Title": "Senior Software Engineer"},
+                                    {"Id": "2", "Title": "Field Marketing Intern"},
+                                ],
+                            }
+                        ]
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "TotalJobsCount": 3,
+                            "requisitionList": [{"Id": "3", "Title": "Software Engineer II"}],
+                        }
+                    ]
+                },
+            )
 
         respx.get(self.LIST).mock(side_effect=page)
-        details = {"1": self.detail("1", "Senior Software Engineer"), "3": self.detail("3", "Software Engineer II", WorkplaceType="Hybrid")}
-        detail_route = respx.get(self.DETAIL).mock(side_effect=lambda request: httpx.Response(
-            200, json=details[request.url.params["finder"].split('"')[1]]))
+        details = {
+            "1": self.detail("1", "Senior Software Engineer"),
+            "3": self.detail("3", "Software Engineer II", WorkplaceType="Hybrid"),
+        }
+        detail_route = respx.get(self.DETAIL).mock(
+            side_effect=lambda request: httpx.Response(
+                200, json=details[request.url.params["finder"].split('"')[1]]
+            )
+        )
 
         adapter = OracleAdapter(http_client)
-        postings = sorted(adapter.fetch_postings(f"{self.HOST}/CX_1"), key=lambda p: p.source_job_id)
+        postings = sorted(
+            adapter.fetch_postings(f"{self.HOST}/CX_1"), key=lambda p: p.source_job_id
+        )
 
         assert [f.split(",")[2] for f in finders] == ["offset=0", "offset=100"]
         assert detail_route.call_count == 2
@@ -2065,8 +2626,14 @@ class TestOracleAdapter:
         assert postings[0].workplace_type == WorkplaceType.REMOTE
         assert postings[1].workplace_type == WorkplaceType.HYBRID
         assert postings[0].location_raw == "United States"
-        assert "Edge platform" in postings[0].description_html and "Python" in postings[0].description_html
-        assert postings[0].posting_url == f"https://{self.HOST}/hcmUI/CandidateExperience/en/sites/CX_1/job/1"
+        assert (
+            "Edge platform" in postings[0].description_html
+            and "Python" in postings[0].description_html
+        )
+        assert (
+            postings[0].posting_url
+            == f"https://{self.HOST}/hcmUI/CandidateExperience/en/sites/CX_1/job/1"
+        )
         assert adapter.incomplete is False
 
     @respx.mock
@@ -2076,8 +2643,19 @@ class TestOracleAdapter:
 
     @respx.mock
     def test_a_detail_that_keeps_failing_marks_the_fetch_incomplete(self, http_client):
-        respx.get(self.LIST).mock(return_value=httpx.Response(200, json={"items": [{"TotalJobsCount": 1, "requisitionList": [
-            {"Id": "1", "Title": "Software Engineer"}]}]}))
+        respx.get(self.LIST).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "TotalJobsCount": 1,
+                            "requisitionList": [{"Id": "1", "Title": "Software Engineer"}],
+                        }
+                    ]
+                },
+            )
+        )
         respx.get(self.DETAIL).mock(return_value=httpx.Response(502))
 
         adapter = OracleAdapter(http_client)
@@ -2091,16 +2669,32 @@ class TestDirectEmployersAdapter:
 
     @respx.mock
     def test_sends_the_site_as_x_origin_and_pages_until_done(self, http_client):
-        job = {"guid": "ABC", "title_exact": "Principal Data Engineer - Databricks", "description": "<p>Pay $138,500 - $207,750.</p>",
-               "location_exact": "Seatac, WA", "job_type": "Full-Time", "date_new": "2026-02-24T01:00:35Z"}
-        route = respx.get(self.URL).mock(side_effect=[
-            httpx.Response(200, json={"jobs": [job], "pagination": {"has_more_pages": True}}),
-            httpx.Response(200, json={"jobs": [{**job, "guid": "DEF", "title_exact": "Cargo Agent"}], "pagination": {"has_more_pages": False}}),
-        ])
+        job = {
+            "guid": "ABC",
+            "title_exact": "Principal Data Engineer - Databricks",
+            "description": "<p>Pay $138,500 - $207,750.</p>",
+            "location_exact": "Seatac, WA",
+            "job_type": "Full-Time",
+            "date_new": "2026-02-24T01:00:35Z",
+        }
+        route = respx.get(self.URL).mock(
+            side_effect=[
+                httpx.Response(200, json={"jobs": [job], "pagination": {"has_more_pages": True}}),
+                httpx.Response(
+                    200,
+                    json={
+                        "jobs": [{**job, "guid": "DEF", "title_exact": "Cargo Agent"}],
+                        "pagination": {"has_more_pages": False},
+                    },
+                ),
+            ]
+        )
 
         postings = list(DirectEmployersAdapter(http_client).fetch_postings("careers.alaskaair.com"))
 
-        assert {call.request.headers["x-origin"] for call in route.calls} == {"careers.alaskaair.com"}
+        assert {call.request.headers["x-origin"] for call in route.calls} == {
+            "careers.alaskaair.com"
+        }
         assert [call.request.url.params["page"] for call in route.calls] == ["1", "2"]
         assert [p.source_job_id for p in postings] == ["ABC", "DEF"]
         assert postings[0].posting_url == "https://careers.alaskaair.com/ABC/job/"
@@ -2113,23 +2707,47 @@ class TestPinpointAdapter:
 
     @staticmethod
     def posting(**overrides) -> dict:
-        posting = {"id": "1", "title": "Senior Software Engineer", "url": "https://careers.infor.com/en/postings/abc",
-                   "description": "<p>Build ERP.</p>", "key_responsibilities": "<p>Own services.</p>",
-                   "skills_knowledge_expertise": "<p>C#.</p>", "benefits": None,
-                   "location": {"city": "Atlanta", "name": "Atlanta", "province": "Georgia"},
-                   "workplace_type": "hybrid", "employment_type_text": "Full Time", "compensation_visible": False,
-                   "compensation_minimum": None, "compensation_maximum": None, "compensation_frequency": None,
-                   "job": {"department": {"name": "Engineering"}}}
+        posting = {
+            "id": "1",
+            "title": "Senior Software Engineer",
+            "url": "https://careers.infor.com/en/postings/abc",
+            "description": "<p>Build ERP.</p>",
+            "key_responsibilities": "<p>Own services.</p>",
+            "skills_knowledge_expertise": "<p>C#.</p>",
+            "benefits": None,
+            "location": {"city": "Atlanta", "name": "Atlanta", "province": "Georgia"},
+            "workplace_type": "hybrid",
+            "employment_type_text": "Full Time",
+            "compensation_visible": False,
+            "compensation_minimum": None,
+            "compensation_maximum": None,
+            "compensation_frequency": None,
+            "job": {"department": {"name": "Engineering"}},
+        }
         return {**posting, **overrides}
 
     @respx.mock
     def test_reads_the_whole_feed(self, http_client):
-        respx.get(self.URL).mock(return_value=httpx.Response(200, json={"data": [
-            self.posting(),
-            self.posting(id="2", workplace_type="remote", location={"name": "Remote", "city": None, "province": "Remote"},
-                         compensation_visible=True, compensation_minimum=12000, compensation_maximum=15000,
-                         compensation_currency="USD", compensation_frequency="month"),
-        ]}))
+        respx.get(self.URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "data": [
+                        self.posting(),
+                        self.posting(
+                            id="2",
+                            workplace_type="remote",
+                            location={"name": "Remote", "city": None, "province": "Remote"},
+                            compensation_visible=True,
+                            compensation_minimum=12000,
+                            compensation_maximum=15000,
+                            compensation_currency="USD",
+                            compensation_frequency="month",
+                        ),
+                    ]
+                },
+            )
+        )
 
         hybrid, remote = PinpointAdapter(http_client).fetch_postings("infor")
 
@@ -2141,12 +2759,28 @@ class TestPinpointAdapter:
         assert hybrid.salary_source == SalarySource.NONE
         assert remote.location_raw == "Remote"
         assert remote.workplace_type == WorkplaceType.REMOTE
-        assert (remote.salary_min, remote.salary_max, remote.salary_period) == (144000, 180000, "year")
+        assert (remote.salary_min, remote.salary_max, remote.salary_period) == (
+            144000,
+            180000,
+            "year",
+        )
 
     @respx.mock
     def test_hidden_compensation_is_not_a_salary(self, http_client):
-        respx.get(self.URL).mock(return_value=httpx.Response(200, json={"data": [
-            self.posting(compensation_visible=False, compensation_minimum=100000, compensation_maximum=120000)]}))
+        respx.get(self.URL).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "data": [
+                        self.posting(
+                            compensation_visible=False,
+                            compensation_minimum=100000,
+                            compensation_maximum=120000,
+                        )
+                    ]
+                },
+            )
+        )
 
         (posting,) = PinpointAdapter(http_client).fetch_postings("infor")
 

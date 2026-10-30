@@ -10,6 +10,7 @@ never overwrites the last good one, and the synced folder never sees an unverifi
 Compression matters there: a synced drive keeps every version for a while (Google Drive: 30 days),
 and the database shrinks about eightfold (109 MB to 14 MB, measured).
 """
+
 from __future__ import annotations
 
 import gzip
@@ -42,13 +43,20 @@ def backup_database(db_path: Path, target_dir: Path) -> Path:
         except sqlite3.Error as exc:
             raise BackupError(f"snapshot failed ({exc}); the previous backup was kept") from exc
         if problem is not None:
-            raise BackupError(f"snapshot failed its integrity check ({problem}); the previous backup was kept")
+            raise BackupError(
+                f"snapshot failed its integrity check ({problem}); the previous backup was kept"
+            )
         try:
-            with open(snapshot, "rb") as source, gzip.open(partial, "wb", compresslevel=6) as compressed:
+            with (
+                open(snapshot, "rb") as source,
+                gzip.open(partial, "wb", compresslevel=6) as compressed,
+            ):
                 shutil.copyfileobj(source, compressed, 1 << 20)
         except OSError as exc:
             partial.unlink(missing_ok=True)
-            raise BackupError(f"writing the snapshot failed ({exc}); the previous backup was kept") from exc
+            raise BackupError(
+                f"writing the snapshot failed ({exc}); the previous backup was kept"
+            ) from exc
     os.replace(partial, target)
     return target
 

@@ -17,7 +17,9 @@ class TestReports:
         assert "Run statistics" in markdown
         assert "Best Bets" in markdown
 
-    def test_cached_verdict_is_dropped_once_the_job_fails_factual_filters(self, db: Database, settings):
+    def test_cached_verdict_is_dropped_once_the_job_fails_factual_filters(
+        self, db: Database, settings
+    ):
         # Evaluations are cached by description text, so a re-crawl that reveals a fact the
         # verdict never saw (here: the role is actually hybrid) leaves the old strong_match in
         # place. The report must re-check the facts rather than trust the cached verdict.
@@ -46,7 +48,9 @@ class TestReports:
         assert csv_path.exists()
         assert "Acme Corp" in csv_path.read_text(encoding="utf-8")
 
-    def test_culture_score_is_shown_beside_each_role_when_the_registry_has_one(self, db: Database, settings):
+    def test_culture_score_is_shown_beside_each_role_when_the_registry_has_one(
+        self, db: Database, settings
+    ):
         company = seed_company(db, "Acme Corp")
         seed_job(db, settings, company)
         evaluate_all(db, settings, client=strong_match_client())
@@ -57,11 +61,16 @@ class TestReports:
         data = assemble_report_data(db, settings)
         assert "- Culture: 7.5/10 (medium confidence)" in render_markdown(data)
         best = build_json_report(data)["best_bets"][0]
-        assert (best["company_culture_score"], best["company_culture_confidence"]) == (7.5, "medium")
+        assert (best["company_culture_score"], best["company_culture_confidence"]) == (
+            7.5,
+            "medium",
+        )
         csv_path = settings.output_dir / "report.csv"
         write_csv_report(data, csv_path)
         header, first = csv_path.read_text(encoding="utf-8").splitlines()[:2]
-        assert header.startswith("company,culture_score,culture_confidence,") and first.startswith("Acme Corp,7.5,medium,")
+        assert header.startswith("company,culture_score,culture_confidence,") and first.startswith(
+            "Acme Corp,7.5,medium,"
+        )
 
     def test_pool_is_partitioned_and_kept_apart_from_the_latest_run(self, db: Database, settings):
         company = seed_company(db, "Acme Corp")
@@ -74,14 +83,22 @@ class TestReports:
         data = assemble_report_data(db, settings, evaluate_stats=second)
 
         pool = data.pool
-        assert (pool.active_postings, pool.factually_rejected, pool.evaluated, pool.awaiting_evaluation) == (3, 1, 1, 1)
+        assert (
+            pool.active_postings,
+            pool.factually_rejected,
+            pool.evaluated,
+            pool.awaiting_evaluation,
+        ) == (3, 1, 1, 1)
         assert pool.verdict_counts == {"strong_match": 1}
         markdown = render_markdown(data)
-        latest = markdown[markdown.index("### Latest run"):markdown.index("### Current pool")]
+        latest = markdown[markdown.index("### Latest run") : markdown.index("### Current pool")]
         assert "**0** newly rejected by factual filters" in latest
         assert "New verdicts: none" in latest
-        current = markdown[markdown.index("### Current pool"):]
-        assert "Rejected by factual filters (salary, remote, employment type, consulting): **1**" in current
+        current = markdown[markdown.index("### Current pool") :]
+        assert (
+            "Rejected by factual filters (salary, remote, employment type, consulting): **1**"
+            in current
+        )
         assert "Awaiting evaluation: **1**" in current
         assert build_json_report(data)["pool"]["evaluated"] == 1
 

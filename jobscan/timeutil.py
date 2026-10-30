@@ -8,6 +8,7 @@ Needs the ``tzdata`` package on Windows, which doesn't ship an IANA timezone dat
 still a better trade than hand-rolling DST transition math, which is one law change away from
 being silently wrong.
 """
+
 from __future__ import annotations
 
 from datetime import datetime

@@ -28,8 +28,14 @@ def write_applications(settings, *entries: str) -> None:
     settings.applications_path.write_text("applications:\n" + "".join(entries), encoding="utf-8")
 
 
-def entry(url: str, applied_on: str = "2026-09-24", company: str = "Acme Corp", title: str = "Senior Backend Engineer",
-          status: str | None = None, status_on: str | None = None) -> str:
+def entry(
+    url: str,
+    applied_on: str = "2026-09-24",
+    company: str = "Acme Corp",
+    title: str = "Senior Backend Engineer",
+    status: str | None = None,
+    status_on: str | None = None,
+) -> str:
     lines = f"  - company: {company}\n    title: {title}\n    url: {url}\n    applied_on: {applied_on}\n"
     if status:
         lines += f"    status: {status}\n"
@@ -40,7 +46,8 @@ def entry(url: str, applied_on: str = "2026-09-24", company: str = "Acme Corp", 
 
 def write_pause(settings, company: str, until: str, reason: str = "") -> None:
     settings.applications_path.write_text(
-        f"applications: []\npaused:\n  - company: {company}\n    until: {until}\n    reason: {reason}\n", encoding="utf-8"
+        f"applications: []\npaused:\n  - company: {company}\n    until: {until}\n    reason: {reason}\n",
+        encoding="utf-8",
     )
 
 
@@ -66,7 +73,9 @@ class TestLoading:
     def test_an_unknown_status_is_an_error_naming_the_choices(self, settings):
         # A typo would otherwise count the application as still waiting for a reply.
         write_applications(settings, entry("https://acme.example.com/jobs/1", status="rejcted"))
-        with pytest.raises(ValueError, match="unknown status 'rejcted'.*applied, screening, interviewing"):
+        with pytest.raises(
+            ValueError, match="unknown status 'rejcted'.*applied, screening, interviewing"
+        ):
             load_applications(settings.applications_path)
 
     def test_pauses_are_optional(self, settings):
@@ -79,15 +88,21 @@ class TestLoading:
     def test_url_variants_of_the_same_posting_match(self):
         # Observed: recorded links with a trailing slash, or without one before the query string,
         # where the crawled posting_url didn't / did.
-        assert normalize_url("https://job-boards.greenhouse.io/acme/jobs/1234567/") == \
-            normalize_url("https://job-boards.greenhouse.io/acme/jobs/1234567")
-        assert normalize_url("https://acme.example.com/job-detail?gh_jid=7654321") == \
-            normalize_url("https://acme.example.com/job-detail/?gh_jid=7654321")
-        assert normalize_url("https://x.example/jobs?id=1") != normalize_url("https://x.example/jobs?id=2")
+        assert normalize_url(
+            "https://job-boards.greenhouse.io/acme/jobs/1234567/"
+        ) == normalize_url("https://job-boards.greenhouse.io/acme/jobs/1234567")
+        assert normalize_url("https://acme.example.com/job-detail?gh_jid=7654321") == normalize_url(
+            "https://acme.example.com/job-detail/?gh_jid=7654321"
+        )
+        assert normalize_url("https://x.example/jobs?id=1") != normalize_url(
+            "https://x.example/jobs?id=2"
+        )
 
 
 class TestReport:
-    def test_applied_role_leaves_the_shortlist_and_shows_where_it_stands(self, db: Database, settings):
+    def test_applied_role_leaves_the_shortlist_and_shows_where_it_stands(
+        self, db: Database, settings
+    ):
         # The shortlist holds only what still needs a decision; the Applications table says where
         # an applied posting stands.
         seed_acme_posting(db, settings)
@@ -106,13 +121,24 @@ class TestReport:
         assert report["best_bets"] == [] and report["applications"][0]["standing"] == "Best Bet"
         assert report["all_evaluated"][0]["applied_on"] == "2026-09-24"
 
-    def test_applications_show_their_status_and_a_summary(self, db: Database, settings, monkeypatch):
-        monkeypatch.setattr(report_data, "now_seattle", lambda: dt.datetime(2026, 10, 24, 9, tzinfo=SEATTLE_TZ))
+    def test_applications_show_their_status_and_a_summary(
+        self, db: Database, settings, monkeypatch
+    ):
+        monkeypatch.setattr(
+            report_data, "now_seattle", lambda: dt.datetime(2026, 10, 24, 9, tzinfo=SEATTLE_TZ)
+        )
         write_applications(
             settings,
             entry("https://acme.example.com/jobs/1", applied_on="2026-10-01"),
-            entry("https://acme.example.com/jobs/2", applied_on="2026-09-10", status="rejected", status_on="2026-09-23"),
-            entry("https://acme.example.com/jobs/3", applied_on="2026-09-15", status="interviewing"),
+            entry(
+                "https://acme.example.com/jobs/2",
+                applied_on="2026-09-10",
+                status="rejected",
+                status_on="2026-09-23",
+            ),
+            entry(
+                "https://acme.example.com/jobs/3", applied_on="2026-09-15", status="interviewing"
+            ),
         )
 
         data = assemble_report_data(db, settings)
@@ -123,7 +149,9 @@ class TestReport:
         assert "| Rejected 2026-09-23 |" in markdown
         assert "| Interviewing |" in markdown
         assert "| No reply yet (23 days) |" in markdown
-        rejected = next(a for a in build_json_report(data)["applications"] if a["status"] == "rejected")
+        rejected = next(
+            a for a in build_json_report(data)["applications"] if a["status"] == "rejected"
+        )
         assert (rejected["status_on"], rejected["days_waiting"]) == ("2026-09-23", None)
 
     def test_closed_and_untracked_postings_still_listed(self, db: Database, settings):
@@ -132,7 +160,12 @@ class TestReport:
         write_applications(
             settings,
             entry("https://acme.example.com/jobs/1"),
-            entry("https://elsewhere.example.com/jobs/9", applied_on="2026-09-10", company="Other", title="Engineer"),
+            entry(
+                "https://elsewhere.example.com/jobs/9",
+                applied_on="2026-09-10",
+                company="Other",
+                title="Engineer",
+            ),
         )
 
         standings = [row.standing for row in assemble_report_data(db, settings).applications]
@@ -150,16 +183,24 @@ class TestReport:
 
         assert standing() == "Not evaluated yet"
         evaluate_all(db, settings, client=strong_match_client())
-        db.save_evaluation(dataclasses.replace(
-            db.get_evaluation_for_job(job.id), id=None, verdict=Verdict.REJECT, worth_applying=False,
-            primary_rejection_reason="Requires production Rust."))
+        db.save_evaluation(
+            dataclasses.replace(
+                db.get_evaluation_for_job(job.id),
+                id=None,
+                verdict=Verdict.REJECT,
+                worth_applying=False,
+                primary_rejection_reason="Requires production Rust.",
+            )
+        )
         assert standing() == "Rejected — Requires production Rust."
         seed_job(db, settings, company, location="Hybrid - Seattle, WA")
         assert standing() == "Filtered out (not_remote_explicit)"
         db.conn.execute("UPDATE companies SET active = 0 WHERE id = ?", (company.id,))
         assert standing() == "Company no longer searched"
 
-    def test_paused_company_is_held_out_of_the_shortlist_until_its_date(self, db: Database, settings):
+    def test_paused_company_is_held_out_of_the_shortlist_until_its_date(
+        self, db: Database, settings
+    ):
         # Observed: an employer accepting only three applications per 60 days. Its roles stay crawled
         # and evaluated, but leave the shortlist until the window resets — and say so, rather than
         # silently vanishing.
@@ -172,10 +213,17 @@ class TestReport:
         assert data.best_bets == []
         (paused,) = data.paused
         assert paused.held_back == 1
-        assert ("- **acme corp** until 2999-01-01 — 3 applications per 60 days (1 shortlisted role held back)"
-                in render_markdown(data))
+        assert (
+            "- **acme corp** until 2999-01-01 — 3 applications per 60 days (1 shortlisted role held back)"
+            in render_markdown(data)
+        )
         assert build_json_report(data)["paused"] == [
-            {"company": "acme corp", "until": "2999-01-01", "reason": "3 applications per 60 days", "held_back": 1}
+            {
+                "company": "acme corp",
+                "until": "2999-01-01",
+                "reason": "3 applications per 60 days",
+                "held_back": 1,
+            }
         ]
 
     def test_pause_ends_on_its_date(self, db: Database, settings):

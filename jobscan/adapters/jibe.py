@@ -15,6 +15,7 @@ Remote work shows only in the location name ("US Remote"), so the location field
 Pay is usually in the description text, which the salary parser reads downstream; the
 salary_min_value/salary_max_value fields are used when a site fills them.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -32,7 +33,10 @@ PAGE_SIZE = 100
 MAX_PAGES = 200
 
 _EMPLOYMENT_TYPES = {
-    "FULL_TIME": "Full-time", "PART_TIME": "Part-time", "CONTRACTOR": "Contract", "TEMPORARY": "Temporary",
+    "FULL_TIME": "Full-time",
+    "PART_TIME": "Part-time",
+    "CONTRACTOR": "Contract",
+    "TEMPORARY": "Temporary",
     "INTERN": "Internship",
 }
 
@@ -53,17 +57,23 @@ class JibeAdapter(SourceAdapter):
             except httpx.HTTPError as exc:
                 raise AdapterError(f"jibe board '{board_id}': request failed: {exc}") from exc
             except ValidationError as exc:  # before ValueError, which it subclasses
-                raise AdapterError(f"jibe board '{board_id}': unexpected response shape: {exc}") from exc
+                raise AdapterError(
+                    f"jibe board '{board_id}': unexpected response shape: {exc}"
+                ) from exc
             except ValueError as exc:
                 raise AdapterError(f"jibe board '{board_id}': invalid JSON: {exc}") from exc
             postings.extend(self._parse_job(host, job.data) for job in page.jobs)
             if not page.jobs or len(postings) >= page.totalCount:
                 return postings
-        raise AdapterError(f"jibe board '{board_id}': more than {MAX_PAGES} pages — paging did not end")
+        raise AdapterError(
+            f"jibe board '{board_id}': more than {MAX_PAGES} pages — paging did not end"
+        )
 
     def _parse_job(self, host: str, job: JibeJobData) -> RawPosting:
         description_html = "".join(
-            section for section in (job.description, job.responsibilities, job.qualifications) if section
+            section
+            for section in (job.description, job.responsibilities, job.qualifications)
+            if section
         )
         salary_min, salary_max = _salary(job.salary_min_value), _salary(job.salary_max_value)
         salary_period = None
@@ -73,7 +83,9 @@ class JibeAdapter(SourceAdapter):
             source_job_id=job.req_id,
             title=job.title.strip(),
             location_raw=_location_text(job),
-            employment_type_raw=_EMPLOYMENT_TYPES.get(job.employment_type or "", job.employment_type),
+            employment_type_raw=_EMPLOYMENT_TYPES.get(
+                job.employment_type or "", job.employment_type
+            ),
             description_html=description_html or None,
             description_text=None,
             # Redirects to each site's canonical job page (/careers-home/jobs/... on some sites).
@@ -107,7 +119,7 @@ def _salary(value: str | float | None) -> float | None:
 
 
 def _iso_date(raw: str | None) -> str | None:
-    """"2026-10-12T22:32:00+0000" or "October 12, 2026" (sites differ) as ISO 8601."""
+    """ "2026-10-12T22:32:00+0000" or "October 12, 2026" (sites differ) as ISO 8601."""
     if not raw:
         return None
     for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%B %d, %Y"):

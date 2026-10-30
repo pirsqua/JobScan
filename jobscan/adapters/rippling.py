@@ -15,6 +15,7 @@ Confirmed live (Netwrix): no bot-gating — no captcha, no block on a plain scri
 Like Workday, the list only returns a title — full detail costs one extra request per posting —
 so the job-family title gate runs before the detail fetch.
 """
+
 from __future__ import annotations
 
 import json
@@ -72,7 +73,9 @@ class RipplingAdapter(SourceAdapter):
             try:
                 parsed_page = RipplingJobPostsPage.model_validate(raw_page)
             except ValidationError as exc:
-                raise AdapterError(f"rippling board '{board_id}': unexpected response shape: {exc}") from exc
+                raise AdapterError(
+                    f"rippling board '{board_id}': unexpected response shape: {exc}"
+                ) from exc
 
             if not parsed_page.items:
                 break
@@ -106,35 +109,46 @@ class RipplingAdapter(SourceAdapter):
 
         match = _NEXT_DATA_RE.search(response.text)
         if not match:
-            raise AdapterError(f"rippling board '{board_id}': __NEXT_DATA__ not found on board page")
+            raise AdapterError(
+                f"rippling board '{board_id}': __NEXT_DATA__ not found on board page"
+            )
         try:
             next_data = json.loads(match.group(1))
         except ValueError as exc:
-            raise AdapterError(f"rippling board '{board_id}': invalid __NEXT_DATA__ JSON: {exc}") from exc
+            raise AdapterError(
+                f"rippling board '{board_id}': invalid __NEXT_DATA__ JSON: {exc}"
+            ) from exc
 
         build_id = next_data.get("buildId")
         if not build_id:
             raise AdapterError(f"rippling board '{board_id}': __NEXT_DATA__ has no buildId")
         return build_id
 
-    def _fetch_detail(self, data_base: str, brief: RipplingJobBrief, board_id: str) -> RawPosting | None:
+    def _fetch_detail(
+        self, data_base: str, brief: RipplingJobBrief, board_id: str
+    ) -> RawPosting | None:
         job_id = brief.id
         try:
             response = self.client.get(
-                f"{data_base}/jobs/{job_id}.json", params={"jobBoardSlug": board_id, "jobId": job_id}
+                f"{data_base}/jobs/{job_id}.json",
+                params={"jobBoardSlug": board_id, "jobId": job_id},
             )
             response.raise_for_status()
             payload = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             logger.warning(
-                "rippling job detail fetch failed", extra=log_extra(board_id=board_id, job_id=job_id, error=str(exc))
+                "rippling job detail fetch failed",
+                extra=log_extra(board_id=board_id, job_id=job_id, error=str(exc)),
             )
             self.incomplete = True
             return None
 
         raw_post = (payload.get("pageProps") or {}).get("apiData", {}).get("jobPost")
         if raw_post is None:
-            logger.warning("rippling job detail missing jobPost", extra=log_extra(board_id=board_id, job_id=job_id))
+            logger.warning(
+                "rippling job detail missing jobPost",
+                extra=log_extra(board_id=board_id, job_id=job_id),
+            )
             self.incomplete = True
             return None
         try:
@@ -168,7 +182,9 @@ class RipplingAdapter(SourceAdapter):
         )
 
 
-def _pay_range(ranges: list[RipplingPayRange]) -> tuple[float | None, float | None, str, str] | None:
+def _pay_range(
+    ranges: list[RipplingPayRange],
+) -> tuple[float | None, float | None, str, str] | None:
     """(min, max, currency, period) from Rippling's per-location pay bands, or None. The remote band
     is the one a remote hire gets, so it wins when there is one; among the rest, the highest-paying
     band — like the description parser, ambiguity resolves toward keeping a posting the salary
@@ -179,12 +195,20 @@ def _pay_range(ranges: list[RipplingPayRange]) -> tuple[float | None, float | No
         if band.rangeStart is None and band.rangeEnd is None:
             continue
         frequency = (band.frequency or "YEAR").upper()
-        scale, period = {"YEAR": (1, "year"), "MONTH": (12, "year"), "HOUR": (1, "hour")}.get(frequency, (None, None))
+        scale, period = {"YEAR": (1, "year"), "MONTH": (12, "year"), "HOUR": (1, "hour")}.get(
+            frequency, (None, None)
+        )
         if scale is None:
             continue
         low = band.rangeStart * scale if band.rangeStart is not None else None
         high = band.rangeEnd * scale if band.rangeEnd is not None else None
-        usable.append((band.isRemote, high if high is not None else low, (low, high, (band.currency or "USD").upper(), period)))
+        usable.append(
+            (
+                band.isRemote,
+                high if high is not None else low,
+                (low, high, (band.currency or "USD").upper(), period),
+            )
+        )
     if not usable:
         return None
     return max(usable, key=lambda item: (item[0], item[1] or 0))[2]

@@ -19,6 +19,7 @@ data/applications.example.yaml.
 A paused company's postings stay crawled and evaluated but are held out of the shortlist until the
 ``until`` date, when they return on their own (an employer limiting how often you can apply).
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -48,7 +49,9 @@ def normalize_url(url: str) -> str:
     ("https://x/jobs/1/" vs "https://x/jobs/1"); the query string is kept because some boards
     identify the posting by it (``?gh_jid=...``), and a fragment is dropped."""
     parts = urlsplit(url.strip())
-    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/"), parts.query, ""))
+    return urlunsplit(
+        (parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/"), parts.query, "")
+    )
 
 
 def load_applications(path: Path) -> list[Application]:
@@ -62,13 +65,20 @@ def load_applications(path: Path) -> list[Application]:
         status = str(entry.get("status") or "applied").strip().lower()
         if status not in STATUSES:
             # A typo would otherwise quietly count the application as still waiting for a reply.
-            raise ValueError(f"{entry['company']} — {entry['title']}: unknown status {status!r} in {path}; "
-                             f"use one of {', '.join(STATUSES)}")
-        applications.append(Application(
-            company=str(entry["company"]), title=str(entry["title"]), url=str(entry["url"]),
-            applied_on=_date(entry["applied_on"]), status=status,
-            status_on=_date(entry["status_on"]) if entry.get("status_on") else None,
-        ))
+            raise ValueError(
+                f"{entry['company']} — {entry['title']}: unknown status {status!r} in {path}; "
+                f"use one of {', '.join(STATUSES)}"
+            )
+        applications.append(
+            Application(
+                company=str(entry["company"]),
+                title=str(entry["title"]),
+                url=str(entry["url"]),
+                applied_on=_date(entry["applied_on"]),
+                status=status,
+                status_on=_date(entry["status_on"]) if entry.get("status_on") else None,
+            )
+        )
     return applications
 
 
@@ -95,6 +105,11 @@ def load_pauses(path: Path) -> list[Pause]:
     entries = raw.get("paused", []) if isinstance(raw, dict) else []
     pauses = []
     for entry in entries:
-        pauses.append(Pause(company=str(entry["company"]), until=_date(entry["until"]),
-                            reason=str(entry.get("reason") or "")))
+        pauses.append(
+            Pause(
+                company=str(entry["company"]),
+                until=_date(entry["until"]),
+                reason=str(entry.get("reason") or ""),
+            )
+        )
     return pauses

@@ -11,6 +11,7 @@ structured salary (``salary_from``/``salary_to``/``salary_frequency``). Confirme
 Like SmartRecruiters, the list carries only titles and locations, so the job-family title gate
 runs before the per-job detail fetch, and those fetches run through a small thread pool.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -41,7 +42,10 @@ DETAIL_CONCURRENCY = 8
 
 # Workable's job "type" codes, spelled the way normalize_employment_type reads them.
 _EMPLOYMENT_TYPES = {
-    "full": "Full-time", "part": "Part-time", "contract": "Contract", "temporary": "Temporary",
+    "full": "Full-time",
+    "part": "Part-time",
+    "contract": "Contract",
+    "temporary": "Temporary",
     "internship": "Internship",
 }
 
@@ -63,7 +67,9 @@ class WorkableAdapter(SourceAdapter):
             except httpx.HTTPError as exc:
                 raise AdapterError(f"workable board '{board_id}': request failed: {exc}") from exc
             except ValidationError as exc:  # before ValueError, which it subclasses
-                raise AdapterError(f"workable board '{board_id}': unexpected response shape: {exc}") from exc
+                raise AdapterError(
+                    f"workable board '{board_id}': unexpected response shape: {exc}"
+                ) from exc
             except ValueError as exc:
                 raise AdapterError(f"workable board '{board_id}': invalid JSON: {exc}") from exc
             summaries.extend(page.results)
@@ -71,7 +77,9 @@ class WorkableAdapter(SourceAdapter):
             if not token or not page.results:
                 break
         else:
-            raise AdapterError(f"workable board '{board_id}': more than {MAX_PAGES} pages — paging did not end")
+            raise AdapterError(
+                f"workable board '{board_id}': more than {MAX_PAGES} pages — paging did not end"
+            )
 
         matched = [s for s in summaries if is_engineering_title(s.title)]
         with ThreadPoolExecutor(max_workers=DETAIL_CONCURRENCY) as pool:
@@ -80,7 +88,9 @@ class WorkableAdapter(SourceAdapter):
 
     def _fetch_detail(self, account: str, summary: WorkableJobSummary) -> RawPosting | None:
         try:
-            response = self.client.get(DETAIL_URL.format(account=account, shortcode=summary.shortcode))
+            response = self.client.get(
+                DETAIL_URL.format(account=account, shortcode=summary.shortcode)
+            )
             response.raise_for_status()
             detail = WorkableJobDetail.model_validate(response.json())
         except (httpx.HTTPError, ValueError, ValidationError) as exc:
@@ -93,7 +103,9 @@ class WorkableAdapter(SourceAdapter):
             return None
 
         description_html = "".join(
-            section for section in (detail.description, detail.requirements, detail.benefits) if section
+            section
+            for section in (detail.description, detail.requirements, detail.benefits)
+            if section
         )
 
         salary_min = salary_max = salary_period = None
@@ -127,14 +139,19 @@ class WorkableAdapter(SourceAdapter):
             salary_currency=detail.salary_currency_iso_code if salary_period else None,
             salary_period=salary_period,
             salary_source=SalarySource.STRUCTURED if salary_period else SalarySource.NONE,
-            workplace_type=parse_workplace_type(detail.workplace) or (WorkplaceType.REMOTE if detail.remote else None),
+            workplace_type=parse_workplace_type(detail.workplace)
+            or (WorkplaceType.REMOTE if detail.remote else None),
         )
 
 
 def _location_text(detail: WorkableJobDetail) -> str | None:
     """Every visible location as "City, Region, Country", prefixed "Remote - " for a remote job so
     the location field states it the way other boards do."""
-    places = [loc for loc in (detail.locations or ([detail.location] if detail.location else [])) if not loc.hidden]
+    places = [
+        loc
+        for loc in (detail.locations or ([detail.location] if detail.location else []))
+        if not loc.hidden
+    ]
     text = "; ".join(filter(None, (_place(loc) for loc in places))) or None
     if detail.workplace == "remote" or (detail.workplace is None and detail.remote):
         return f"Remote - {text}" if text else "Remote"

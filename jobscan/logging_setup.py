@@ -1,4 +1,5 @@
 """Structured logging setup: JSON lines to a log file, readable text to the console."""
+
 from __future__ import annotations
 
 import json
@@ -30,7 +31,9 @@ def configure_logging(log_level: str = "INFO", log_dir: Path | None = None) -> N
     root.handlers.clear()
 
     console = logging.StreamHandler(sys.stderr)
-    console.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s", "%H:%M:%S"))
+    console.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s", "%H:%M:%S")
+    )
     root.addHandler(console)
 
     if log_dir is not None:

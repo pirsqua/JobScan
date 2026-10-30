@@ -1,5 +1,6 @@
 """Single structured LLM call, cached indefinitely per company, that classifies a company as a
 product company vs. consulting/staffing/outsourcing shop."""
+
 from __future__ import annotations
 
 import httpx
@@ -53,8 +54,13 @@ def classify_company(
     try:
         parsed = CompanyClassificationResult.model_validate(result.data)
     except ValidationError as exc:
-        raise LlmCallError(f"company classification response failed schema validation: {exc}") from exc
+        raise LlmCallError(
+            f"company classification response failed schema validation: {exc}"
+        ) from exc
     return (
-        parsed, result.input_tokens, result.output_tokens,
-        result.cache_creation_input_tokens, result.cache_read_input_tokens,
+        parsed,
+        result.input_tokens,
+        result.output_tokens,
+        result.cache_creation_input_tokens,
+        result.cache_read_input_tokens,
     )

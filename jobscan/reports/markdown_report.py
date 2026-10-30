@@ -2,6 +2,7 @@
 Good Fits, Growth Bets, Attractive Stretches, and a summary of what was rejected or left unverified.
 Roles already applied to are listed under Applications, not in the shortlist, and starred (★)
 wherever else they appear."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -75,12 +76,18 @@ def _render_stats(data: ReportData) -> list[str]:
     else:
         lines.append("- No crawl on record.")
     if es:
-        lines.append(f"- Evaluation ({_seattle_time(es.started_at)}): **{es.newly_filtered}** newly rejected by factual filters")
+        lines.append(
+            f"- Evaluation ({_seattle_time(es.started_at)}): **{es.newly_filtered}** newly rejected by factual filters"
+        )
         if es.triage_model:
-            lines.append(f"- Triage: **{es.triaged}** screened, {es.triage_skipped} skipped before a full evaluation")
+            lines.append(
+                f"- Triage: **{es.triaged}** screened, {es.triage_skipped} skipped before a full evaluation"
+            )
         lines.append(f"- Full evaluations: **{es.sent_to_llm}**")
         if es.second_looks:
-            lines.append(f"- Near-miss second looks: {es.second_looks} ({es.second_looks_kept} came out better)")
+            lines.append(
+                f"- Near-miss second looks: {es.second_looks} ({es.second_looks_kept} came out better)"
+            )
         if es.companies_classified:
             lines.append(f"- Companies newly classified: {es.companies_classified}")
         if es.llm_errors:
@@ -127,43 +134,64 @@ def _work_line(ev: Evaluation) -> list[str]:
     """What the team's engineers do day to day, whenever the evaluation says."""
     if not ev.day_to_day_work:
         return []
-    return [f"- Day to day: {ev.day_to_day_work}{_WORK_FIT_NOTES.get(ev.work_fit, '') if ev.work_fit else ''}"]
+    return [
+        f"- Day to day: {ev.day_to_day_work}{_WORK_FIT_NOTES.get(ev.work_fit, '') if ev.work_fit else ''}"
+    ]
 
 
 def _hours_line(ev: Evaluation) -> list[str]:
     """The posting's own words on working hours, whenever it states any."""
     if not ev.working_hours_quote:
         return []
-    note = " — fails the working-hours filter" if ev.working_hours_fit and ev.working_hours_fit.disqualifies else ""
+    note = (
+        " — fails the working-hours filter"
+        if ev.working_hours_fit and ev.working_hours_fit.disqualifies
+        else ""
+    )
     return [f'- Working hours: "{ev.working_hours_quote}"{note}']
 
 
 def _render_applications(data: ReportData) -> list[str]:
     lines = ["", "## Applications", ""]
     if not data.applications:
-        lines.append("_None recorded — add them to the applications file in your data folder (`JOBSCAN_DATA_DIR`)._")
+        lines.append(
+            "_None recorded — add them to the applications file in your data folder (`JOBSCAN_DATA_DIR`)._"
+        )
         return lines
-    lines += [_application_summary(data), "", "| Applied | Role | Status | Where it stands |", "|---|---|---|---|"]
+    lines += [
+        _application_summary(data),
+        "",
+        "| Applied | Role | Status | Where it stands |",
+        "|---|---|---|---|",
+    ]
     for row in data.applications:
         app = row.application
         standing = row.standing.replace("|", "\\|")
-        lines.append(f"| {app.applied_on.isoformat()} | [{app.company} — {app.title}]({app.url}) | "
-                     f"{_application_status(row)} | {standing} |")
+        lines.append(
+            f"| {app.applied_on.isoformat()} | [{app.company} — {app.title}]({app.url}) | "
+            f"{_application_status(row)} | {standing} |"
+        )
     return lines
 
 
 _STATUS_PHRASES = {
-    "applied": "awaiting a reply", "screening": "screening", "interviewing": "interviewing", "offer": "offer",
-    "rejected": "rejected", "withdrawn": "withdrawn",
+    "applied": "awaiting a reply",
+    "screening": "screening",
+    "interviewing": "interviewing",
+    "offer": "offer",
+    "rejected": "rejected",
+    "withdrawn": "withdrawn",
 }
 
 
 def _application_summary(data: ReportData) -> str:
-    """"**20** applications — 18 awaiting a reply, 1 interviewing, 1 rejected", in STATUSES order."""
+    """ "**20** applications — 18 awaiting a reply, 1 interviewing, 1 rejected", in STATUSES order."""
     counts: dict[str, int] = {}
     for row in data.applications:
         counts[row.application.status] = counts.get(row.application.status, 0) + 1
-    parts = [f"{counts[status]} {_STATUS_PHRASES[status]}" for status in STATUSES if status in counts]
+    parts = [
+        f"{counts[status]} {_STATUS_PHRASES[status]}" for status in STATUSES if status in counts
+    ]
     total = len(data.applications)
     return f"**{total}** application{'' if total == 1 else 's'} — {', '.join(parts)}"
 
@@ -184,11 +212,15 @@ def _render_paused(data: ReportData) -> list[str]:
     for row in data.paused:
         reason = f" — {row.pause.reason}" if row.pause.reason else ""
         held = f"{row.held_back} shortlisted role{'' if row.held_back == 1 else 's'} held back"
-        lines.append(f"- **{row.pause.company}** until {row.pause.until.isoformat()}{reason} ({held})")
+        lines.append(
+            f"- **{row.pause.company}** until {row.pause.until.isoformat()}{reason} ({held})"
+        )
     return lines
 
 
-def _render_shortlist(title: str, intro: str, rows: list[JobReportRow], empty_note: str) -> list[str]:
+def _render_shortlist(
+    title: str, intro: str, rows: list[JobReportRow], empty_note: str
+) -> list[str]:
     lines = ["", f"## {title}", "", f"_{intro}_", ""]
     if not rows:
         lines.append(f"_{empty_note}_")
@@ -209,7 +241,9 @@ def _render_shortlist(title: str, intro: str, rows: list[JobReportRow], empty_no
             f"- Freshness: {_freshness(job)}",
         ]
         if ev.scope_fit == ScopeFit.BELOW_LEVEL:
-            lines.append("- Level: below yours — ask the recruiter whether they'd level you at Senior")
+            lines.append(
+                "- Level: below yours — ask the recruiter whether they'd level you at Senior"
+            )
         lines += _work_line(ev)
         lines += _hours_line(ev)
         if ev.required_matches:
@@ -228,7 +262,9 @@ def _render_shortlist(title: str, intro: str, rows: list[JobReportRow], empty_no
 
 def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
     lines = [
-        "", "## Attractive Stretches", "",
+        "",
+        "## Attractive Stretches",
+        "",
         (
             "_Strong technical overlap, but two or more required qualifications you don't have, two or "
             "more unproven scope dimensions, or a hidden staff-level expectation behind an "
@@ -321,18 +357,21 @@ def render_markdown(data: ReportData) -> str:
         "Best Bets",
         "Strong matches at or below your level, with every required qualification demonstrated or "
         "credibly transferable. Apply to these first.",
-        data.best_bets, "None right now.",
+        data.best_bets,
+        "None right now.",
     )
     lines += _render_shortlist(
         "Good Fits",
         "Plausible matches at or below your level, with nothing required missing.",
-        data.good_fits, "None right now.",
+        data.good_fits,
+        "None right now.",
     )
     lines += _render_shortlist(
         "Growth Bets",
         "One step up with no more than one material growth dimension, or at your level but missing "
         "one required qualification.",
-        data.growth_bets, "None right now.",
+        data.growth_bets,
+        "None right now.",
     )
     lines += _render_attractive_stretches(data.attractive_stretches)
     lines += _render_rejected_or_unverified(data)

@@ -74,12 +74,20 @@ class TestRegistryImport:
         )
         import_registry(db, path)
         by_name = {c.name: c for c in db.list_companies(active_only=False)}
-        assert (by_name["Scored Co"].culture_score, by_name["Scored Co"].culture_confidence) == (7.5, "medium")
+        assert (by_name["Scored Co"].culture_score, by_name["Scored Co"].culture_confidence) == (
+            7.5,
+            "medium",
+        )
         assert by_name["Unscored Co"].culture_score is None
-        assert by_name["Plain Co"].culture_score is None and by_name["Plain Co"].culture_confidence is None
+        assert (
+            by_name["Plain Co"].culture_score is None
+            and by_name["Plain Co"].culture_confidence is None
+        )
 
-        path.write_text("- {name: Scored Co, ats_type: greenhouse, board_id: scored, culture_score: 4, culture_confidence: high}\n",
-                        encoding="utf-8")
+        path.write_text(
+            "- {name: Scored Co, ats_type: greenhouse, board_id: scored, culture_score: 4, culture_confidence: high}\n",
+            encoding="utf-8",
+        )
         import_registry(db, path)
         rescored = next(c for c in db.list_companies(active_only=False) if c.name == "Scored Co")
         assert (rescored.culture_score, rescored.culture_confidence) == (4.0, "high")
@@ -87,7 +95,10 @@ class TestRegistryImport:
     @pytest.mark.parametrize("value", ["great", 11, -1])
     def test_culture_score_must_be_a_number_from_0_to_10(self, tmp_path: Path, value):
         path = tmp_path / "companies.yaml"
-        path.write_text(f"- {{name: Bad Co, ats_type: greenhouse, board_id: bad, culture_score: {value}}}\n", encoding="utf-8")
+        path.write_text(
+            f"- {{name: Bad Co, ats_type: greenhouse, board_id: bad, culture_score: {value}}}\n",
+            encoding="utf-8",
+        )
         with pytest.raises(RegistryImportError, match="culture_score"):
             parse_registry_file(path)
 
@@ -131,16 +142,23 @@ class TestRegistryImport:
         active_boards = {c.board_id for c in db.list_companies(active_only=True)}
         assert active_boards == {"acme"}
 
-    def test_delete_permanently_removes_companies_and_their_jobs(self, tmp_path: Path, db: Database, settings):
+    def test_delete_permanently_removes_companies_and_their_jobs(
+        self, tmp_path: Path, db: Database, settings
+    ):
         old_path = tmp_path / "old.csv"
         old_path.write_text(CSV_CONTENT, encoding="utf-8")
         import_registry(db, old_path)
         acme = next(c for c in db.list_companies(active_only=False) if c.board_id == "acme")
 
         raw = RawPosting(
-            source_job_id="1", title="Senior Backend Engineer", location_raw="Remote - US",
-            employment_type_raw="Full-time", description_html="<p>$180,000 - $220,000</p>",
-            description_text=None, posting_url="https://acme.example.com/1", apply_url=None,
+            source_job_id="1",
+            title="Senior Backend Engineer",
+            location_raw="Remote - US",
+            employment_type_raw="Full-time",
+            description_html="<p>$180,000 - $220,000</p>",
+            description_text=None,
+            posting_url="https://acme.example.com/1",
+            apply_url=None,
         )
         job = normalize_posting(raw, acme, settings)
         db.upsert_job(job)
