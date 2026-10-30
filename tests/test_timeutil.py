@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from jobscan.timeutil import filename_timestamp, now_seattle
 
@@ -12,8 +12,8 @@ class TestNowSeattle:
 
     def test_matches_utc_now_converted(self):
         seattle = now_seattle()
-        utc = datetime.now(timezone.utc)
-        assert abs((seattle.astimezone(timezone.utc) - utc).total_seconds()) < 5
+        utc = datetime.now(UTC)
+        assert abs((seattle.astimezone(UTC) - utc).total_seconds()) < 5
 
 
 class TestFilenameTimestamp:

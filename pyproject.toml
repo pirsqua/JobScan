@@ -18,10 +18,15 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "respx>=0.21",
+    "ruff>=0.17",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Ruff's default rules; the line length matches the width docstrings and comments are wrapped to.
+[tool.ruff]
+line-length = 100
 
 [build-system]
 requires = ["setuptools>=68"]

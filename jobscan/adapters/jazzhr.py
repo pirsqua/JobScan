@@ -17,7 +17,7 @@ before the per-posting detail fetch.
 """
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 from urllib.parse import urljoin, urlsplit
 
 import httpx

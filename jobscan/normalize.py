@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from bs4 import BeautifulSoup
 
@@ -56,7 +56,7 @@ def normalize_posting(
     settings: Settings,
     now: datetime | None = None,
 ) -> JobPosting:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
 
     description_text = raw.description_text or html_to_text(raw.description_html)
     description_text = description_text.strip()

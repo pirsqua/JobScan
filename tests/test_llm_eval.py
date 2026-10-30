@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import httpx
@@ -30,10 +30,9 @@ from jobscan.models import (
     Verdict,
     WorkFit,
 )
-
 from tests.fakes import VALID_EVALUATION, FakeSdkClient, json_response, refusal_response
 
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 def make_job() -> JobPosting:
@@ -299,7 +298,7 @@ class TestCompanyClassification:
             })]
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
-        result, in_tok, out_tok, cache_write_tok, cache_read_tok = classify_company(
+        result, in_tok, _out_tok, cache_write_tok, cache_read_tok = classify_company(
             client, "Acme Corp", "acme.example.com", "We build tools for developers.", "Join our engineering team."
         )
         assert result.classification == "product"
@@ -336,7 +335,7 @@ class TestTriage:
         )
         client = AnthropicClient(api_key=None, model="test-model", client=sdk)
 
-        result, in_tok, out_tok, cache_write_tok, cache_read_tok = triage_job(
+        result, in_tok, _out_tok, cache_write_tok, cache_read_tok = triage_job(
             client, render_profile_text(profile), make_company(), make_job()
         )
 

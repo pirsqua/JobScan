@@ -19,13 +19,19 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import httpx
 from pydantic import ValidationError
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
-from jobscan.adapters.schemas import RipplingJobBrief, RipplingJobPost, RipplingJobPostsPage, RipplingPayRange
+from jobscan.adapters.schemas import (
+    RipplingJobBrief,
+    RipplingJobPost,
+    RipplingJobPostsPage,
+    RipplingPayRange,
+)
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
 from jobscan.models import AtsType, RawPosting, SalarySource, WorkplaceType

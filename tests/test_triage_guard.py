@@ -3,7 +3,7 @@ own words for it. Skills are the triage model's judgment; titles and location wo
 here. Most cases are the live misfires that shaped it."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -11,7 +11,7 @@ from jobscan.llm.schemas import TriageResult
 from jobscan.llm.triage import skip_is_substantiated
 from jobscan.models import AtsType, EmploymentType, JobPosting, RemoteScope
 
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 def job(title="Senior Software Engineer", description="", location="Remote - US") -> JobPosting:

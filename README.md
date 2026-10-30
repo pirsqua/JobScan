@@ -345,7 +345,11 @@ registry and applications live wherever `.env` points.
 
 ```powershell
 python -m pytest -q
+ruff check . ; ruff format --check .
 ```
+
+Ruff lints and formats with its default rules at a 100-character line (`pyproject.toml`). In VS
+Code, the Ruff extension formats and sorts imports on save (`.vscode/settings.json`).
 
 The tests use mocked HTTP, a stub Anthropic client and `config/candidate_profile.example.yaml` —
 they never touch the network, spend money or read your personal files. Keep it that way: real

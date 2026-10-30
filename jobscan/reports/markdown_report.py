@@ -9,7 +9,13 @@ from pathlib import Path
 
 from jobscan.applications import STATUSES
 from jobscan.models import Company, Evaluation, JobPosting, ScopeFit, Verdict, WorkFit
-from jobscan.reports.data import ApplicationRow, JobReportRow, ReportData, declined_reason, is_declined
+from jobscan.reports.data import (
+    ApplicationRow,
+    JobReportRow,
+    ReportData,
+    declined_reason,
+    is_declined,
+)
 from jobscan.timeutil import SEATTLE_TZ
 
 
@@ -56,10 +62,14 @@ def _render_stats(data: ReportData) -> list[str]:
     if cs:
         failed = f" — failed: {'; '.join(cs.boards_failed)}" if cs.boards_failed else ""
         lines += [
-            f"- Crawl ({_seattle_time(cs.started_at)}): **{cs.companies_succeeded}** of {cs.companies_attempted} "
-            f"companies crawled{failed}",
-            f"- Postings fetched: {cs.postings_fetched} across all departments, {cs.postings_out_of_family} of them "
-            "outside software engineering (never stored)",
+            (
+                f"- Crawl ({_seattle_time(cs.started_at)}): **{cs.companies_succeeded}** of "
+                f"{cs.companies_attempted} companies crawled{failed}"
+            ),
+            (
+                f"- Postings fetched: {cs.postings_fetched} across all departments, "
+                f"{cs.postings_out_of_family} of them outside software engineering (never stored)"
+            ),
             f"- **{cs.new_postings}** new, **{cs.changed_postings}** changed, **{cs.closed_postings}** closed",
         ]
     else:
@@ -92,9 +102,11 @@ def _render_stats(data: ReportData) -> list[str]:
         f"- Rejected by factual filters (salary, remote, employment type, consulting): **{pool.factually_rejected}**",
         f"- Evaluated: **{pool.evaluated}** — {_verdicts(pool.verdict_counts)}",
         f"- Awaiting evaluation: **{pool.awaiting_evaluation}**",
-        f"- Shortlist (not yet applied to): **{len(data.best_bets)}** Best Bets, **{len(data.good_fits)}** "
-        f"Good Fits, **{len(data.growth_bets)}** Growth Bets, **{len(data.attractive_stretches)}** "
-        "Attractive Stretches",
+        (
+            f"- Shortlist (not yet applied to): **{len(data.best_bets)}** Best Bets, "
+            f"**{len(data.good_fits)}** Good Fits, **{len(data.growth_bets)}** Growth Bets, "
+            f"**{len(data.attractive_stretches)}** Attractive Stretches"
+        ),
     ]
     return lines
 
@@ -186,8 +198,10 @@ def _render_shortlist(title: str, intro: str, rows: list[JobReportRow], empty_no
         job, company, ev = row.job, row.company, row.evaluation
         assert ev is not None
         lines += [
-            f"### {_role(row)} ({ev.verdict.value}, {ev.scope_fit.value}, "
-            f"{ev.evidence_coverage_percent}% coverage, confidence {ev.confidence:.2f})",
+            (
+                f"### {_role(row)} ({ev.verdict.value}, {ev.scope_fit.value}, "
+                f"{ev.evidence_coverage_percent}% coverage, confidence {ev.confidence:.2f})"
+            ),
             "",
             f"- Salary: {_salary_line(job)}",
             *_culture_line(company),
@@ -215,9 +229,12 @@ def _render_shortlist(title: str, intro: str, rows: list[JobReportRow], empty_no
 def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
     lines = [
         "", "## Attractive Stretches", "",
-        "_Strong technical overlap, but two or more required qualifications you don't have, two or "
-        "more unproven scope dimensions, or a hidden staff-level expectation behind an "
-        "ordinary-looking Senior title. Worth a look, not a first pick._", "",
+        (
+            "_Strong technical overlap, but two or more required qualifications you don't have, two or "
+            "more unproven scope dimensions, or a hidden staff-level expectation behind an "
+            "ordinary-looking Senior title. Worth a look, not a first pick._"
+        ),
+        "",
     ]
     if not rows:
         lines.append("_None._")

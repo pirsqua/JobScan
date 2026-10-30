@@ -17,8 +17,8 @@ salary_min_value/salary_max_value fields are used when a site fills them.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Iterable
 from urllib.parse import parse_qsl
 
 import httpx

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from jobscan.filters import FilterReason, apply_factual_filters
 from jobscan.models import (
@@ -15,49 +15,49 @@ from jobscan.models import (
     SalarySource,
 )
 
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 def make_company(**overrides) -> Company:
-    defaults = dict(
-        id=1,
-        name="Acme Corp",
-        domain="acme.example.com",
-        careers_url="https://acme.example.com/careers",
-        ats_type=AtsType.GREENHOUSE,
-        board_id="acme",
-    )
+    defaults = {
+        "id": 1,
+        "name": "Acme Corp",
+        "domain": "acme.example.com",
+        "careers_url": "https://acme.example.com/careers",
+        "ats_type": AtsType.GREENHOUSE,
+        "board_id": "acme",
+    }
     defaults.update(overrides)
     return Company(**defaults)
 
 
 def make_job(**overrides) -> JobPosting:
-    defaults = dict(
-        id=1,
-        company_id=1,
-        source=AtsType.GREENHOUSE,
-        source_job_id="123",
-        title="Senior Backend Engineer",
-        location_raw="Remote - US",
-        remote_scope=RemoteScope.REMOTE_US,
-        employment_type_raw="Full-time",
-        employment_type=EmploymentType.FULL_TIME,
-        description_text="We build a SaaS product for backend engineers.",
-        description_html=None,
-        description_hash="abc123",
-        posting_url="https://acme.example.com/jobs/123",
-        apply_url="https://acme.example.com/jobs/123/apply",
-        department="Engineering",
-        published_at=NOW,
-        first_seen_at=NOW,
-        last_seen_at=NOW,
-        salary_min=180000,
-        salary_max=220000,
-        salary_currency="USD",
-        salary_period="year",
-        salary_source=SalarySource.STRUCTURED,
-        status=JobStatus.ACTIVE,
-    )
+    defaults = {
+        "id": 1,
+        "company_id": 1,
+        "source": AtsType.GREENHOUSE,
+        "source_job_id": "123",
+        "title": "Senior Backend Engineer",
+        "location_raw": "Remote - US",
+        "remote_scope": RemoteScope.REMOTE_US,
+        "employment_type_raw": "Full-time",
+        "employment_type": EmploymentType.FULL_TIME,
+        "description_text": "We build a SaaS product for backend engineers.",
+        "description_html": None,
+        "description_hash": "abc123",
+        "posting_url": "https://acme.example.com/jobs/123",
+        "apply_url": "https://acme.example.com/jobs/123/apply",
+        "department": "Engineering",
+        "published_at": NOW,
+        "first_seen_at": NOW,
+        "last_seen_at": NOW,
+        "salary_min": 180000,
+        "salary_max": 220000,
+        "salary_currency": "USD",
+        "salary_period": "year",
+        "salary_source": SalarySource.STRUCTURED,
+        "status": JobStatus.ACTIVE,
+    }
     defaults.update(overrides)
     return JobPosting(**defaults)
 

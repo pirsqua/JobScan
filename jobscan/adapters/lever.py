@@ -18,8 +18,8 @@ every Lever posting's requirements were missing from the text the evaluation rea
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime
 
 import httpx
 from pydantic import ValidationError
@@ -88,7 +88,7 @@ class LeverAdapter(SourceAdapter):
 
         published_at = None
         if job.createdAt is not None:
-            published_at = datetime.fromtimestamp(job.createdAt / 1000, tz=timezone.utc).isoformat()
+            published_at = datetime.fromtimestamp(job.createdAt / 1000, tz=UTC).isoformat()
 
         return RawPosting(
             source_job_id=job.id,

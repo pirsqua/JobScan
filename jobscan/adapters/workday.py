@@ -25,15 +25,19 @@ across six registry tenants.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Iterable
 from urllib.parse import parse_qsl
 
 import httpx
 from pydantic import ValidationError
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
-from jobscan.adapters.schemas import WorkdayJobBrief, WorkdayJobDetailResponse, WorkdayJobsListResponse
+from jobscan.adapters.schemas import (
+    WorkdayJobBrief,
+    WorkdayJobDetailResponse,
+    WorkdayJobsListResponse,
+)
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
 from jobscan.models import AtsType, RawPosting, SalarySource

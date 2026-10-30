@@ -18,7 +18,11 @@ from pydantic import ValidationError
 
 from jobscan.job_family import names_software_role
 from jobscan.llm.client import AnthropicClient, LlmCallError
-from jobscan.llm.prompts import TRIAGE_SYSTEM, build_candidate_profile_block, build_triage_user_message
+from jobscan.llm.prompts import (
+    TRIAGE_SYSTEM,
+    build_candidate_profile_block,
+    build_triage_user_message,
+)
 from jobscan.llm.schemas import TRIAGE_SCHEMA, TriageResult
 from jobscan.models import Company, JobPosting
 

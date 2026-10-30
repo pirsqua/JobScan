@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from jobscan.config import Settings
 from jobscan.db import Database
@@ -9,7 +9,6 @@ from jobscan.models import (
     ClassificationSource,
     Company,
     CompanyClassification,
-    Evaluation,
     EvidenceClassification,
     FrontendFit,
     JobStatus,
@@ -26,20 +25,20 @@ from jobscan.models import (
     WorkplaceType,
 )
 from jobscan.normalize import compute_description_hash, normalize_posting
-
 from tests.fakes import make_evaluation
 
+
 def make_raw(source_job_id="1", title="Senior Backend Engineer", description="We build our own SaaS product. $180,000 - $220,000/year.", **overrides):
-    defaults = dict(
-        source_job_id=source_job_id,
-        title=title,
-        location_raw="Remote - US",
-        employment_type_raw="Full-time",
-        description_html=f"<p>{description}</p>",
-        description_text=None,
-        posting_url="https://acme.example.com/jobs/1",
-        apply_url="https://acme.example.com/jobs/1/apply",
-    )
+    defaults = {
+        "source_job_id": source_job_id,
+        "title": title,
+        "location_raw": "Remote - US",
+        "employment_type_raw": "Full-time",
+        "description_html": f"<p>{description}</p>",
+        "description_text": None,
+        "posting_url": "https://acme.example.com/jobs/1",
+        "apply_url": "https://acme.example.com/jobs/1/apply",
+    }
     defaults.update(overrides)
     return RawPosting(**defaults)
 
@@ -205,14 +204,14 @@ class TestManualOverrides:
         db.set_manual_override(
             ManualOverride(
                 entity_type="job", entity_id=42, field="verdict", value="strong_match",
-                reason="I know this team", created_at=datetime.now(timezone.utc),
+                reason="I know this team", created_at=datetime.now(UTC),
             )
         )
         overrides = db.get_manual_overrides("job", 42)
         assert overrides["verdict"] == "strong_match"
 
     def test_override_upsert_replaces_value(self, db: Database):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         db.set_manual_override(ManualOverride("job", 1, "verdict", "reject", None, now))
         db.set_manual_override(ManualOverride("job", 1, "verdict", "strong_match", "changed my mind", now))
         overrides = db.get_manual_overrides("job", 1)
@@ -220,7 +219,7 @@ class TestManualOverrides:
 
     def test_company_classification_override(self, db: Database):
         db.set_manual_override(
-            ManualOverride("company", 7, "classification", "product", "verified myself", datetime.now(timezone.utc))
+            ManualOverride("company", 7, "classification", "product", "verified myself", datetime.now(UTC))
         )
         assert db.get_manual_overrides("company", 7)["classification"] == "product"
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -182,16 +182,16 @@ def make_evaluation(
         )
         for i in range(central_directly_demonstrated)
     ]
-    values = dict(
-        job_id=job_id, description_hash=f"hash-{job_id}", verdict=verdict, confidence=0.7,
-        scope_fit=scope_fit, evidence_coverage_percent=50,
-        specialist_tenure_assessment=SpecialistTenureAssessment(
+    values = {
+        "job_id": job_id, "description_hash": f"hash-{job_id}", "verdict": verdict, "confidence": 0.7,
+        "scope_fit": scope_fit, "evidence_coverage_percent": 50,
+        "specialist_tenure_assessment": SpecialistTenureAssessment(
             classification=SpecialistTenureClassification.NOT_APPLICABLE, specialty="", explanation="",
         ),
-        requirement_evidence=requirement_evidence, growth_dimensions=[], hidden_staff_signals=[],
-        compensation_assessment="ok", remote_employment_verification="ok", required_matches=[],
-        required_gaps=[], preferred_only_gaps=[], minor_caveats=[], evidence=[], credibility_assessment="ok",
-        why_this_is_or_is_not_gettable="ok", is_product_company=True, primary_rejection_reason=None,
-        model_name="test-model", created_at=datetime.now(timezone.utc),
-    )
+        "requirement_evidence": requirement_evidence, "growth_dimensions": [], "hidden_staff_signals": [],
+        "compensation_assessment": "ok", "remote_employment_verification": "ok", "required_matches": [],
+        "required_gaps": [], "preferred_only_gaps": [], "minor_caveats": [], "evidence": [], "credibility_assessment": "ok",
+        "why_this_is_or_is_not_gettable": "ok", "is_product_company": True, "primary_rejection_reason": None,
+        "model_name": "test-model", "created_at": datetime.now(UTC),
+    }
     return Evaluation(**{**values, **fields})

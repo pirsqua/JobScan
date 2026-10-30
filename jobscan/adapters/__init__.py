@@ -1,6 +1,6 @@
-from jobscan.adapters.base import SourceAdapter
 from jobscan.adapters.ashby import AshbyAdapter
 from jobscan.adapters.avature import AvatureAdapter
+from jobscan.adapters.base import SourceAdapter
 from jobscan.adapters.directemployers import DirectEmployersAdapter
 from jobscan.adapters.esri import EsriAdapter
 from jobscan.adapters.greenhouse import GreenhouseAdapter
@@ -37,8 +37,22 @@ ADAPTERS: dict[AtsType, type[SourceAdapter]] = {
 }
 
 __all__ = [
-    "SourceAdapter", "GreenhouseAdapter", "AshbyAdapter", "LeverAdapter", "WorkdayAdapter",
-    "JobviteAdapter", "EsriAdapter", "SmartRecruitersAdapter", "AvatureAdapter", "RipplingAdapter",
-    "JazzHRAdapter", "ICIMSAdapter", "WorkableAdapter", "JibeAdapter", "OracleAdapter",
-    "DirectEmployersAdapter", "PinpointAdapter", "ADAPTERS",
+    "ADAPTERS",
+    "AshbyAdapter",
+    "AvatureAdapter",
+    "DirectEmployersAdapter",
+    "EsriAdapter",
+    "GreenhouseAdapter",
+    "ICIMSAdapter",
+    "JazzHRAdapter",
+    "JibeAdapter",
+    "JobviteAdapter",
+    "LeverAdapter",
+    "OracleAdapter",
+    "PinpointAdapter",
+    "RipplingAdapter",
+    "SmartRecruitersAdapter",
+    "SourceAdapter",
+    "WorkableAdapter",
+    "WorkdayAdapter",
 ]

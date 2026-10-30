@@ -32,7 +32,6 @@ from jobscan.models import (
 )
 from jobscan.reports.data import assemble_report_data
 from jobscan.reports.markdown_report import render_markdown
-
 from tests.fakes import FakeSdkClient, json_response, make_evaluation, seed_company, seed_job
 
 

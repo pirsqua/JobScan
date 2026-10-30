@@ -16,7 +16,14 @@ import yaml
 from jobscan.cli import main
 from jobscan.config import load_settings
 from jobscan.db import Database
-from jobscan.models import AtsType, ClassificationSource, Company, CompanyClassification, EvaluateStats, RawPosting
+from jobscan.models import (
+    AtsType,
+    ClassificationSource,
+    Company,
+    CompanyClassification,
+    EvaluateStats,
+    RawPosting,
+)
 from jobscan.normalize import normalize_posting
 from tests.fakes import data_folder
 

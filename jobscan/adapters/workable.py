@@ -13,14 +13,19 @@ runs before the per-job detail fetch, and those fetches run through a small thre
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Iterable
 
 import httpx
 from pydantic import ValidationError
 
 from jobscan.adapters.base import AdapterError, SourceAdapter
-from jobscan.adapters.schemas import WorkableJobDetail, WorkableJobSummary, WorkableJobsPage, WorkableLocation
+from jobscan.adapters.schemas import (
+    WorkableJobDetail,
+    WorkableJobsPage,
+    WorkableJobSummary,
+    WorkableLocation,
+)
 from jobscan.job_family import is_engineering_title
 from jobscan.logging_setup import get_logger, log_extra
 from jobscan.models import AtsType, RawPosting, SalarySource, WorkplaceType

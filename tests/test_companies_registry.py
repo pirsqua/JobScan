@@ -42,7 +42,7 @@ class TestRegistryImport:
         path = tmp_path / "companies.yaml"
         path.write_text(YAML_CONTENT, encoding="utf-8")
 
-        processed, total, _ = import_registry(db, path)
+        processed, _total, _ = import_registry(db, path)
 
         assert processed == 1
         companies = db.list_companies(active_only=False)
@@ -105,7 +105,7 @@ class TestRegistryImport:
 
         new_path = tmp_path / "new.yaml"
         new_path.write_text(YAML_CONTENT, encoding="utf-8")
-        processed, total, deactivated = import_registry(db, new_path, replace=True)
+        processed, _total, deactivated = import_registry(db, new_path, replace=True)
 
         assert processed == 1
         assert deactivated == 2  # Acme Corp and Staffco, both absent from the new file

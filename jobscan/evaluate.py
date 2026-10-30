@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from jobscan.config import Settings
 from jobscan.db import Database
@@ -30,11 +30,10 @@ from jobscan.models import (
     ClassificationSource,
     Company,
     CompanyClassification,
-    Evaluation,
     EvaluateStats,
+    Evaluation,
     FilterLogEntry,
     JobPosting,
-    ManualOverride,
     ScopeFit,
     SpecialistTenureAssessment,
     SpecialistTenureClassification,
@@ -46,7 +45,7 @@ logger = get_logger("evaluate")
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # A borderline judged not worth applying is the one verdict that sits right on the shortlist line,
@@ -402,31 +401,34 @@ def evaluate_all(
                 stats.factual_rejected += 1
                 continue
 
-            if company.classification == CompanyClassification.UNKNOWN and "classification" not in company_overrides:
-                if client is not None:
-                    homepage_text = fetch_homepage_text(http_client, company.domain)
-                    try:
-                        result, in_tok, out_tok, cache_write_tok, cache_read_tok = classify_company(
-                            client, company.name, company.domain, homepage_text, job.description_text
-                        )
-                        stats.input_tokens += in_tok
-                        stats.output_tokens += out_tok
-                        stats.cache_creation_input_tokens += cache_write_tok
-                        stats.cache_read_input_tokens += cache_read_tok
-                        stats.companies_classified += 1
-                        db.set_company_classification(
-                            company.id,
-                            CompanyClassification(result.classification),
-                            ClassificationSource.LLM,
-                            result.confidence,
-                            result.evidence,
-                        )
-                        company = replace(company, classification=CompanyClassification(result.classification))
-                    except LlmCallError as exc:
-                        logger.warning(
-                            "company classification failed",
-                            extra=log_extra(company=company.name, error=str(exc)),
-                        )
+            if (
+                company.classification == CompanyClassification.UNKNOWN
+                and "classification" not in company_overrides
+                and client is not None
+            ):
+                homepage_text = fetch_homepage_text(http_client, company.domain)
+                try:
+                    result, in_tok, out_tok, cache_write_tok, cache_read_tok = classify_company(
+                        client, company.name, company.domain, homepage_text, job.description_text
+                    )
+                    stats.input_tokens += in_tok
+                    stats.output_tokens += out_tok
+                    stats.cache_creation_input_tokens += cache_write_tok
+                    stats.cache_read_input_tokens += cache_read_tok
+                    stats.companies_classified += 1
+                    db.set_company_classification(
+                        company.id,
+                        CompanyClassification(result.classification),
+                        ClassificationSource.LLM,
+                        result.confidence,
+                        result.evidence,
+                    )
+                    company = replace(company, classification=CompanyClassification(result.classification))
+                except LlmCallError as exc:
+                    logger.warning(
+                        "company classification failed",
+                        extra=log_extra(company=company.name, error=str(exc)),
+                    )
 
             if company.classification == CompanyClassification.CONSULTING:
                 if not db.has_filter_log(job.id, FilterReason.CONSULTING_EMPLOYER):

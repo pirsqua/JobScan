@@ -174,7 +174,7 @@ class TestAnnualize:
 
 class TestLocationParsing:
     def test_explicit_remote_us(self):
-        scope, note = normalize_location("Remote - United States", None, None)
+        scope, _note = normalize_location("Remote - United States", None, None)
         assert scope == RemoteScope.REMOTE_US
 
     @pytest.mark.parametrize("location", ["Remote (U.S.)", "U.S. Remote", "Remote, U.S", "Remote - North America"])

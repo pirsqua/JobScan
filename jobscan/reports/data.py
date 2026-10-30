@@ -369,8 +369,8 @@ def assemble_report_data(
                 continue
             sections[section].append(row)
 
-    for key in sections:
-        sections[key].sort(key=lambda r: _rank_key(r, settings))
+    for section_rows in sections.values():
+        section_rows.sort(key=lambda r: _rank_key(r, settings))
 
     evaluated = [r for r in rows if r.evaluation is not None]
     pool = PoolStats(active_postings=len(rows))

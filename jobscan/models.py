@@ -6,12 +6,12 @@ explicit mapping instead of hiding schema decisions behind a framework.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from jobscan.config import Settings
+    from jobscan.config import ModelPricing, Settings
 
 
 class AtsType(str, Enum):
@@ -441,7 +441,7 @@ class EvaluateStats:
     # verdict_counts and unverified describe the whole pool at the time of the run, not this run's
     # work. newly_filtered and new_verdict_counts below are this run's own results — reports keep
     # the two apart (observed: "0 new postings" printed beside "1744 factually rejected").
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     jobs_considered: int = 0
     factual_rejected: int = 0
     companies_classified: int = 0
@@ -492,7 +492,7 @@ class EvaluateStats:
     @staticmethod
     def _tier_cost(
         input_tokens: int, output_tokens: int, cache_creation_input_tokens: int,
-        cache_read_input_tokens: int, pricing: "ModelPricing",
+        cache_read_input_tokens: int, pricing: ModelPricing,
     ) -> float:
         return (
             input_tokens / 1_000_000 * pricing.input_per_million
@@ -501,7 +501,7 @@ class EvaluateStats:
             + output_tokens / 1_000_000 * pricing.output_per_million
         )
 
-    def estimated_cost_usd(self, settings: "Settings") -> float | None:
+    def estimated_cost_usd(self, settings: Settings) -> float | None:
         pricing = settings.pricing_for(settings.anthropic_model)
         if pricing is None:
             return None

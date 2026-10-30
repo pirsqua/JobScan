@@ -17,7 +17,8 @@ the actual render count to the handful of engineering-titled postings, not all ~
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import httpx
 from pydantic import ValidationError
@@ -48,7 +49,9 @@ class _PlaywrightRenderer:
 
     def render(self, url: str) -> str:
         if self._page is None:
-            from playwright.sync_api import sync_playwright  # deferred: only needed if this adapter runs
+            from playwright.sync_api import (
+                sync_playwright,  # deferred: only needed if this adapter runs
+            )
 
             self._playwright = sync_playwright().start()
             self._browser = self._playwright.chromium.launch()

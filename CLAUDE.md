@@ -6,7 +6,8 @@ fresh session needs before touching code, that reading the code alone won't make
 ## Environment
 
 - Windows, PowerShell primary; venv at `.venv` (`.\.venv\Scripts\Activate.ps1`).
-- Python 3.14. Run the suite before considering any change done: `python -m pytest -q`.
+- Python 3.14. Run the suite before considering any change done: `python -m pytest -q`, then
+  `ruff check .` and `ruff format .` (config in `pyproject.toml`; both must come back clean).
 - The owner's personal data — candidate profile, applications, employer registry — lives in one
   data folder outside the repository, the one `.env` sets as `JOBSCAN_DATA_DIR` (file names in
   `config/settings.yaml`, `personal_files`); edit it there. Never commit it, never copy it into the repo, and never

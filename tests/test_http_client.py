@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 
 import httpx
 import pytest
 
-from jobscan.http_client import BACKOFF_SECONDS, MAX_RETRY_AFTER_SECONDS, RetryTransport, make_client
+from jobscan.http_client import (
+    BACKOFF_SECONDS,
+    MAX_RETRY_AFTER_SECONDS,
+    RetryTransport,
+    make_client,
+)
 
 
 def client_answering(*answers, waits: list[float] | None = None):
@@ -40,7 +45,7 @@ class TestRetryTransport:
 
     def test_retry_after_may_be_an_http_date(self):
         waits: list[float] = []
-        soon = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=5), usegmt=True)
+        soon = format_datetime(datetime.now(UTC) + timedelta(seconds=5), usegmt=True)
         client, _ = client_answering(
             httpx.Response(503, headers={"Retry-After": soon}), httpx.Response(200), waits=waits)
 

@@ -15,8 +15,8 @@ list request — e.g. "Experian?country=us" (confirmed live: 400 global postings
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Iterable
 from urllib.parse import parse_qsl
 
 import httpx

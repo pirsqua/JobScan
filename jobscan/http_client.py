@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import random
 import time
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from typing import Callable
 
 import httpx
 
@@ -106,5 +106,5 @@ def _retry_after_seconds(value: str | None) -> float | None:
     except (TypeError, ValueError):
         return None
     if when.tzinfo is None:
-        when = when.replace(tzinfo=timezone.utc)
-    return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+        when = when.replace(tzinfo=UTC)
+    return max(0.0, (when - datetime.now(UTC)).total_seconds())

@@ -5,10 +5,9 @@ from pathlib import Path
 import pytest
 
 from jobscan import config, http_client
-from jobscan.config import Settings, ModelPricing
+from jobscan.config import ModelPricing, Settings
 from jobscan.db import Database
 from jobscan.models import AtsType, Company
-
 from tests.fakes import EXAMPLE_PROFILE, data_folder
 
 

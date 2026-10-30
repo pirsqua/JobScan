@@ -10,8 +10,9 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Self
 
 from jobscan.models import (
     AtsType,
@@ -206,7 +207,7 @@ def _parse_dt(value: str | None) -> datetime | None:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Database:
@@ -322,7 +323,7 @@ class Database:
     def close(self) -> None:
         self.conn.close()
 
-    def __enter__(self) -> "Database":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc) -> None:

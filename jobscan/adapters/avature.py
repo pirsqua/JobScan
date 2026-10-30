@@ -42,9 +42,9 @@ an attempt to defeat any rate limit.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from typing import Iterable
 from urllib.parse import parse_qsl
 
 import httpx
@@ -109,11 +109,10 @@ class AvatureAdapter(SourceAdapter):
             if reached_end:
                 return briefs
             offset += PAGE_SIZE * CONCURRENCY
-        else:
-            logger.warning(
-                "avature pagination hit MAX_PAGES without reaching the end",
-                extra=log_extra(board_id=board_id, fetched=len(briefs)),
-            )
+        logger.warning(
+            "avature pagination hit MAX_PAGES without reaching the end",
+            extra=log_extra(board_id=board_id, fetched=len(briefs)),
+        )
         return briefs
 
     def _fetch_list_page(

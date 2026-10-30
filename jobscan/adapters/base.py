@@ -6,7 +6,8 @@ with a ``fetch_postings`` method — nothing else in the pipeline needs to chang
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar, Iterable
+from collections.abc import Iterable
+from typing import ClassVar
 
 import httpx
 

@@ -10,7 +10,7 @@ table, ...) lives in config/settings.yaml so it can be tuned without touching co
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml

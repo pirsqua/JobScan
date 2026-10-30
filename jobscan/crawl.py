@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -69,7 +69,7 @@ def _fetch_board(company: Company, http_client: httpx.Client) -> _BoardFetch:
 
 def crawl_all(db: Database, settings: Settings, companies: list[Company] | None = None) -> CrawlRunStats:
     companies = companies if companies is not None else db.list_companies(active_only=True)
-    stats = CrawlRunStats(started_at=datetime.now(timezone.utc))
+    stats = CrawlRunStats(started_at=datetime.now(UTC))
     run_id = db.start_crawl_run(stats)
 
     with make_client(settings) as http_client, \
@@ -82,7 +82,7 @@ def crawl_all(db: Database, settings: Settings, companies: list[Company] | None 
                 continue
             raw_postings = fetch.postings
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             seen_ids: set[str] = set()
             for raw in raw_postings:
                 stats.postings_fetched += 1
@@ -91,7 +91,7 @@ def crawl_all(db: Database, settings: Settings, companies: list[Company] | None 
                     continue
 
                 job = normalize_posting(raw, company, settings, now=now)
-                job_id, is_new, changed = db.upsert_job(job)
+                _job_id, is_new, changed = db.upsert_job(job)
                 seen_ids.add(raw.source_job_id)
                 if is_new:
                     stats.new_postings += 1
@@ -119,6 +119,6 @@ def crawl_all(db: Database, settings: Settings, companies: list[Company] | None 
                 ),
             )
 
-    stats.finished_at = datetime.now(timezone.utc)
+    stats.finished_at = datetime.now(UTC)
     db.finish_crawl_run(run_id, stats)
     return stats

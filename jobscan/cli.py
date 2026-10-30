@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from jobscan.adapters import ADAPTERS
@@ -74,7 +74,7 @@ def _print_evaluation_run(stats: EvaluateStats, settings: Settings) -> None:
     cost = stats.estimated_cost_usd(settings)
     print(f"This run: {stats.newly_filtered} newly rejected by factual filters, {triage}"
           f"{stats.sent_to_llm} full evaluations{second}, {stats.llm_errors} LLM errors; "
-          f"cost {'$%.2f' % cost if cost is not None else 'n/a'}")
+          f"cost {f'${cost:.2f}' if cost is not None else 'n/a'}")
     print(f"New verdicts: {stats.new_verdict_counts or 'none'}")
 
 
@@ -229,7 +229,7 @@ def cmd_overrides_set(args: argparse.Namespace, settings: Settings) -> int:
                 field=args.field,
                 value=args.value,
                 reason=args.reason,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
         )
     print(f"Override set: {args.entity_type}#{args.entity_id}.{args.field} = {args.value}")

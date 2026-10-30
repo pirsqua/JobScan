@@ -1,7 +1,7 @@
 """Single structured LLM call that screens one job posting against the candidate profile."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
@@ -126,7 +126,7 @@ def evaluate_job(
         primary_rejection_reason=primary_rejection_reason,
         worth_applying=parsed.worth_applying,
         model_name=client.model,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
         cache_creation_input_tokens=result.cache_creation_input_tokens,

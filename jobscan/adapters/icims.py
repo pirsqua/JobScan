@@ -20,7 +20,8 @@ gate runs before the per-posting detail fetch.
 from __future__ import annotations
 
 import re
-from typing import Iterable, NamedTuple
+from collections.abc import Iterable
+from typing import NamedTuple
 
 import httpx
 from bs4 import BeautifulSoup

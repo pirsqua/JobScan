@@ -28,7 +28,6 @@ from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
-
 # Where an application has got to, in the order applications usually move. "applied" means no
 # reply yet; the report counts how many days it has been waiting.
 STATUSES = ("applied", "screening", "interviewing", "offer", "rejected", "withdrawn")

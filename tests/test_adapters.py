@@ -25,7 +25,14 @@ from jobscan.adapters.smartrecruiters import SmartRecruitersAdapter
 from jobscan.adapters.workable import WorkableAdapter
 from jobscan.adapters.workday import WorkdayAdapter
 from jobscan.http_client import RetryTransport
-from jobscan.models import AtsType, Company, EmploymentType, RemoteScope, SalarySource, WorkplaceType
+from jobscan.models import (
+    AtsType,
+    Company,
+    EmploymentType,
+    RemoteScope,
+    SalarySource,
+    WorkplaceType,
+)
 from jobscan.normalize import normalize_posting
 
 
@@ -85,7 +92,7 @@ class TestGreenhouseAdapter:
             }]})
         )
         sample_company.id = 1
-        posting = list(GreenhouseAdapter(http_client).fetch_postings("acme"))[0]
+        posting = next(iter(GreenhouseAdapter(http_client).fetch_postings("acme")))
         job = normalize_posting(posting, sample_company, settings)
         assert "<span" not in job.description_text
         assert (job.salary_min, job.salary_max) == (141800, 187110)
@@ -298,7 +305,7 @@ class TestLeverAdapter:
                 ],
             )
         )
-        posting = list(LeverAdapter(http_client).fetch_postings("acme"))[0]
+        posting = next(iter(LeverAdapter(http_client).fetch_postings("acme")))
         company = Company(name="Acme", domain=None, careers_url=None, ats_type=AtsType.LEVER, board_id="acme", id=1)
         job = normalize_posting(posting, company, settings)
         assert "7+ years of Python" in job.description_text
@@ -494,7 +501,7 @@ class TestWorkdayAdapter:
         )
 
         adapter = WorkdayAdapter(http_client)
-        postings = list(adapter.fetch_postings("acme/wd1/Acme"))
+        list(adapter.fetch_postings("acme/wd1/Acme"))
 
         # Stops after offset reaches total=4 (2 pages of 2), not MAX_PAGES.
         assert list_route.call_count == 2
@@ -549,7 +556,7 @@ class TestWorkdayAdapter:
         )
 
         adapter = WorkdayAdapter(http_client)
-        postings = list(adapter.fetch_postings("acme/wd1/Acme"))
+        list(adapter.fetch_postings("acme/wd1/Acme"))
 
         assert list_route.call_count == 3
 
@@ -1696,7 +1703,7 @@ class TestRipplingAdapter:
             return_value=httpx.Response(200, json=rippling_jobs_page([{"id": "job-1", "name": "Senior Software Engineer"}]))
         )
         respx.get(self.DETAIL_URL).mock(return_value=httpx.Response(200, json=detail))
-        return list(RipplingAdapter(http_client).fetch_postings("acme"))[0]
+        return next(iter(RipplingAdapter(http_client).fetch_postings("acme")))
 
     @respx.mock
     def test_structured_pay_bands_are_read_preferring_the_remote_one(self, http_client):

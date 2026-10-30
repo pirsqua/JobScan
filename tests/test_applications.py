@@ -15,7 +15,6 @@ from jobscan.reports.data import assemble_report_data
 from jobscan.reports.json_report import build_json_report
 from jobscan.reports.markdown_report import render_markdown
 from jobscan.timeutil import SEATTLE_TZ
-
 from tests.fakes import seed_company, seed_job, strong_match_client
 
 

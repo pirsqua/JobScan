@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import ClassVar
 
 import httpx
 import pytest
@@ -12,8 +13,8 @@ import respx
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.filters import FilterReason
-from jobscan.llm.client import AnthropicClient
 from jobscan.llm import prompts
+from jobscan.llm.client import AnthropicClient
 from jobscan.llm.prompts import (
     evaluation_rubric_version,
     load_profile,
@@ -22,9 +23,14 @@ from jobscan.llm.prompts import (
 )
 from jobscan.models import CompanyClassification, EvaluateStats, ManualOverride, ScopeFit, Verdict
 from jobscan.normalize import compute_details_hash
-
 from tests.fakes import (
-    VALID_EVALUATION, FakeSdkClient, json_response, make_evaluation, refusal_response, seed_company, seed_job,
+    VALID_EVALUATION,
+    FakeSdkClient,
+    json_response,
+    make_evaluation,
+    refusal_response,
+    seed_company,
+    seed_job,
 )
 
 
@@ -141,7 +147,7 @@ class TestEvaluateAll:
         assert stats.sent_to_llm == 1
         assert stats.verdict_counts["strong_match"] == 1
 
-    NEAR_MISS = {**VALID_EVALUATION, "verdict": "borderline", "scope_fit": "one_step_up",
+    NEAR_MISS: ClassVar[dict] = {**VALID_EVALUATION, "verdict": "borderline", "scope_fit": "one_step_up",
                  "worth_applying": False, "primary_rejection_reason": "Go and React day to day"}
 
     def test_near_miss_gets_a_second_look_and_keeps_the_more_favourable(self, db: Database, settings):
@@ -272,7 +278,7 @@ class TestEvaluateAll:
         company = seed_company(db)
         job = seed_job(db, settings, company, description="No salary published here.")
         db.set_manual_override(
-            ManualOverride("job", job.id, "verdict", "strong_match", "I know this role", datetime.now(timezone.utc))
+            ManualOverride("job", job.id, "verdict", "strong_match", "I know this role", datetime.now(UTC))
         )
         client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
 
@@ -287,7 +293,7 @@ class TestEvaluateAll:
         company = seed_company(db)
         job = seed_job(db, settings, company)
         db.set_manual_override(
-            ManualOverride("job", job.id, "verdict", "strong_match", "I know this role", datetime.now(timezone.utc))
+            ManualOverride("job", job.id, "verdict", "strong_match", "I know this role", datetime.now(UTC))
         )
         for _ in range(3):
             evaluate_all(db, settings, client=AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([])))
@@ -310,7 +316,7 @@ class TestEvaluateAll:
         company = seed_company(db, classification=CompanyClassification.UNKNOWN)
         seed_job(db, settings, company)
         db.set_manual_override(
-            ManualOverride("company", company.id, "classification", "consulting", "known staffing shop", datetime.now(timezone.utc))
+            ManualOverride("company", company.id, "classification", "consulting", "known staffing shop", datetime.now(UTC))
         )
         client = AnthropicClient(api_key=None, model="test-model", client=FakeSdkClient([]))
 
@@ -727,7 +733,7 @@ class TestRubricVersion:
         job = self._evaluate_once(db, settings)
         experimental = dataclasses.replace(
             db.get_evaluation_for_job(job.id), id=None, verdict=Verdict.REJECT, rubric_version="experimental-rubric",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         db.save_evaluation(experimental)
         sdk = FakeSdkClient([])

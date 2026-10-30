@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from jobscan.audit import AuditRow, build_audit_rows, write_audit_csv, write_audit_markdown
 from jobscan.db import Database
 from jobscan.models import FilterLogEntry, Verdict
-
 from tests.fakes import make_evaluation, seed_company, seed_job
 
 
@@ -15,7 +14,7 @@ class TestBuildAuditRows:
         company = seed_company(db)
         job = seed_job(db, settings, company)
         db.record_filter_log(
-            FilterLogEntry(job.id, "factual_filter", "salary_below_min", "published max $150,000 is below the $170,000 minimum", datetime.now(timezone.utc))
+            FilterLogEntry(job.id, "factual_filter", "salary_below_min", "published max $150,000 is below the $170,000 minimum", datetime.now(UTC))
         )
 
         rows = build_audit_rows(db)
@@ -69,7 +68,7 @@ class TestBuildAuditRows:
     def test_combines_factual_and_llm_rows_across_jobs(self, db: Database, settings):
         company = seed_company(db)
         filtered_job = seed_job(db, settings, company, source_job_id="1", title="Contract Role")
-        db.record_filter_log(FilterLogEntry(filtered_job.id, "factual_filter", "not_full_time", "contract", datetime.now(timezone.utc)))
+        db.record_filter_log(FilterLogEntry(filtered_job.id, "factual_filter", "not_full_time", "contract", datetime.now(UTC)))
         rejected_job = seed_job(db, settings, company, source_job_id="2", title="Go Backend Engineer")
         db.save_evaluation(make_evaluation(rejected_job.id, Verdict.REJECT, primary_rejection_reason="Go required"))
 
@@ -83,7 +82,7 @@ class TestWriteAuditCsv:
     def test_writes_header_and_rows(self, tmp_path: Path, db: Database, settings):
         company = seed_company(db)
         job = seed_job(db, settings, company)
-        db.record_filter_log(FilterLogEntry(job.id, "factual_filter", "salary_below_min", "detail text", datetime.now(timezone.utc)))
+        db.record_filter_log(FilterLogEntry(job.id, "factual_filter", "salary_below_min", "detail text", datetime.now(UTC)))
         rows = build_audit_rows(db)
 
         path = tmp_path / "audit.csv"
@@ -107,7 +106,7 @@ class TestWriteAuditMarkdown:
     def test_renders_table_with_rows(self, tmp_path: Path, db: Database, settings):
         company = seed_company(db)
         job = seed_job(db, settings, company)
-        db.record_filter_log(FilterLogEntry(job.id, "factual_filter", "salary_below_min", "detail text", datetime.now(timezone.utc)))
+        db.record_filter_log(FilterLogEntry(job.id, "factual_filter", "salary_below_min", "detail text", datetime.now(UTC)))
         rows = build_audit_rows(db)
 
         path = tmp_path / "audit.md"
