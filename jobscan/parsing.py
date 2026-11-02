@@ -26,10 +26,12 @@ _UNIT_SUFFIX = r"(?:\s?/\s?(?:hr|hour|yr|year))?"
 # "$85/hr - $100/hr", "USD $129,500.00 - USD $220,500.00 /Yr", "between $112,000 and $269,000",
 # "between $153,000 USD and $214,000 USD", "USD  174,986  - USD  209,983", "$170-210K".
 # "and" only separates a range after "between" — "$120,000 and a $40,000 bonus" is not a range.
+# A few words may sit between "between" and the first number, within the sentence: Relativity's
+# "between following values: $126,000 and $190,000" was read as a flat $126,000 and rejected.
 # Spacing is \s* throughout: ATS HTML-to-text often leaves double or non-breaking spaces around
 # the numbers, and a single-space pattern silently read those ranges as "no salary published".
 _RANGE_RE = re.compile(
-    rf"(?P<between>\bbetween\s+)?"
+    rf"(?P<between>\bbetween\b[^$\d.;\n]{{0,30}}?\s*)?"
     rf"(?:(?P<pre_currency>USD|CAD)\s*)?\$?\s*(?P<low>{_NUMBER})(?P<low_k>{_K_SUFFIX})?{_UNIT_SUFFIX}"
     rf"(?:\s*(?:USD|CAD)\b)?"
     rf"\s*(?:-|to|–|—|~|(?(between)and|(?!)))\s*"

@@ -117,6 +117,20 @@ class TestSalaryParsing:
         )
         assert (result.salary_min, result.salary_max) == (153000, 214000)
 
+    def test_words_between_between_and_the_first_number(self):
+        # Relativity: read as a flat $126,000 and rejected as below the minimum.
+        result = parse_salary_from_text(
+            "The expected salary range for this role is between following values: $126,000 and "
+            "$190,000 The final offered salary will be based on several factors."
+        )
+        assert (result.salary_min, result.salary_max) == (126000, 190000)
+
+    def test_between_does_not_reach_into_another_sentence(self):
+        result = parse_salary_from_text(
+            "Time is split between teams. Base salary is $120,000 and a $40,000 signing bonus."
+        )
+        assert (result.salary_min, result.salary_max) == (120000, 120000)
+
     def test_extra_spaces_around_range_numbers(self):
         # Grafana and Affirm: double spaces from HTML-to-text conversion, read as no salary at all.
         grafana = parse_salary_from_text(
