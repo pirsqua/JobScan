@@ -10,7 +10,7 @@ The output is a ranked report of roles worth applying to, each linked to its pos
 **At a glance:** adapters for 16 job-board platforms · a two-model Claude pipeline — a cheap Haiku
 triage, then a Sonnet evaluation returning strict structured output, with the instructions and
 profile prompt-cached · code that checks the model's claims instead of trusting them · 500+
-offline tests · a daily run usually costs a few cents.
+offline tests · a daily run usually costs well under a dollar.
 
 It searches only the employer registry you give it, and every report states exactly how many
 companies and postings were processed — never an implied "comprehensive" coverage.
@@ -41,8 +41,10 @@ crawl ──► title gate ──► factual filters ──► triage (Haiku) �
    your lane, then requirement by requirement (required vs. preferred, by the posting's own wording),
    growth dimensions, hidden staff-level scope, compensation, remote eligibility and working
    hours, then scope fit, verdict and a yes/no on whether it's worth applying. The model isn't
-   deterministic, so a borderline result judged not worth applying gets one more evaluation and the
-   more favourable one is kept. Companies of unknown type get one separate, cached
+   deterministic, so a near-miss gets one more evaluation, and whichever result lands in the
+   better report section is kept. A near-miss is a borderline judged not worth applying, or an
+   attractive verdict rejected only by the frontend-share or working-hours rule. Companies of
+   unknown type get one separate, cached
    product-vs-consulting call. A model that declines to answer (a safety refusal) leaves the
    posting awaiting evaluation — never rejected.
 5. **Report.** Markdown, CSV and JSON in `out/`, timestamped in Pacific time.
@@ -53,9 +55,9 @@ example profile):
 ```markdown
 ### Example Freight — Senior Backend Engineer, Integrations (strong_match, at_level, confidence 0.80)
 
+- Evidence: nothing required missing; 0 of 3 central requirements met by transfer, 3 shown directly; 86% coverage
 - Salary: $175,000 - $210,000 / year (source: structured)
 - Culture: 7.5/10 (medium confidence)
-- Evidence: nothing required missing; 0 of 3 central requirements met by transfer, 3 shown directly; 86% coverage
 - Apply: https://jobs.example.com/example-freight/senior-backend-engineer
 - Freshness: published 2026-09-30; first seen 2026-10-02
 - Day to day: Building and running the Python services behind carrier and customer integrations —
@@ -68,6 +70,8 @@ example profile):
 - Why this is gettable: Every required qualification maps to demonstrated work — the tracking-API
   rebuild and the carrier integrations — and the scope is ordinary senior ownership on a
   structured team
+- Credibility: Applying is credible: the integrations work is the candidate's own, at the
+  posting's scale
 ```
 
 Verdicts are cached by description text plus the details the evaluation reads beside it (title,
@@ -95,10 +99,10 @@ The engineering choices worth a look, for anyone reading the code:
 - **Verdicts know what made them.** Each records a fingerprint of the prompt, schema, profile and
   model behind it, and every evaluation is kept. A rubric change is validated on known postings,
   sized with a dry run, applied with `--refresh-stale` — and can be reverted at no cost.
-- **Built for a non-deterministic model.** The same posting can come back with different verdicts,
-  so a near-miss — a borderline judged not worth applying, or an attractive verdict rejected only by
-  the frontend-share or working-hours rule — gets a second evaluation, and rubric changes are
-  judged over several runs of known postings, never one.
+- **Built for a non-deterministic model.** Re-run, the same posting lands in another tier about
+  one time in three (measured on 40 shortlisted postings), so a near-miss gets a second
+  evaluation, the tiers don't split on the label that resamples most (strong vs. plausible match),
+  and rubric changes are judged over several runs of known postings, never one.
 - **Retry only what can clear up.** Every board fetch goes through one HTTP client
   (`jobscan/http_client.py`) that retries a 429, a 5xx, a timeout or a dropped connection — twice,
   with jittered backoff so parallel requests that failed together don't retry together — and
@@ -182,7 +186,7 @@ Open the newest `out\report_<timestamp>PT.md`. It has the run statistics, then:
 |---|---|
 | **Best Bets** | Strong or plausible match at or below your level, with every required qualification demonstrated or credibly transferable — a below-level role is flagged so you can ask about leveling |
 | **Growth Bets** | One step up (no more than one material growth dimension), or at your level but missing one required qualification |
-| **Attractive Stretches** | Real overlap but a genuine stretch, still judged worth applying to — two or more required qualifications missing |
+| **Attractive Stretches** | Real overlap but a genuine stretch, still judged worth applying to: two or more required qualifications missing, more than one step up, or a borderline verdict |
 | **Rejected or Unverified** | Everything else, each with its primary reason |
 
 The tiers are drawn from the evaluation's requirement-by-requirement evidence, not its one-word
@@ -238,8 +242,9 @@ another settings file.
 ## Costs
 
 Only `evaluate` (and `run`) spend money. Crawling, reporting, auditing and cache hits are free,
-and both LLM calls cache the shared system prompt and candidate profile. A daily run
-sends only new or changed postings, so it usually costs cents; the first run over a new registry,
+and both LLM calls cache the shared system prompt and candidate profile. A full evaluation costs
+about 4 cents on Sonnet 5.5 and a triage call a small fraction of a cent. A daily run sends only
+new or changed postings, so it usually costs $0.10 to $0.60. The first run over a new registry,
 and re-screening the whole cached set after a rubric change, are the expensive operations.
 
 Check what a run would send before running it:
@@ -260,11 +265,12 @@ The screening rubric is the system prompts (`jobscan/llm/prompts.py`), the outpu
 (`jobscan/llm/schemas.py`), your candidate profile, and the model and thinking setting that read
 them (`config/settings.yaml`). Every verdict records a fingerprint of the rubric it was made
 under — full evaluations and triage screen-outs separately. Changing any of them doesn't re-judge
-cached verdicts; it marks them stale. `evaluate --refresh-stale` re-screens the stale ones (a
-profile change marks everything stale, a triage prompt or model change only triage
-screen-outs). Every evaluation is kept, so reverting a change brings the earlier verdicts back on
-the next `--refresh-stale` without new API calls. The profile's code-only keys
-(`candidate_state`, `candidate_time_zone`, `excluded_time_zones`) aren't part of the fingerprint.
+cached verdicts; it marks them stale. `evaluate --refresh-stale` re-screens the stale ones. A
+profile change marks everything stale; an evaluation prompt, schema or model change only full
+evaluations; a triage prompt or model change only triage screen-outs. Every evaluation is kept,
+so reverting a change brings the earlier verdicts back on the next `--refresh-stale` without new
+API calls. The profile's code-only keys (`candidate_state`, `candidate_state_name`,
+`candidate_time_zone`, `excluded_time_zones`) aren't part of the fingerprint.
 Dry-run a refresh first (`evaluate --dry-run --refresh-stale`), and validate a change on a handful
 of known postings — some that should pass, some that must stay rejected — before re-screening
 everything.
@@ -273,9 +279,9 @@ everything.
 
 - **`.env`** (never committed) — `ANTHROPIC_API_KEY`, your data folder (`JOBSCAN_DATA_DIR`: the
   personal files, and where `run` backs up the database), and optional overrides of
-  `config/settings.yaml`: `JOBSCAN_DB_PATH`,
-  `JOBSCAN_OUTPUT_DIR`, `JOBSCAN_ANTHROPIC_MODEL`, `JOBSCAN_ANTHROPIC_THINKING`,
-  `JOBSCAN_TRIAGE_MODEL`, `JOBSCAN_TRIAGE_THINKING` and `JOBSCAN_LOG_LEVEL`.
+  `config/settings.yaml`: `JOBSCAN_DB_PATH`, `JOBSCAN_OUTPUT_DIR`, `JOBSCAN_ANTHROPIC_MODEL`,
+  `JOBSCAN_ANTHROPIC_THINKING`, `JOBSCAN_TRIAGE_MODEL`, `JOBSCAN_TRIAGE_THINKING` and
+  `JOBSCAN_LOG_LEVEL`.
 - **`config/settings.yaml`** — main and triage model, pricing for cost estimates, crawl and
   evaluation concurrency (`crawl_workers`, `evaluate_workers`), HTTP settings, database and output
   paths, and the personal files' names (`personal_files`). Nothing personal.
@@ -285,12 +291,11 @@ everything.
 ## The employer registry
 
 Your registry file (`jobscan_companies.yaml` in your data folder; start from
-`data/companies.example.yaml`) lists the
-companies to search. Code reads `name`, `domain`, `careers_url`, `ats_type`, `board_id`,
-`classification`, `active`, `applied` (a label shown by `companies list`; individual applications
-go in the applications file), `culture_score` and `culture_confidence`, `discovery_source` and
-`notes`; the rest (`priority`, `fit_lanes`, `remote_signal`, `compensation_signal`,
-`evidence_level`) is research metadata for you.
+`data/companies.example.yaml`) lists the companies to search. Code reads `name`, `domain`,
+`careers_url`, `ats_type`, `board_id`, `classification`, `active`, `applied` (a label shown by
+`companies list`; individual applications go in the applications file), `culture_score` and
+`culture_confidence`, `discovery_source` and `notes`; the rest (`priority`, `fit_lanes`,
+`remote_signal`, `compensation_signal`, `evidence_level`) is research metadata for you.
 
 JobScan doesn't judge employer culture. Each company's `notes` carry dated evidence instead —
 recent engineering-review scores, layoffs, remote policy, what its postings actually ask for. An
