@@ -32,6 +32,7 @@ from jobscan.models import (
     WorkingHoursFit,
 )
 from jobscan.reports.data import assemble_report_data
+from jobscan.reports.json_report import build_json_report
 from jobscan.reports.markdown_report import render_markdown
 from tests.fakes import FakeSdkClient, json_response, make_evaluation, seed_company, seed_job
 
@@ -81,6 +82,48 @@ class TestRankingAndGrouping:
         data = assemble_report_data(db, settings)
 
         assert [r.job.title for r in data.best_bets] == ["Plausible Label", "Strong Label"]
+
+    def test_each_row_shows_the_evidence_it_ranks_on(self, db: Database, settings):
+        # A central requirement met only by transfer outranks coverage, so 78% sits above 88%; the
+        # Evidence line shows why.
+        company = seed_company(db)
+        direct = seed_job(db, settings, company, "1", "All Direct", "x", 190000, 230000)
+        transfer = seed_job(db, settings, company, "2", "One By Transfer", "y", 190000, 230000)
+        db.save_evaluation(
+            make_evaluation(
+                direct.id, central_directly_demonstrated=2, evidence_coverage_percent=78
+            )
+        )
+        by_transfer = make_evaluation(
+            transfer.id, central_directly_demonstrated=1, evidence_coverage_percent=88
+        )
+        by_transfer.requirement_evidence.append(
+            RequirementEvidence(
+                requirement="event streaming",
+                importance=RequirementImportance.CENTRAL,
+                evidence_classification=EvidenceClassification.CREDIBLY_TRANSFERABLE,
+                candidate_evidence="SQS pipelines",
+                posting_evidence="Kafka",
+            )
+        )
+        db.save_evaluation(by_transfer)
+
+        data = assemble_report_data(db, settings)
+
+        assert [r.job.title for r in data.best_bets] == ["All Direct", "One By Transfer"]
+        markdown = render_markdown(data)
+        assert (
+            "- Evidence: nothing required missing; 0 of 2 central requirements met by transfer, "
+            "2 shown directly; 78% coverage"
+        ) in markdown
+        assert "1 of 2 central requirements met by transfer, 1 shown directly; 88%" in markdown
+        counts = build_json_report(data)["best_bets"][1]["evaluation"]["evidence_counts"]
+        assert counts == {
+            "required_missing": 0,
+            "central": 2,
+            "central_transferable": 1,
+            "central_direct": 1,
+        }
 
     def test_plausible_match_one_step_up_is_growth_bet(self, db: Database, settings):
         company = seed_company(db)

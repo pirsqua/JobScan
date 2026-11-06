@@ -274,6 +274,30 @@ def _central_directly_demonstrated_count(evaluation: Evaluation) -> int:
     )
 
 
+@dataclass(frozen=True)
+class EvidenceCounts:
+    """The requirement evidence a shortlist row ranks on within its ranking group (see _rank_key),
+    for the report to show: without it, a row at 78% coverage above one at 88% looks misordered."""
+
+    required_missing: int
+    central: int
+    central_transferable: int
+    central_direct: int
+
+
+def evidence_counts(evaluation: Evaluation) -> EvidenceCounts:
+    return EvidenceCounts(
+        required_missing=_missing_requirements(evaluation),
+        central=sum(
+            1
+            for item in evaluation.requirement_evidence
+            if item.importance == RequirementImportance.CENTRAL
+        ),
+        central_transferable=_central_transferable_count(evaluation),
+        central_direct=_central_directly_demonstrated_count(evaluation),
+    )
+
+
 def _clamped_compensation_score(job: JobPosting, settings: Settings) -> float:
     """Compensation is primarily a hard gate (jobscan.filters); here it only breaks ties between
     similarly-credible roles, clamped so an elite outlier salary can't out-rank a role the

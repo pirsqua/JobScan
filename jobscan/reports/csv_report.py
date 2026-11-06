@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-from jobscan.reports.data import ReportData
+from jobscan.reports.data import ReportData, evidence_counts
 
 FIELDS = [
     "company",
@@ -16,6 +16,10 @@ FIELDS = [
     "verdict",
     "scope_fit",
     "evidence_coverage_percent",
+    "required_missing",
+    "central_requirements",
+    "central_transferable",
+    "central_direct",
     "confidence",
     "salary_min",
     "salary_max",
@@ -54,6 +58,7 @@ def write_csv_report(data: ReportData, path: Path) -> None:
         writer.writeheader()
         for row in data.all_evaluated:
             job, company, ev = row.job, row.company, row.evaluation
+            counts = evidence_counts(ev)
             writer.writerow(
                 {
                     "company": company.name,
@@ -64,6 +69,10 @@ def write_csv_report(data: ReportData, path: Path) -> None:
                     "verdict": ev.verdict.value,
                     "scope_fit": ev.scope_fit.value,
                     "evidence_coverage_percent": ev.evidence_coverage_percent,
+                    "required_missing": counts.required_missing,
+                    "central_requirements": counts.central,
+                    "central_transferable": counts.central_transferable,
+                    "central_direct": counts.central_direct,
                     "confidence": ev.confidence,
                     "salary_min": job.salary_min,
                     "salary_max": job.salary_max,

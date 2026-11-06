@@ -51,10 +51,11 @@ A shortlist entry in the Markdown report looks like this (a fictional posting, j
 example profile):
 
 ```markdown
-### Example Freight — Senior Backend Engineer, Integrations (strong_match, at_level, 86% coverage, confidence 0.80)
+### Example Freight — Senior Backend Engineer, Integrations (strong_match, at_level, confidence 0.80)
 
 - Salary: $175,000 - $210,000 / year (source: structured)
 - Culture: 7.5/10 (medium confidence)
+- Evidence: nothing required missing; 0 of 3 central requirements met by transfer, 3 shown directly; 86% coverage
 - Apply: https://jobs.example.com/example-freight/senior-backend-engineer
 - Freshness: published 2026-09-30; first seen 2026-10-02
 - Day to day: Building and running the Python services behind carrier and customer integrations —
@@ -185,11 +186,17 @@ Open the newest `out\report_<timestamp>PT.md`. It has the run statistics, then:
 | **Rejected or Unverified** | Everything else, each with its primary reason |
 
 The tiers are drawn from the evaluation's requirement-by-requirement evidence, not its one-word
-verdict alone. Each role also says what its engineers do day to day; work partly outside your lane
-caps the role at Growth Bet, and work outside it (a Node.js tool, a Go proxy) at Attractive
-Stretch, however well the qualifications list reads. A role with more frontend work than your
-profile accepts (say, a full-stack role that is half React, when it rules out frontend-heavy work)
-is left off the shortlist.
+verdict alone, and so is the order within each: after closeness to your level (a match at your
+level before one a step up, a below-level one last), roles rank on the **Evidence** line each one
+shows — fewest required qualifications missing, then fewest central requirements met only by
+transfer, then evidence coverage. Pay breaks ties, capped so a high salary can't outrank a better
+fit, and then freshness.
+
+Each role also says what its engineers do day to day; work partly outside your lane caps the role
+at Growth Bet, and work outside it (a Node.js tool, a Go proxy) at Attractive Stretch, however
+well the qualifications list reads. A role with more frontend work than your profile accepts (say,
+a full-stack role that is half React, when it rules out frontend-heavy work) is left off the
+shortlist.
 
 A posting's own words on working hours are shown with the role whenever it states any; hours that
 fail the working-hours filter in your profile reject it.

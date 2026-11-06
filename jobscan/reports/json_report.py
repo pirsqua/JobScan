@@ -4,9 +4,10 @@ tooling or manual inspection."""
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
-from jobscan.reports.data import ReportData
+from jobscan.reports.data import ReportData, evidence_counts
 
 
 def _job_dict(row) -> dict:
@@ -38,6 +39,7 @@ def _job_dict(row) -> dict:
             "confidence": ev.confidence,
             "scope_fit": ev.scope_fit.value,
             "evidence_coverage_percent": ev.evidence_coverage_percent,
+            "evidence_counts": asdict(evidence_counts(ev)),
             "specialist_tenure_assessment": {
                 "classification": ev.specialist_tenure_assessment.classification.value,
                 "specialty": ev.specialist_tenure_assessment.specialty,

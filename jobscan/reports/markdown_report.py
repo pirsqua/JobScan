@@ -15,6 +15,7 @@ from jobscan.reports.data import (
     JobReportRow,
     ReportData,
     declined_reason,
+    evidence_counts,
     is_declined,
 )
 from jobscan.timeutil import SEATTLE_TZ
@@ -40,6 +41,26 @@ def _culture_line(company: Company) -> list[str]:
         return []
     confidence = f" ({company.culture_confidence} confidence)" if company.culture_confidence else ""
     return [f"- Culture: {company.culture_score:g}/10{confidence}"]
+
+
+def _evidence_line(ev: Evaluation) -> str:
+    """What a shortlist row ranks on within its section, in the order it ranks on them."""
+    counts = evidence_counts(ev)
+    missing = (
+        f"{counts.required_missing} required qualification"
+        f"{'s' if counts.required_missing != 1 else ''} missing"
+        if counts.required_missing
+        else "nothing required missing"
+    )
+    if counts.central:
+        plural = "s" if counts.central != 1 else ""
+        central = (
+            f"{counts.central_transferable} of {counts.central} central requirement{plural} met "
+            f"by transfer, {counts.central_direct} shown directly"
+        )
+    else:
+        central = "no central requirements listed"
+    return f"- Evidence: {missing}; {central}; {ev.evidence_coverage_percent}% coverage"
 
 
 _VERDICT_ORDER = ("strong_match", "plausible_match", "borderline", "reject")
@@ -232,9 +253,10 @@ def _render_shortlist(
         lines += [
             (
                 f"### {_role(row)} ({ev.verdict.value}, {ev.scope_fit.value}, "
-                f"{ev.evidence_coverage_percent}% coverage, confidence {ev.confidence:.2f})"
+                f"confidence {ev.confidence:.2f})"
             ),
             "",
+            _evidence_line(ev),
             f"- Salary: {_salary_line(job)}",
             *_culture_line(company),
             f"- Apply: {job.apply_url or job.posting_url or 'n/a'}",
@@ -289,6 +311,7 @@ def _render_attractive_stretches(rows: list[JobReportRow]) -> list[str]:
         lines += [
             f"### {_role(row)} ({ev.verdict.value}, {ev.scope_fit.value})",
             "",
+            _evidence_line(ev),
             f"- Salary: {_salary_line(job)}",
             *_culture_line(company),
             f"- Apply: {job.apply_url or job.posting_url or 'n/a'}",
