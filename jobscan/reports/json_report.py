@@ -126,7 +126,6 @@ def build_json_report(data: ReportData) -> dict:
             for r in data.paused
         ],
         "best_bets": [_job_dict(r) for r in data.best_bets],
-        "good_fits": [_job_dict(r) for r in data.good_fits],
         "growth_bets": [_job_dict(r) for r in data.growth_bets],
         "attractive_stretches": [_job_dict(r) for r in data.attractive_stretches],
         "all_evaluated": [_job_dict(r) for r in data.all_evaluated],

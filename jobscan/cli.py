@@ -149,7 +149,7 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
         f"{pool.evaluated} evaluated, {pool.awaiting_evaluation} awaiting evaluation"
     )
     print(
-        f"Shortlist (not yet applied to): {len(data.best_bets)} Best Bets, {len(data.good_fits)} Good Fits, "
+        f"Shortlist (not yet applied to): {len(data.best_bets)} Best Bets, "
         f"{len(data.growth_bets)} Growth Bets, {len(data.attractive_stretches)} Attractive Stretches"
     )
     print(f"Report: {md_path}")

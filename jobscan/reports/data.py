@@ -80,7 +80,6 @@ class ReportData:
     evaluate_stats: EvaluateStats | None
     estimated_cost_usd: float | None
     best_bets: list[JobReportRow]
-    good_fits: list[JobReportRow]
     growth_bets: list[JobReportRow]
     attractive_stretches: list[JobReportRow]
     all_evaluated: list[JobReportRow]
@@ -89,24 +88,27 @@ class ReportData:
     paused: list[PausedRow] = field(default_factory=list)
 
 
-# The spec's six ranking groups, most to least preferred. Any (verdict, scope_fit) combination
-# the prompt's own verdict definitions rule out (e.g. strong_match + two_plus_steps_up) still
-# gets a group here defensively, so a schema-contract slip surfaces in a sane place in the
-# ordering rather than crashing or silently sorting first.
-_RANKING_GROUPS: list[tuple[Verdict, ScopeFit]] = [
-    (Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL),
-    (Verdict.PLAUSIBLE_MATCH, ScopeFit.AT_LEVEL),
-    (Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP),
-    (Verdict.BORDERLINE, ScopeFit.ONE_STEP_UP),
-    (Verdict.BORDERLINE, ScopeFit.TWO_PLUS_STEPS_UP),
+# The ranking groups, most to least preferred. strong_match and plausible_match rank together: the
+# line between them is the label a re-run resamples most often (measured 2026-11-05: in 40
+# shortlisted postings run three times each, it was the only label that differed in 15 of the 40
+# run pairs whose tier differed), so rows within a group are ordered by their requirement evidence
+# instead. Any (verdict, scope_fit) combination the prompt's own verdict definitions rule out (e.g.
+# strong_match + two_plus_steps_up) still gets a group here defensively, so a schema-contract slip
+# surfaces in a sane place in the ordering rather than crashing or silently sorting first.
+_MATCH = (Verdict.STRONG_MATCH, Verdict.PLAUSIBLE_MATCH)
+_RANKING_GROUPS: list[tuple[tuple[Verdict, ...], ScopeFit]] = [
+    (_MATCH, ScopeFit.AT_LEVEL),
+    (_MATCH, ScopeFit.ONE_STEP_UP),
+    ((Verdict.BORDERLINE,), ScopeFit.ONE_STEP_UP),
+    ((Verdict.BORDERLINE,), ScopeFit.TWO_PLUS_STEPS_UP),
 ]
 
 
 def _ranking_group(evaluation: Evaluation) -> int:
-    try:
-        return _RANKING_GROUPS.index((evaluation.verdict, evaluation.scope_fit)) + 1
-    except ValueError:
-        return 6
+    for group, (verdicts, scope_fit) in enumerate(_RANKING_GROUPS, 1):
+        if evaluation.verdict in verdicts and evaluation.scope_fit == scope_fit:
+            return group
+    return len(_RANKING_GROUPS) + 1
 
 
 def _still_passes_factual_filters(row: JobReportRow, settings: Settings) -> bool:
@@ -186,7 +188,7 @@ def _central_transferable_count(evaluation: Evaluation) -> int:
 
 
 def _section_from_verdict(evaluation: Evaluation | None) -> str:
-    """Which of the five report sections a row belongs in, before the work-fit cap. Decoupled from _ranking_group: e.g. a
+    """Which of the four report sections a row belongs in, before the work-fit cap. Decoupled from _ranking_group: e.g. a
     borderline verdict lands in "attractive_stretches" regardless of exactly which scope_fit it
     carries, since that's the section's whole purpose — group number only orders rows within it.
 
@@ -212,7 +214,9 @@ def _section_from_verdict(evaluation: Evaluation | None) -> str:
     if evaluation.verdict in (Verdict.STRONG_MATCH, Verdict.PLAUSIBLE_MATCH):
         # The tiers split on what the candidate lacks, read from the requirement-by-requirement
         # evidence, not the one-word verdict alone: Sonnet 5.5 called far more postings plausible
-        # matches than Sonnet 5 had (Best Bets went from 23 to 61, too many to choose from).
+        # matches than Sonnet 5 had (Best Bets went from 23 to 61, too many to choose from). Nor
+        # do strong and plausible split a tier any more: a separate Good Fits tier for plausible
+        # matches swapped rows with Best Bets on a re-run of the same posting (see _RANKING_GROUPS).
         missing = _missing_requirements(evaluation)
         # A below-Senior title tiers like an at-level one: with pay passing the candidate's floor
         # and the work in lane, it is among the most gettable applications (a mid-level band can
@@ -221,7 +225,7 @@ def _section_from_verdict(evaluation: Evaluation | None) -> str:
         # the level instead.
         if evaluation.scope_fit in (ScopeFit.AT_LEVEL, ScopeFit.BELOW_LEVEL):
             if missing == 0:
-                return "best_bets" if evaluation.verdict == Verdict.STRONG_MATCH else "good_fits"
+                return "best_bets"
             return "growth_bets" if missing == 1 else "attractive_stretches"
         if (
             evaluation.scope_fit == ScopeFit.ONE_STEP_UP
@@ -235,7 +239,7 @@ def _section_from_verdict(evaluation: Evaluation | None) -> str:
     return "attractive_stretches"
 
 
-_SHORTLIST = ("best_bets", "good_fits", "growth_bets", "attractive_stretches")
+_SHORTLIST = ("best_bets", "growth_bets", "attractive_stretches")
 # Day-to-day work outside the candidate's lane caps the tier, however clean the qualifications list
 # reads. Observed: GitHub's npm team came out a plausible match because its list accepted C#.
 _WORK_FIT_CAP = {WorkFit.PARTLY_OUTSIDE: "growth_bets", WorkFit.OUTSIDE: "attractive_stretches"}
@@ -305,7 +309,6 @@ def _rank_key(row: JobReportRow, settings: Settings) -> tuple:
 
 _SECTION_LABELS = {
     "best_bets": "Best Bet",
-    "good_fits": "Good Fit",
     "growth_bets": "Growth Bet",
     "attractive_stretches": "Attractive Stretch",
 }
@@ -405,7 +408,6 @@ def assemble_report_data(
     held_back: dict[str, int] = {}
     sections: dict[str, list[JobReportRow]] = {
         "best_bets": [],
-        "good_fits": [],
         "growth_bets": [],
         "attractive_stretches": [],
     }
@@ -445,7 +447,6 @@ def assemble_report_data(
         evaluate_stats=evaluate_stats,
         estimated_cost_usd=estimated_cost,
         best_bets=sections["best_bets"],
-        good_fits=sections["good_fits"],
         growth_bets=sections["growth_bets"],
         attractive_stretches=sections["attractive_stretches"],
         all_evaluated=evaluated,

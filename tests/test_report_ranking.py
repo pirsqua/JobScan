@@ -48,15 +48,39 @@ class TestRankingAndGrouping:
         assert len(data.growth_bets) == 0
         assert len(data.attractive_stretches) == 0
 
-    def test_plausible_match_at_level_is_a_good_fit(self, db: Database, settings):
+    def test_plausible_match_at_level_is_a_best_bet_too(self, db: Database, settings):
+        # Strong vs plausible was the label re-runs resampled most; it no longer splits a tier.
         company = seed_company(db)
         job = seed_job(db, settings, company, "1", "Senior Backend Engineer", "x", 190000, 230000)
         db.save_evaluation(make_evaluation(job.id, Verdict.PLAUSIBLE_MATCH, ScopeFit.AT_LEVEL))
 
         data = assemble_report_data(db, settings)
 
-        assert len(data.good_fits) == 1
-        assert len(data.best_bets) == 0
+        assert len(data.best_bets) == 1
+
+    def test_strong_and_plausible_matches_rank_together_by_their_evidence(
+        self, db: Database, settings
+    ):
+        company = seed_company(db)
+        strong = seed_job(db, settings, company, "1", "Strong Label", "x", 190000, 230000)
+        plausible = seed_job(db, settings, company, "2", "Plausible Label", "y", 190000, 230000)
+        db.save_evaluation(
+            make_evaluation(
+                strong.id, Verdict.STRONG_MATCH, ScopeFit.AT_LEVEL, evidence_coverage_percent=75
+            )
+        )
+        db.save_evaluation(
+            make_evaluation(
+                plausible.id,
+                Verdict.PLAUSIBLE_MATCH,
+                ScopeFit.AT_LEVEL,
+                evidence_coverage_percent=90,
+            )
+        )
+
+        data = assemble_report_data(db, settings)
+
+        assert [r.job.title for r in data.best_bets] == ["Plausible Label", "Strong Label"]
 
     def test_plausible_match_one_step_up_is_growth_bet(self, db: Database, settings):
         company = seed_company(db)
@@ -280,7 +304,7 @@ class TestScopeFollowsRequirementEvidence:
 
     def _section(self, db, settings) -> str:
         data = assemble_report_data(db, settings)
-        for name in ("best_bets", "good_fits", "growth_bets", "attractive_stretches"):
+        for name in ("best_bets", "growth_bets", "attractive_stretches"):
             if getattr(data, name):
                 return name
         return "rejected"
@@ -296,7 +320,7 @@ class TestScopeFollowsRequirementEvidence:
 
     def test_clean_evidence_labelled_one_step_up_is_at_level(self, db: Database, settings):
         self._seed(db, settings, Verdict.PLAUSIBLE_MATCH, ScopeFit.ONE_STEP_UP)
-        assert self._section(db, settings) == "good_fits"
+        assert self._section(db, settings) == "best_bets"
 
     def test_an_undemonstrated_central_requirement_makes_at_level_one_step_up(
         self, db: Database, settings
@@ -390,7 +414,7 @@ class TestTiersFollowWhatTheCandidateLacks:
         data = assemble_report_data(db, settings)
         return next(
             name
-            for name in ("best_bets", "good_fits", "growth_bets", "attractive_stretches")
+            for name in ("best_bets", "growth_bets", "attractive_stretches")
             if getattr(data, name)
         )
 
@@ -474,7 +498,7 @@ class TestDayToDayWorkCapsTheTier:
         data = assemble_report_data(db, settings)
         return next(
             name
-            for name in ("best_bets", "good_fits", "growth_bets", "attractive_stretches")
+            for name in ("best_bets", "growth_bets", "attractive_stretches")
             if getattr(data, name)
         )
 
@@ -597,9 +621,7 @@ class TestFrontendFit:
 
         data = assemble_report_data(db, settings)
 
-        assert (
-            data.best_bets == data.good_fits == data.growth_bets == data.attractive_stretches == []
-        )
+        assert data.best_bets == data.growth_bets == data.attractive_stretches == []
         markdown = render_markdown(data)
         assert f"{verdict.value}, but frontend-heavy" in markdown
         assert f"more frontend work than your profile accepts: {self.WORK}" in markdown

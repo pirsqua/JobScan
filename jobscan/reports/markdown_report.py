@@ -1,5 +1,5 @@
 """Markdown report: run statistics, the candidate's applications and where each stands, Best Bets,
-Good Fits, Growth Bets, Attractive Stretches, and a summary of what was rejected or left unverified.
+Growth Bets, Attractive Stretches, and a summary of what was rejected or left unverified.
 Roles already applied to are listed under Applications, not in the shortlist, and starred (★)
 wherever else they appear."""
 
@@ -111,7 +111,7 @@ def _render_stats(data: ReportData) -> list[str]:
         f"- Awaiting evaluation: **{pool.awaiting_evaluation}**",
         (
             f"- Shortlist (not yet applied to): **{len(data.best_bets)}** Best Bets, "
-            f"**{len(data.good_fits)}** Good Fits, **{len(data.growth_bets)}** Growth Bets, "
+            f"**{len(data.growth_bets)}** Growth Bets, "
             f"**{len(data.attractive_stretches)}** Attractive Stretches"
         ),
     ]
@@ -355,15 +355,9 @@ def render_markdown(data: ReportData) -> str:
     lines += _render_paused(data)
     lines += _render_shortlist(
         "Best Bets",
-        "Strong matches at or below your level, with every required qualification demonstrated or "
-        "credibly transferable. Apply to these first.",
+        "Matches at or below your level, with every required qualification demonstrated or "
+        "credibly transferable, ranked by that evidence. Apply to these first.",
         data.best_bets,
-        "None right now.",
-    )
-    lines += _render_shortlist(
-        "Good Fits",
-        "Plausible matches at or below your level, with nothing required missing.",
-        data.good_fits,
         "None right now.",
     )
     lines += _render_shortlist(

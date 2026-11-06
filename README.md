@@ -178,8 +178,7 @@ Open the newest `out\report_<timestamp>PT.md`. It has the run statistics, then:
 
 | Section | Meaning |
 |---|---|
-| **Best Bets** | Strong match at or below your level, with every required qualification demonstrated or credibly transferable — a below-level role is flagged so you can ask about leveling |
-| **Good Fits** | Plausible match at or below your level, with nothing required missing |
+| **Best Bets** | Strong or plausible match at or below your level, with every required qualification demonstrated or credibly transferable — a below-level role is flagged so you can ask about leveling |
 | **Growth Bets** | One step up (no more than one material growth dimension), or at your level but missing one required qualification |
 | **Attractive Stretches** | Real overlap but a genuine stretch, still judged worth applying to — two or more required qualifications missing |
 | **Rejected or Unverified** | Everything else, each with its primary reason |

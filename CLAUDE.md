@@ -71,7 +71,8 @@ literally — it called GitHub's npm team a plausible match because the list acc
 caps the report tier in code (`reports.data._report_section`), and `frontend_fit: too_heavy` (more
 frontend than the profile accepts) takes a role off the shortlist, as `working_hours_fit` does; the
 tiers themselves come from the requirement evidence (`_missing_requirements`), not the verdict
-label alone, which Sonnet 5.5 hands out generously.
+label alone, which Sonnet 5.5 hands out generously. Strong and plausible matches share the Best
+Bets tier: a separate tier for each swapped rows on re-runs.
 
 The evaluation model can't be made deterministic — `temperature` is deprecated for it (the API
 returns 400). The same posting under the same rubric has come back Best Bet twice and Growth Bet
