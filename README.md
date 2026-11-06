@@ -95,8 +95,9 @@ The engineering choices worth a look, for anyone reading the code:
   model behind it, and every evaluation is kept. A rubric change is validated on known postings,
   sized with a dry run, applied with `--refresh-stale` — and can be reverted at no cost.
 - **Built for a non-deterministic model.** The same posting can come back with different verdicts,
-  so a near-miss gets a second evaluation and rubric changes are judged over several runs of known
-  postings, never one.
+  so a near-miss — a borderline judged not worth applying, or an attractive verdict rejected only by
+  the frontend-share or working-hours rule — gets a second evaluation, and rubric changes are
+  judged over several runs of known postings, never one.
 - **Retry only what can clear up.** Every board fetch goes through one HTTP client
   (`jobscan/http_client.py`) that retries a 429, a 5xx, a timeout or a dropped connection — twice,
   with jittered backoff so parallel requests that failed together don't retry together — and

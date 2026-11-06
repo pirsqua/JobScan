@@ -244,6 +244,68 @@ class TestEvaluateAll:
         assert sdk.messages.call_count == 1
         assert stats.second_looks == 0
 
+    # A strong match the frontend gate alone takes off the shortlist. Measured: re-running shortlisted
+    # postings, the gate flipped on runs of DoubleVerify, Syllo and SeatGeek, rejecting them.
+    FRONTEND_GATED: ClassVar[dict] = {**VALID_EVALUATION, "frontend_fit": "too_heavy"}
+
+    @pytest.mark.parametrize(
+        "gated",
+        [
+            {"frontend_fit": "too_heavy"},
+            {"working_hours_fit": "conflicts", "working_hours_quote": "Eastern Time hours"},
+        ],
+    )
+    def test_an_attractive_verdict_rejected_only_by_a_gate_gets_a_second_look(
+        self, db: Database, settings, gated
+    ):
+        company = seed_company(db)
+        job = seed_job(db, settings, company)
+        sdk = FakeSdkClient(
+            [json_response({**VALID_EVALUATION, **gated}), json_response(VALID_EVALUATION)]
+        )
+
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
+
+        assert sdk.messages.call_count == 2
+        assert (stats.second_looks, stats.second_looks_kept) == (1, 1)
+        kept = db.get_evaluation_for_job(job.id)
+        assert kept.frontend_fit.value == kept.working_hours_fit.value == "compatible"
+
+    def test_a_second_look_the_gate_also_rejects_keeps_the_first(self, db: Database, settings):
+        # The second is rejected by the gate too, so a higher coverage doesn't make it better.
+        company = seed_company(db)
+        job = seed_job(db, settings, company)
+        sdk = FakeSdkClient(
+            [
+                json_response(self.FRONTEND_GATED),
+                json_response(
+                    {**self.FRONTEND_GATED, "verdict": "borderline", "worth_applying": False}
+                ),
+            ]
+        )
+
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
+
+        assert (stats.second_looks, stats.second_looks_kept) == (1, 0)
+        assert db.get_evaluation_for_job(job.id).verdict == Verdict.STRONG_MATCH
+
+    def test_a_gated_reject_gets_no_second_look(self, db: Database, settings):
+        # Without the gate it would still be rejected: nothing for a second look to rescue.
+        company = seed_company(db)
+        seed_job(db, settings, company)
+        sdk = FakeSdkClient([json_response({**self.FRONTEND_GATED, "verdict": "reject"})])
+
+        stats = evaluate_all(
+            db, settings, client=AnthropicClient(api_key=None, model="test-model", client=sdk)
+        )
+
+        assert sdk.messages.call_count == 1
+        assert stats.second_looks == 0
+
     def test_a_failed_second_look_keeps_the_first_evaluation(self, db: Database, settings):
         company = seed_company(db)
         job = seed_job(db, settings, company)

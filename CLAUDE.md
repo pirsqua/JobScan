@@ -75,10 +75,12 @@ label alone, which Sonnet 5.5 hands out generously. Strong and plausible matches
 Bets tier: a separate tier for each swapped rows on re-runs.
 
 The evaluation model can't be made deterministic — `temperature` is deprecated for it (the API
-returns 400). The same posting under the same rubric has come back Best Bet twice and Growth Bet
-once, and a near-miss not-worth-applying twice and worth-applying once. So: judge a rubric change
-on several runs of a posting, not one; and near-misses (borderline + not worth applying) get a
-second look in `evaluate_all`, keeping the more favourable result.
+returns 400). Measured 2026-11-05 (40 shortlisted postings, three runs each): a re-run landed in
+another tier in a third of run pairs, and two or more tiers away in 9 of 120 — mostly a flipped
+`frontend_fit` or the strong/plausible label. So: judge a rubric change on several runs of a
+posting, not one; and near-misses (borderline + not worth applying, or an attractive verdict that
+only a frontend or hours gate rejects) get a second look in `evaluate_all`, keeping the result
+that lands in the better report section.
 
 The schema is converted by `jobscan.llm.client.strict_input_schema` at send time (the
 fingerprinted schema is unchanged), so the API guarantees the response's shape; Pydantic still

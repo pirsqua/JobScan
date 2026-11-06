@@ -41,6 +41,7 @@ from jobscan.models import (
     Verdict,
 )
 from jobscan.normalize import compute_details_hash
+from jobscan.reports.data import shortlist_section
 
 logger = get_logger("evaluate")
 
@@ -49,26 +50,43 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-# A borderline judged not worth applying is the one verdict that sits right on the shortlist line,
-# and the model can't be made to sample deterministically (temperature is deprecated for it).
-# Observed: the same LaunchDarkly posting, same rubric, came back not-worth-applying twice and
-# worth-applying once in three runs — so one unlucky sample silently dropped it. Such a near-miss
-# gets one more evaluation and keeps the more favourable; a clear reject (a failed hard filter, a
-# missing required skill) doesn't.
+# The model can't be made to sample deterministically (temperature is deprecated for it), so a
+# posting judged once can be dropped by one unlucky sample of a label that sits right on the
+# shortlist line. Two such near-misses get one more evaluation, keeping the more favourable:
+# - a borderline judged not worth applying. Observed: the same LaunchDarkly posting, same rubric,
+#   came back not-worth-applying twice and worth-applying once in three runs.
+# - an attractive verdict taken off the shortlist only by the frontend-share or working-hours gate
+#   (see reports.data._section_from_verdict). Measured 2026-11-05: re-running 40 shortlisted
+#   postings three times each, the frontend gate rejected a run of three whose other runs were
+#   shortlisted (DoubleVerify, Syllo, SeatGeek), with no second look.
+# A clear reject (a failed hard filter, a missing required skill) gets none.
 _VERDICT_RANK = {
     Verdict.REJECT: 0,
     Verdict.BORDERLINE: 1,
     Verdict.PLAUSIBLE_MATCH: 2,
     Verdict.STRONG_MATCH: 3,
 }
+_SECTION_RANK = {
+    "rejected_or_unverified": 0,
+    "attractive_stretches": 1,
+    "growth_bets": 2,
+    "best_bets": 3,
+}
 
 
 def _is_near_miss(evaluation: Evaluation) -> bool:
-    return evaluation.verdict == Verdict.BORDERLINE and not evaluation.worth_applying
+    if shortlist_section(evaluation) != "rejected_or_unverified":
+        return False
+    if evaluation.verdict == Verdict.BORDERLINE and not evaluation.worth_applying:
+        return True
+    # None means "not assessed", which no gate rejects.
+    ungated = replace(evaluation, frontend_fit=None, working_hours_fit=None)
+    return shortlist_section(ungated) != "rejected_or_unverified"
 
 
 def _favourability(evaluation: Evaluation) -> tuple:
     return (
+        _SECTION_RANK[shortlist_section(evaluation)],
         evaluation.verdict != Verdict.REJECT and evaluation.worth_applying,
         _VERDICT_RANK[evaluation.verdict],
         evaluation.evidence_coverage_percent,

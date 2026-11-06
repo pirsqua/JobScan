@@ -259,6 +259,12 @@ def _report_section(evaluation: Evaluation | None) -> str:
     return section
 
 
+def shortlist_section(evaluation: Evaluation) -> str:
+    """The report section an evaluation lands in, its scope settled as the report settles it: one
+    of best_bets, growth_bets, attractive_stretches, or rejected_or_unverified."""
+    return _report_section(settle_scope(evaluation))
+
+
 def _central_directly_demonstrated_count(evaluation: Evaluation) -> int:
     return sum(
         1

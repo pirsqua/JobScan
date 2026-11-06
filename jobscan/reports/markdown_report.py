@@ -86,7 +86,7 @@ def _render_stats(data: ReportData) -> list[str]:
         lines.append(f"- Full evaluations: **{es.sent_to_llm}**")
         if es.second_looks:
             lines.append(
-                f"- Near-miss second looks: {es.second_looks} ({es.second_looks_kept} came out better)"
+                f"- Second looks at near-misses: {es.second_looks} ({es.second_looks_kept} came out better)"
             )
         if es.companies_classified:
             lines.append(f"- Companies newly classified: {es.companies_classified}")
