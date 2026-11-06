@@ -114,7 +114,19 @@ class JobEvaluationResult(BaseModel):
         "features), where a required React or Angular item is a requirement gap judged with the "
         "others, not a reason for too_heavy — or a profile that targets frontend work. Judge the "
         'work described, not the title: a "Full-Stack" title on backend-centered work is '
-        'compatible, and a plain "Software Engineer" title on mostly UI work is too_heavy.'
+        'compatible, and a plain "Software Engineer" title on mostly UI work is too_heavy. '
+        "When the posting doesn't state the share, count its responsibilities (what the engineer "
+        "will do), not its qualifications or stack list: too_heavy when roughly a third or more of "
+        'them are building UI — a responsibility pairing UI and API work ("ship features across '
+        "our React frontend and Python services\") counts as UI work — or when the team's work "
+        "is mainly user-facing screens and flows. None of these alone makes it too_heavy: a "
+        'full-stack title, "you enjoy full-stack work" or "comfortable across the stack"; React or '
+        "TypeScript in a stack list or the qualifications, required or preferred; APIs or data "
+        "endpoints built for a UI to consume; one UI responsibility among several backend ones; a "
+        'posting that calls the role backend-focused ("a full-stack problem solver with a backend '
+        'focus"). When the responsibilities leave it unclear, choose compatible and note the '
+        "frontend share in minor_caveats: a role wrongly taken off the shortlist is never seen, "
+        "while a doubtful one costs a read."
     )
     requirement_evidence: list[RequirementEvidenceItem] = Field(default_factory=list)
     specialist_tenure_assessment: SpecialistTenureAssessment
