@@ -40,6 +40,9 @@ LEGACY_PATH_VARIABLES = (
 class ModelPricing:
     input_per_million: float
     output_per_million: float
+    # A cache read's price as a multiple of input_per_million: 0.1 on most models, 0.05 on
+    # Sonnet 5.5 and Opus 5.5.
+    cache_read_multiplier: float = 0.1
 
 
 @dataclass
@@ -126,6 +129,7 @@ def load_settings(
         name: ModelPricing(
             input_per_million=float(vals["input_per_million"]),
             output_per_million=float(vals["output_per_million"]),
+            cache_read_multiplier=float(vals.get("cache_read_multiplier", 0.1)),
         )
         for name, vals in pricing_raw.items()
     }

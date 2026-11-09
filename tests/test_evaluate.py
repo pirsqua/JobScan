@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import threading
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -10,10 +11,12 @@ import httpx
 import pytest
 import respx
 
+from jobscan.config import ModelPricing
 from jobscan.db import Database
 from jobscan.evaluate import evaluate_all
 from jobscan.filters import FilterReason
 from jobscan.llm import prompts
+from jobscan.llm.batch import MessageBatcher
 from jobscan.llm.client import AnthropicClient
 from jobscan.llm.prompts import (
     evaluation_rubric_version,
@@ -25,6 +28,7 @@ from jobscan.models import CompanyClassification, EvaluateStats, ManualOverride,
 from jobscan.normalize import compute_details_hash
 from tests.fakes import (
     VALID_EVALUATION,
+    FakeBatchSdk,
     FakeSdkClient,
     json_response,
     make_evaluation,
@@ -163,6 +167,112 @@ class TestParallelEvaluation:
         assert sdk.calls == 0
         assert stats.unverified == 2
         assert db.latest_evaluation_run() is None
+
+
+class TestBatchedEvaluation:
+    """`--batch`: the same calls, sent through the Message Batches API one round at a time."""
+
+    NEAR_MISS: ClassVar[dict] = {
+        **VALID_EVALUATION,
+        "verdict": "borderline",
+        "scope_fit": "one_step_up",
+        "worth_applying": False,
+    }
+
+    def test_each_round_of_calls_goes_out_as_one_batch(self, db: Database, settings):
+        company = seed_company(db)
+        # seed_job's default description holds the quote a substantiated triage skip needs.
+        skipped = seed_job(db, settings, company, source_job_id="1")
+        matched = seed_job(
+            db,
+            settings,
+            company,
+            "2",
+            description="We build product Match. $180,000 - $220,000 per year.",
+        )
+        near = seed_job(
+            db,
+            settings,
+            company,
+            "3",
+            description="We build product Near. $180,000 - $220,000 per year.",
+        )
+        near_looks = []
+
+        def respond(params):
+            text = json.dumps(params["messages"])
+            if params["model"] == "test-haiku-model":
+                return triage_response(skip_full_evaluation="our own SaaS product" in text)
+            if "product Near" in text:
+                near_looks.append(1)
+                worth = len(near_looks) > 1
+                return json_response({**self.NEAR_MISS, "worth_applying": worth})
+            return json_response(VALID_EVALUATION)
+
+        sdk = FakeBatchSdk(respond)
+        stats = evaluate_all(
+            db,
+            settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=object()),
+            triage_client=AnthropicClient(api_key=None, model="test-haiku-model", client=object()),
+            batch=True,
+            batcher=MessageBatcher(sdk=sdk, poll_seconds=0),
+        )
+
+        # Triage for all three, full evaluations for the two it passed, one second look.
+        assert [len(batch) for batch in sdk.sent] == [3, 2, 1]
+        assert (stats.triage_skipped, stats.sent_to_llm, stats.second_looks_kept) == (1, 2, 1)
+        assert db.get_evaluation_for_job(skipped.id).model_name == "triage:test-haiku-model"
+        assert db.get_evaluation_for_job(matched.id).verdict == Verdict.STRONG_MATCH
+        assert db.get_evaluation_for_job(near.id).worth_applying is True
+        assert stats.batched and db.latest_evaluation_run().batched
+
+    @respx.mock
+    def test_a_company_classification_is_a_round_of_its_own(self, db: Database, settings):
+        respx.get("https://acme.example.com/").mock(
+            return_value=httpx.Response(200, text="<main>We build software.</main>")
+        )
+        company = seed_company(db, classification=CompanyClassification.UNKNOWN)
+        job = seed_job(db, settings, company)
+
+        def respond(params):
+            if "classification" in params["output_config"]["format"]["schema"]["properties"]:
+                return json_response(
+                    {"classification": "product", "confidence": 0.9, "evidence": "Sells software."}
+                )
+            return json_response(VALID_EVALUATION)
+
+        sdk = FakeBatchSdk(respond)
+        stats = evaluate_all(
+            db,
+            settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=object()),
+            batch=True,
+            batcher=MessageBatcher(sdk=sdk, poll_seconds=0),
+        )
+
+        assert [len(batch) for batch in sdk.sent] == [1, 1]
+        assert (stats.companies_classified, stats.sent_to_llm) == (1, 1)
+        assert db.get_evaluation_for_job(job.id) is not None
+
+    def test_a_failed_batch_leaves_postings_awaiting_evaluation(self, db: Database, settings):
+        company = seed_company(db)
+        job = seed_job(db, settings, company)
+
+        stats = evaluate_all(
+            db,
+            settings,
+            client=AnthropicClient(api_key=None, model="test-model", client=object()),
+            batch=True,
+            batcher=MessageBatcher(sdk=FakeBatchSdk(None, fail_create=True), poll_seconds=0),
+        )
+
+        assert (stats.llm_errors, stats.unverified) == (1, 1)
+        assert db.get_evaluation_for_job(job.id) is None
+
+    def test_a_batched_run_cannot_take_a_limit(self, db: Database, settings):
+        with pytest.raises(ValueError, match="limit"):
+            evaluate_all(db, settings, batch=True, limit=3)
 
 
 class TestEvaluateAll:
@@ -641,6 +751,31 @@ class TestEstimatedCost:
         stats = EvaluateStats(input_tokens=2000, output_tokens=500)
         cost = stats.estimated_cost_usd(settings)
         assert cost == pytest.approx(2000 * 3.0 / 1_000_000 + 500 * 15.0 / 1_000_000)
+
+    def test_cache_reads_are_priced_at_the_models_own_rate(self, settings):
+        # Sonnet 5.5 and Opus 5.5 charge 0.05x for a cache read, not the usual 0.1x.
+        stats = EvaluateStats(cache_read_input_tokens=1_000_000)
+        priced = dataclasses.replace(
+            settings,
+            anthropic_pricing={
+                "claude-sonnet-5": ModelPricing(3.0, 15.0, cache_read_multiplier=0.05)
+            },
+        )
+        assert stats.estimated_cost_usd(priced) == pytest.approx(3.0 * 0.05)
+
+    def test_a_batched_run_costs_half_of_every_kind_of_token(self, settings):
+        tokens = {
+            "input_tokens": 1000,
+            "output_tokens": 1000,
+            "cache_creation_input_tokens": 1000,
+            "cache_read_input_tokens": 1000,
+            "triage_input_tokens": 1000,
+            "triage_output_tokens": 1000,
+            "triage_model": "claude-haiku-test",
+        }
+        direct = EvaluateStats(**tokens).estimated_cost_usd(settings)
+        batched = EvaluateStats(**tokens, batched=True).estimated_cost_usd(settings)
+        assert batched == pytest.approx(direct / 2)
 
     def test_unrecognized_model_returns_none(self, settings):
         stats = EvaluateStats(input_tokens=1000, output_tokens=100)

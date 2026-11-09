@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from jobscan import config
 from jobscan.config import SettingsError, load_settings
@@ -115,6 +116,16 @@ class TestLoadSettings:
         assert pricing is not None
         assert pricing.input_per_million == 1.5
         assert pricing.output_per_million == 7.5
+        assert pricing.cache_read_multiplier == 0.1  # the usual rate when none is given
+
+    def test_reads_a_models_own_cache_read_rate(self, settings_path: Path, env: dict):
+        raw = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
+        raw["anthropic_pricing"]["claude-test-model"]["cache_read_multiplier"] = 0.05
+        settings_path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+        settings = load_settings(settings_path=settings_path, env=env, load_dotenv_file=False)
+
+        assert settings.pricing_for("claude-test-model").cache_read_multiplier == 0.05
 
     def test_unknown_model_has_no_pricing(self, settings_path: Path, env: dict):
         settings = load_settings(settings_path=settings_path, env=env, load_dotenv_file=False)

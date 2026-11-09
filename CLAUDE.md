@@ -26,7 +26,11 @@ without `--limit` against the full registry:
 2. State the estimated cost and confirm before running for real, unless the user already asked
    for the full run explicitly.
 3. `--limit N` caps real LLM calls (job evals + company classifications) per invocation — use it
-   for demos/samples instead of burning through the whole registry.
+   for demos/samples instead of burning through the whole registry. `--batch` (Message Batches,
+   half price) is the default choice for a refresh or any big run that can wait: each round of
+   calls waits for its batch (minutes, up to a day), and it can't take `--limit`. The batcher
+   (`jobscan/llm/batch.py`) runs each posting's calls in a thread of its own and sends a round
+   once every thread is waiting or done; don't screen postings one at a time under it.
 4. After a real run, report the *actual* cost from `EvaluateStats.estimated_cost_usd()`, not the
    pre-run estimate.
 5. A change to the prompts (`jobscan/llm/prompts.py`), the output schemas, the rendered

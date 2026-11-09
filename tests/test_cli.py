@@ -277,6 +277,19 @@ class TestEvaluateDryRun:
             in capsys.readouterr().out
         )
 
+        assert main(["--settings", str(settings_path), "evaluate", "--dry-run", "--batch"]) == 0
+
+        assert "At $0.030 per full evaluation (recent average, batched)" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("command", ["evaluate", "run"])
+def test_a_batched_run_refuses_a_limit_before_doing_anything(command, settings_path, capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--settings", str(settings_path), command, "--batch", "--limit", "5"])
+
+    assert exit_info.value.code == 2
+    assert "--batch can't be combined with --limit" in capsys.readouterr().err
+
 
 class TestRunBackup:
     """`run` — the daily command — ends with a verified database backup when a folder is set."""

@@ -110,9 +110,9 @@ The engineering choices worth a look, for anyone reading the code:
   the next run rather than tying up a crawl worker, and the failure is logged with what's needed to
   diagnose it. Permanent failures, like a board that moved, aren't retried at all.
 - **Cost and speed are designed in.** The system prompt and profile are cached across calls, a cheap
-  model screens before the expensive one, `--dry-run` prices a run before it spends, and every run
-  reports its actual cost. Board fetches and LLM calls run in worker threads while every database
-  read and write stays on one thread.
+  model screens before the expensive one, `--dry-run` prices a run before it spends, `--batch` halves
+  the price of a run that can wait, and every run reports its actual cost. Board fetches and LLM
+  calls run in worker threads while every database read and write stays on one thread.
 
 ## Getting started (Windows, PowerShell)
 
@@ -225,9 +225,9 @@ To see why postings were filtered out — useful for spotting a wrongly rejected
 | Command | What it does |
 |---|---|
 | `crawl` | Fetch current postings for every active company |
-| `evaluate [--limit N] [--refresh-stale] [--dry-run]` | Filter and screen new/changed postings. `--limit` caps real LLM calls; `--refresh-stale` also re-screens verdicts made under an older rubric; `--dry-run` only counts and prices what would be sent |
+| `evaluate [--limit N] [--refresh-stale] [--dry-run] [--batch]` | Filter and screen new/changed postings. `--limit` caps real LLM calls; `--refresh-stale` also re-screens verdicts made under an older rubric; `--dry-run` only counts and prices what would be sent; `--batch` sends the calls through the Message Batches API at half price (see [Costs](#costs)) |
 | `report [--out DIR]` | Write the Markdown/CSV/JSON report from the current database |
-| `run [--out DIR] [--limit N] [--refresh-stale]` | `crawl`, `evaluate` and `report` in sequence, then a verified database backup into `JOBSCAN_DATA_DIR` if it is set |
+| `run [--out DIR] [--limit N] [--refresh-stale] [--batch]` | `crawl`, `evaluate` and `report` in sequence, then a verified database backup into `JOBSCAN_DATA_DIR` if it is set |
 | `audit [--out DIR]` | Every filtered posting and the reason (factual filter, triage or full evaluation) |
 | `backup [--to DIR]` | Snapshot and verify the database now (default folder: `JOBSCAN_DATA_DIR`) — `run` already does this at its end |
 | `companies import [file] [--replace\|--delete]` | Add/update companies from a YAML or CSV registry file (default: the registry in your data folder) |
@@ -243,9 +243,18 @@ another settings file.
 
 Only `evaluate` (and `run`) spend money. Crawling, reporting, auditing and cache hits are free,
 and both LLM calls cache the shared system prompt and candidate profile. A full evaluation costs
-about 4 cents on Sonnet 5.5 and a triage call a small fraction of a cent. A daily run sends only
-new or changed postings, so it usually costs $0.10 to $0.60. The first run over a new registry,
-and re-screening the whole cached set after a rubric change, are the expensive operations.
+about 3.7 cents on Sonnet 5.5, nearly three quarters of it the evaluation the model writes, and a
+triage call a small fraction of a cent. A daily run sends only new or changed postings, so it
+usually costs $0.10 to $0.60. The first run over a new registry, and re-screening the whole cached
+set after a rubric change, are the expensive operations.
+
+`--batch` (on `evaluate` or `run`) sends the calls through Anthropic's Message Batches API, which
+bills every token at half price. The price is waiting: the calls go out in rounds (triage, then
+full evaluations, then second looks), and each round waits for its batch to end, usually within
+minutes and at most a day. Cache hits inside a batch are best-effort, but the first measured run
+matched a direct one: two rounds of 6–7 minutes, 6 of 7 full evaluations read the cache, and each
+cost 2 cents instead of 3.7. It suits refreshes and discovery days, and can't be combined with
+`--limit`. Ctrl+C cancels the batch in flight; postings already finished stay saved.
 
 Check what a run would send before running it:
 
@@ -255,9 +264,10 @@ python -m jobscan evaluate --dry-run --refresh-stale   # what a re-screen after 
 ```
 
 A dry run applies the real filters, makes no API calls, and prints how many postings would be sent
-with a cost estimate at your recent per-evaluation average. It logs no run, so the next report still
-shows the last real one. Each real run prints its estimated cost, computed from the pricing table
-in `config/settings.yaml` — keep that table in step with current model prices.
+with a cost estimate at your recent per-evaluation average (at batch prices with `--batch`). It
+logs no run, so the next report still shows the last real one. Each real run prints its estimated
+cost, computed from the pricing table in `config/settings.yaml` — keep that table in step with
+current model prices.
 
 ## Changing the rubric
 

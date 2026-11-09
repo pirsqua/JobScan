@@ -7,7 +7,9 @@ override short-circuits the automated pipeline for that entity.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections.abc import Callable
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, as_completed, wait
+from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
@@ -15,6 +17,7 @@ from jobscan.config import Settings
 from jobscan.db import Database
 from jobscan.filters import FilterReason, apply_factual_filters
 from jobscan.http_client import make_client
+from jobscan.llm.batch import MessageBatcher
 from jobscan.llm.client import AnthropicClient, LlmCallError
 from jobscan.llm.company_eval import classify_company, fetch_homepage_text
 from jobscan.llm.job_eval import evaluate_job
@@ -280,6 +283,37 @@ def _screen(
     return outcome
 
 
+def _screen_in_batches(
+    pending: list[tuple[JobPosting, Company]],
+    screen: Callable[[JobPosting, Company], _Screening],
+    record: Callable[[_Screening], None],
+    batcher: MessageBatcher,
+) -> None:
+    """Every pending posting in a thread of its own, so that each round of calls — triage, full
+    evaluations, second looks — goes out as one batch (see jobscan.llm.batch). Results are
+    recorded as their postings finish. An interruption cancels the batch in flight: what was
+    recorded stays saved, and the rest stays awaiting evaluation."""
+    batcher.join(len(pending))
+
+    def screen_then_leave(job: JobPosting, company: Company) -> _Screening:
+        try:
+            return screen(job, company)
+        finally:
+            batcher.leave()
+
+    with ThreadPoolExecutor(max_workers=len(pending)) as pool:
+        futures = {pool.submit(screen_then_leave, job, company) for job, company in pending}
+        try:
+            while futures:
+                # A timeout, so Ctrl+C reaches this thread while a batch runs (up to a day).
+                done, futures = wait(futures, timeout=1.0, return_when=FIRST_COMPLETED)
+                for future in done:
+                    record(future.result())
+        except BaseException:
+            batcher.cancel()
+            raise
+
+
 def evaluate_all(
     db: Database,
     settings: Settings,
@@ -288,6 +322,8 @@ def evaluate_all(
     limit: int | None = None,
     refresh_stale: bool = False,
     dry_run: bool = False,
+    batch: bool = False,
+    batcher: MessageBatcher | None = None,
 ) -> EvaluateStats:
     """``limit``, if set, caps the number of real LLM calls (job evaluations + company
     classifications + triage screens) made in this run — factual filtering and cache hits are
@@ -307,7 +343,15 @@ def evaluate_all(
 
     ``triage_client``, if not overridden, is built from ``settings.triage_model`` when set — a
     cheap first-pass screen (jobscan.llm.triage) that runs before the expensive full evaluation.
-    Leave triage_model unset in settings to disable triage entirely."""
+    Leave triage_model unset in settings to disable triage entirely.
+
+    ``batch`` sends every LLM call through the Message Batches API at half price
+    (jobscan.llm.batch). Each round of calls waits for its batch to end — usually minutes, at most
+    a day — and a run takes up to three rounds (triage, full evaluations, second looks), plus one
+    per company classification. It can't take a ``limit``, which needs calls made one at a time.
+    ``batcher`` is for tests; it's normally built from the API key."""
+    if batch and limit is not None:
+        raise ValueError("a batched run can't take a limit: the cap needs calls made one at a time")
     stats = EvaluateStats()
     run_id = None if dry_run else db.start_evaluation_run(stats)
     profile = load_profile(settings.profile_path)
@@ -349,6 +393,20 @@ def evaluate_all(
         )
     if triage_client is not None:
         stats.triage_model = triage_client.model
+
+    if not batch or client is None:
+        batcher = None
+    else:
+        if batcher is None:
+            batcher = MessageBatcher(
+                api_key=settings.anthropic_api_key,
+                max_retries=settings.anthropic_max_retries,
+                timeout_seconds=settings.anthropic_timeout_seconds,
+            )
+        client = client.through(batcher)
+        if triage_client is not None:
+            triage_client = triage_client.through(batcher)
+        stats.batched = True
 
     workers = 1 if limit is not None else max(1, settings.evaluate_workers)
     # Postings waiting for their LLM calls, and later postings with the same description and
@@ -506,9 +564,15 @@ def evaluate_all(
             ):
                 homepage_text = fetch_homepage_text(http_client, company.domain)
                 try:
-                    result, in_tok, out_tok, cache_write_tok, cache_read_tok = classify_company(
-                        client, company.name, company.domain, homepage_text, job.description_text
-                    )
+                    # Batched, it's a round of its own: no screening has started yet.
+                    with batcher.participant() if batcher is not None else nullcontext():
+                        result, in_tok, out_tok, cache_write_tok, cache_read_tok = classify_company(
+                            client,
+                            company.name,
+                            company.domain,
+                            homepage_text,
+                            job.description_text,
+                        )
                     stats.input_tokens += in_tok
                     stats.output_tokens += out_tok
                     stats.cache_creation_input_tokens += cache_write_tok
@@ -567,14 +631,16 @@ def evaluate_all(
 
             if key in followers:
                 followers[key].append(job)
-            elif workers == 1:
+            elif workers == 1 and batcher is None:
                 followers[key] = []
                 record(screen(job, company))
             else:
                 followers[key] = []
                 pending.append((job, company))
 
-    if pending:
+    if pending and batcher is not None:
+        _screen_in_batches(pending, screen, record, batcher)
+    elif pending:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [pool.submit(screen, job, company) for job, company in pending]
             for future in as_completed(futures):

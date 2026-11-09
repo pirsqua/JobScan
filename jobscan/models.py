@@ -481,14 +481,16 @@ class EvaluateStats:
     triage_cache_creation_input_tokens: int = 0
     triage_cache_read_input_tokens: int = 0
     triage_model: str | None = None
+    # Every LLM call of the run went through the Message Batches API (jobscan.llm.batch), which
+    # bills half the standard rate for every kind of token.
+    batched: bool = False
     finished_at: datetime | None = None
     id: int | None = None
 
-    # Anthropic's standard ephemeral-cache multipliers of the base input price, applied to
-    # whatever a model's own input_per_million is configured as — these ratios are the same
-    # across models, only the base rate differs.
+    # The 5-minute cache write's multiplier of the base input price, the same on every model. The
+    # cache read's differs by model, so it's configured with the model's price (ModelPricing).
     _CACHE_WRITE_MULTIPLIER = 1.25
-    _CACHE_READ_MULTIPLIER = 0.1
+    _BATCH_MULTIPLIER = 0.5
 
     @staticmethod
     def _tier_cost(
@@ -507,7 +509,7 @@ class EvaluateStats:
             + cache_read_input_tokens
             / 1_000_000
             * pricing.input_per_million
-            * EvaluateStats._CACHE_READ_MULTIPLIER
+            * pricing.cache_read_multiplier
             + output_tokens / 1_000_000 * pricing.output_per_million
         )
 
@@ -532,7 +534,7 @@ class EvaluateStats:
                     self.triage_cache_read_input_tokens,
                     triage_pricing,
                 )
-        return cost
+        return cost * self._BATCH_MULTIPLIER if self.batched else cost
 
     def _bump_verdict(self, verdict: str) -> None:
         self.verdict_counts[verdict] = self.verdict_counts.get(verdict, 0) + 1

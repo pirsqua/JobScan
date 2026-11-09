@@ -95,6 +95,13 @@ class AnthropicClient:
                 api_key=api_key, max_retries=max_retries, timeout=timeout_seconds
             )
 
+    def through(self, transport: Any) -> AnthropicClient:
+        """This client with its calls sent through ``transport`` — anything exposing
+        ``.messages.create(...)``, such as a ``jobscan.llm.batch.MessageBatcher``."""
+        return AnthropicClient(
+            api_key=None, model=self.model, client=transport, thinking=self.thinking
+        )
+
     def call_structured(
         self,
         system: str,

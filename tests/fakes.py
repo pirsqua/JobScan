@@ -130,6 +130,63 @@ class FakeSdkClient:
         self.messages = FakeMessages(responses)
 
 
+class FakeBatchSdk:
+    """Stands in for ``anthropic.Anthropic`` behind a MessageBatcher: ``respond(params)`` answers
+    each batched request with an SDK message, or with a non-success result namespace
+    (``type="errored"``/``"expired"``). Every batch's requests are kept in ``sent``; a batch ends
+    after ``polls`` retrieves, or never when ``polls`` is None."""
+
+    def __init__(self, respond, polls: int | None = 1, fail_create: bool = False):
+        self._respond = respond
+        self._polls = polls
+        self._fail_create = fail_create
+        self._remaining: dict[str, int | None] = {}
+        self.sent: list[list[dict]] = []
+        self.cancelled: list[str] = []
+        self.messages = SimpleNamespace(batches=self)
+
+    def create(self, requests):
+        if self._fail_create:
+            raise RuntimeError("batch create rejected")
+        batch_id = f"batch-{len(self.sent)}"
+        self.sent.append(list(requests))
+        self._remaining[batch_id] = self._polls
+        return self._batch(batch_id, "in_progress")
+
+    def retrieve(self, batch_id):
+        remaining = self._remaining[batch_id]
+        if remaining is not None:
+            self._remaining[batch_id] = remaining = remaining - 1
+        return self._batch(
+            batch_id, "ended" if remaining is not None and remaining <= 0 else "in_progress"
+        )
+
+    def results(self, batch_id):
+        for request in self.sent[int(batch_id.removeprefix("batch-"))]:
+            answer = self._respond(request["params"])
+            if getattr(answer, "type", None) not in ("errored", "expired", "canceled"):
+                answer = SimpleNamespace(type="succeeded", message=answer)
+            yield SimpleNamespace(custom_id=request["custom_id"], result=answer)
+
+    def cancel(self, batch_id):
+        self.cancelled.append(batch_id)
+
+    def _batch(self, batch_id, status):
+        return SimpleNamespace(
+            id=batch_id, processing_status=status, request_counts=SimpleNamespace(processing=0)
+        )
+
+
+def errored_result(message: str = "Overloaded") -> SimpleNamespace:
+    """A batched request the API answered with an error."""
+    return SimpleNamespace(
+        type="errored",
+        error=SimpleNamespace(
+            type="error", error=SimpleNamespace(type="overloaded_error", message=message)
+        ),
+    )
+
+
 def fake_client(*responses, model: str = "test-model") -> AnthropicClient:
     return AnthropicClient(api_key=None, model=model, client=FakeSdkClient(responses))
 

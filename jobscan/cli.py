@@ -53,16 +53,25 @@ def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
 def cmd_evaluate(args: argparse.Namespace, settings: Settings) -> int:
     with _open_db(settings) as db:
         stats = evaluate_all(
-            db, settings, limit=args.limit, refresh_stale=args.refresh_stale, dry_run=args.dry_run
+            db,
+            settings,
+            limit=args.limit,
+            refresh_stale=args.refresh_stale,
+            dry_run=args.dry_run,
+            batch=args.batch,
         )
         average = db.average_evaluation_tokens(settings.anthropic_model) if args.dry_run else None
     if args.dry_run:
         print(f"Dry run, no API calls: {stats.unverified} postings would be sent to the LLM")
         if average is not None and stats.unverified:
+            # Batched, the prompt cache held as it does direct (measured 2026-11-06: 6 of 7 full
+            # evaluations read it, as on a direct run), so the same tokens at half price.
+            average.batched = args.batch
             per_posting = average.estimated_cost_usd(settings)
             if per_posting is not None:
                 print(
-                    f"At ${per_posting:.3f} per full evaluation (recent average), about "
+                    f"At ${per_posting:.3f} per full evaluation (recent average"
+                    f"{', batched' if args.batch else ''}), about "
                     f"${per_posting * stats.unverified:.2f} if every one reaches it — triage skips "
                     "some, and near-misses get a second look"
                 )
@@ -129,7 +138,9 @@ def cmd_run(args: argparse.Namespace, settings: Settings) -> int:
     with _open_db(settings) as db:
         companies = db.list_companies(active_only=True)
         crawl_stats = crawl_all(db, settings, companies=companies)
-        eval_stats = evaluate_all(db, settings, limit=args.limit, refresh_stale=args.refresh_stale)
+        eval_stats = evaluate_all(
+            db, settings, limit=args.limit, refresh_stale=args.refresh_stale, batch=args.batch
+        )
         data = assemble_report_data(
             db, settings, crawl_stats=crawl_stats, evaluate_stats=eval_stats
         )
@@ -292,6 +303,11 @@ _REFRESH_STALE_HELP = (
     "Re-screen postings whose cached verdict was made under an older rubric (prompts or candidate "
     "profile changed since). Spends money — dry-run first; combine with --limit to cap it."
 )
+_BATCH_HELP = (
+    "Send the LLM calls through the Message Batches API at half price. Each round of calls "
+    "(triage, full evaluations, second looks) waits for its batch: usually minutes, at most a day. "
+    "Not combinable with --limit."
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -325,6 +341,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Make no API calls: count what would be sent and estimate the cost. Factual filtering "
         "and free cache reuse still happen.",
     )
+    p_eval.add_argument("--batch", action="store_true", help=_BATCH_HELP)
     p_eval.set_defaults(func=cmd_evaluate)
 
     p_report = sub.add_parser(
@@ -342,6 +359,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Cap the number of real LLM calls (job + company) made this run; unlimited if omitted.",
     )
     p_run.add_argument("--refresh-stale", action="store_true", help=_REFRESH_STALE_HELP)
+    p_run.add_argument("--batch", action="store_true", help=_BATCH_HELP)
     p_run.set_defaults(func=cmd_run)
 
     p_backup = sub.add_parser(
@@ -413,6 +431,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if getattr(args, "batch", False) and getattr(args, "limit", None) is not None:
+        parser.error(
+            "--batch can't be combined with --limit: the cap needs calls made one at a time"
+        )
     settings = load_settings(settings_path=args.settings)
     configure_logging(settings.log_level, settings.output_dir / "logs")
     return args.func(args, settings)

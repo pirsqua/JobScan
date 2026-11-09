@@ -251,6 +251,7 @@ class Database:
         self._add_column_if_missing("evaluations", "details_hash", "TEXT")
         self._add_column_if_missing("evaluation_runs", "newly_filtered", "INTEGER")
         self._add_column_if_missing("evaluation_runs", "new_verdict_counts", "TEXT")
+        self._add_column_if_missing("evaluation_runs", "batched", "INTEGER")
         # Working-hours conflicts were once stored under the owner's own time zones.
         self.conn.execute(
             "UPDATE evaluations SET working_hours_fit = 'conflicts' "
@@ -1022,7 +1023,7 @@ class Database:
                cache_creation_input_tokens=?, cache_read_input_tokens=?, triaged=?,
                triage_skipped=?, triage_input_tokens=?, triage_output_tokens=?,
                triage_cache_creation_input_tokens=?, triage_cache_read_input_tokens=?,
-               triage_model=?, newly_filtered=?, new_verdict_counts=?
+               triage_model=?, newly_filtered=?, new_verdict_counts=?, batched=?
                WHERE id=?""",
             (
                 _dt(stats.finished_at or _now()),
@@ -1048,6 +1049,7 @@ class Database:
                 stats.triage_model,
                 stats.newly_filtered,
                 json.dumps(stats.new_verdict_counts),
+                int(stats.batched),
                 run_id,
             ),
         )
@@ -1082,4 +1084,5 @@ class Database:
             triage_model=row["triage_model"],
             newly_filtered=row["newly_filtered"] or 0,
             new_verdict_counts=json.loads(row["new_verdict_counts"] or "{}"),
+            batched=bool(row["batched"]),
         )

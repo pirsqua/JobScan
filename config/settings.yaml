@@ -30,13 +30,15 @@ triage_model: claude-haiku-5-5
 # Thinking on would need a larger triage max_tokens (thinking counts toward it).
 triage_thinking: disabled
 
-# USD list price per 1M tokens (checked 2026-10-18), used only to estimate run cost in reports.
-# Update if pricing changes; unrecognized models report cost as "n/a". Haiku 5.5's rate is for
-# prompts of 100K tokens or fewer (every call here); longer prompts cost 5x.
+# USD list price per 1M tokens (checked 2026-11-06), used only to estimate run cost in reports.
+# Update if pricing changes; unrecognized models report cost as "n/a". A cache read costs
+# cache_read_multiplier x the input price (0.1 unless given). Haiku 5.5's rate is for prompts of
+# 100K tokens or fewer (every call here); longer prompts cost 5x. A --batch run pays half of all.
 anthropic_pricing:
   claude-sonnet-5-5:
     input_per_million: 2.00
     output_per_million: 10.00
+    cache_read_multiplier: 0.05
   claude-sonnet-5:
     input_per_million: 2.00
     output_per_million: 10.00
